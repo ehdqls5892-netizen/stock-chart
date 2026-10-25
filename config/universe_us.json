@@ -1,0 +1,387 @@
+[
+{
+"code": "NVDA",
+"name": "엔비디아",
+"market": ""
+},
+{
+"code": "AAPL",
+"name": "애플",
+"market": ""
+},
+{
+"code": "MSFT",
+"name": "마이크로소프트",
+"market": ""
+},
+{
+"code": "AMZN",
+"name": "아마존",
+"market": ""
+},
+{
+"code": "GOOGL",
+"name": "알파벳",
+"market": ""
+},
+{
+"code": "META",
+"name": "메타",
+"market": ""
+},
+{
+"code": "TSLA",
+"name": "테슬라",
+"market": ""
+},
+{
+"code": "AVGO",
+"name": "브로드컴",
+"market": ""
+},
+{
+"code": "AMD",
+"name": "AMD",
+"market": ""
+},
+{
+"code": "MU",
+"name": "마이크론",
+"market": ""
+},
+{
+"code": "INTC",
+"name": "인텔",
+"market": ""
+},
+{
+"code": "QCOM",
+"name": "퀄컴",
+"market": ""
+},
+{
+"code": "TSM",
+"name": "TSMC",
+"market": ""
+},
+{
+"code": "ASML",
+"name": "ASML",
+"market": ""
+},
+{
+"code": "AMAT",
+"name": "어플라이드머티리얼즈",
+"market": ""
+},
+{
+"code": "LRCX",
+"name": "램리서치",
+"market": ""
+},
+{
+"code": "KLAC",
+"name": "KLA",
+"market": ""
+},
+{
+"code": "ARM",
+"name": "ARM",
+"market": ""
+},
+{
+"code": "MRVL",
+"name": "마벨",
+"market": ""
+},
+{
+"code": "SMCI",
+"name": "슈퍼마이크로",
+"market": ""
+},
+{
+"code": "DELL",
+"name": "델",
+"market": ""
+},
+{
+"code": "HPE",
+"name": "HPE",
+"market": ""
+},
+{
+"code": "VRT",
+"name": "버티브",
+"market": ""
+},
+{
+"code": "ANET",
+"name": "아리스타",
+"market": ""
+},
+{
+"code": "CRDO",
+"name": "크리도",
+"market": ""
+},
+{
+"code": "ALAB",
+"name": "아스테라랩스",
+"market": ""
+},
+{
+"code": "CLS",
+"name": "셀레스티카",
+"market": ""
+},
+{
+"code": "SNDK",
+"name": "샌디스크",
+"market": ""
+},
+{
+"code": "WDC",
+"name": "웨스턴디지털",
+"market": ""
+},
+{
+"code": "STX",
+"name": "시게이트",
+"market": ""
+},
+{
+"code": "PLTR",
+"name": "팔란티어",
+"market": ""
+},
+{
+"code": "ORCL",
+"name": "오라클",
+"market": ""
+},
+{
+"code": "CRM",
+"name": "세일즈포스",
+"market": ""
+},
+{
+"code": "NOW",
+"name": "서비스나우",
+"market": ""
+},
+{
+"code": "SNOW",
+"name": "스노우플레이크",
+"market": ""
+},
+{
+"code": "APP",
+"name": "앱러빈",
+"market": ""
+},
+{
+"code": "NFLX",
+"name": "넷플릭스",
+"market": ""
+},
+{
+"code": "UBER",
+"name": "우버",
+"market": ""
+},
+{
+"code": "SHOP",
+"name": "쇼피파이",
+"market": ""
+},
+{
+"code": "COIN",
+"name": "코인베이스",
+"market": ""
+},
+{
+"code": "MSTR",
+"name": "스트래티지",
+"market": ""
+},
+{
+"code": "HOOD",
+"name": "로빈후드",
+"market": ""
+},
+{
+"code": "SOFI",
+"name": "소파이",
+"market": ""
+},
+{
+"code": "RKLB",
+"name": "로켓랩",
+"market": ""
+},
+{
+"code": "ASTS",
+"name": "AST스페이스모바일",
+"market": ""
+},
+{
+"code": "IONQ",
+"name": "아이온큐",
+"market": ""
+},
+{
+"code": "RGTI",
+"name": "리게티",
+"market": ""
+},
+{
+"code": "QBTS",
+"name": "디웨이브",
+"market": ""
+},
+{
+"code": "OKLO",
+"name": "오클로",
+"market": ""
+},
+{
+"code": "SMR",
+"name": "뉴스케일",
+"market": ""
+},
+{
+"code": "CEG",
+"name": "컨스텔레이션에너지",
+"market": ""
+},
+{
+"code": "VST",
+"name": "비스트라",
+"market": ""
+},
+{
+"code": "GEV",
+"name": "GE버노바",
+"market": ""
+},
+{
+"code": "BE",
+"name": "블룸에너지",
+"market": ""
+},
+{
+"code": "NBIS",
+"name": "네비우스",
+"market": ""
+},
+{
+"code": "CRWV",
+"name": "코어위브",
+"market": ""
+},
+{
+"code": "LLY",
+"name": "일라이릴리",
+"market": ""
+},
+{
+"code": "NVO",
+"name": "노보노디스크",
+"market": ""
+},
+{
+"code": "UNH",
+"name": "유나이티드헬스",
+"market": ""
+},
+{
+"code": "JPM",
+"name": "JP모건",
+"market": ""
+},
+{
+"code": "GS",
+"name": "골드만삭스",
+"market": ""
+},
+{
+"code": "XOM",
+"name": "엑슨모빌",
+"market": ""
+},
+{
+"code": "CVX",
+"name": "셰브론",
+"market": ""
+},
+{
+"code": "WMT",
+"name": "월마트",
+"market": ""
+},
+{
+"code": "COST",
+"name": "코스트코",
+"market": ""
+},
+{
+"code": "NKE",
+"name": "나이키",
+"market": ""
+},
+{
+"code": "DIS",
+"name": "디즈니",
+"market": ""
+},
+{
+"code": "BA",
+"name": "보잉",
+"market": ""
+},
+{
+"code": "CAT",
+"name": "캐터필러",
+"market": ""
+},
+{
+"code": "GE",
+"name": "GE에어로스페이스",
+"market": ""
+},
+{
+"code": "LMT",
+"name": "록히드마틴",
+"market": ""
+},
+{
+"code": "RTX",
+"name": "RTX",
+"market": ""
+},
+{
+"code": "CMCSA",
+"name": "컴캐스트",
+"market": ""
+},
+{
+"code": "VZ",
+"name": "버라이즌",
+"market": ""
+},
+{
+"code": "TMUS",
+"name": "T모바일",
+"market": ""
+},
+{
+"code": "CLF",
+"name": "클리블랜드클리프스",
+"market": ""
+},
+{
+"code": "AA",
+"name": "알코아",
+"market": ""
+}
+]
