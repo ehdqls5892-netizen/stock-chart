@@ -1,0 +1,44 @@
+name: 한국장 마감 분석 (COF + 차트)
+
+on:
+  schedule:
+    - cron: "5 7 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "COF 기준일 YYYYMMDD (비우면 오늘)"
+        required: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-commit
+  cancel-in-progress: false
+
+jobs:
+  screen:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt
+      - name: COF 스크리너 (KRX 계정이 없으면 건너뜀)
+        continue-on-error: true
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
+        run: python screener/cof.py ${{ github.event.inputs.date }}
+      - name: 차트 분석 (한국)
+        run: python screener/chart.py kr
+      - name: Commit results
+        run: |
+          git config user.name "cof-bot"
+          git config user.email "cof-bot@users.noreply.github.com"
+          git add docs/data
+          git diff --cached --quiet || git commit -m "data: $(date -u +%F) 한국장 분석"
+          git pull --rebase && git push
