@@ -1,0 +1,98 @@
+#!/usr/bin/env bash
+# 서버에서 쓰는 짧은 명령. 예: tb 기록
+DIR="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+cd "$DIR"
+REPO="ehdqls5892-netizen/stock-chart"
+
+apply_src() {   # $1 = 새 tossbot 폴더. 시험 통과하면 적용하고 다시 켬
+  SRC="$1"
+  echo "새 버전 시험 중…"
+  if ! (cd "$SRC" && for t in tests.test_setups tests.test_capital tests.test_pyramid tests.test_desk; do
+          [ -f "tests/${t#tests.}.py" ] || continue
+          "$DIR/.venv/bin/python" -m "$t" >/tmp/tb-test.log 2>&1 || { echo "❌ 시험 실패: $t"; tail -5 /tmp/tb-test.log; exit 1; }
+        done); then
+    echo "❌ 새 버전이 시험을 통과하지 못해서 적용하지 않았어요 (지금 버전 그대로)"; return 1
+  fi
+  cp -r "$SRC"/bot "$SRC"/server "$SRC"/tests "$SRC"/README.md "$SRC"/requirements.txt .
+  if [ -f "$SRC"/config.json ] && ! cmp -s "$SRC"/config.json config.json; then
+    cp config.json config.backup.json; cp "$SRC"/config.json .; echo "config.json 도 새것으로 (예전 것은 config.backup.json)"
+  fi
+  chmod +x server/tb server/setup.sh 2>/dev/null
+  .venv/bin/pip install -q -r requirements.txt
+  sudo systemctl restart tossbot
+  return 0
+}
+
+notify() {   # 텔레그램으로 한 줄 알림 (바로 보냄)
+  .venv/bin/python - "$1" <<'PY' 2>/dev/null
+import os, sys, requests
+from bot.main import load_env
+load_env()
+t, c = os.getenv("TG_TOKEN"), os.getenv("TG_CHAT")
+if t and c:
+    requests.post(f"https://api.telegram.org/bot{t}/sendMessage", json={"chat_id": c, "text": sys.argv[1]}, timeout=15)
+PY
+}
+
+update_github() {   # $1 = force
+  SHA=$(curl -s -m 30 "https://api.github.com/repos/$REPO/commits/main" | .venv/bin/python -c "import json,sys;print(json.load(sys.stdin).get('sha','')[:7])" 2>/dev/null)
+  [ -z "$SHA" ] && { echo "GitHub 에 연결하지 못했어요"; return 1; }
+  if [ "$1" != "force" ] && [ "$(cat .last_sha 2>/dev/null)" = "$SHA" ]; then echo "이미 최신이에요 ($SHA)"; return 0; fi
+  T=$(mktemp -d)
+  curl -sSL -m 120 "https://codeload.github.com/$REPO/tar.gz/refs/heads/main" | tar xz -C "$T" || { echo "내려받기 실패"; rm -rf "$T"; return 1; }
+  SRC=$(ls -d "$T"/*/tossbot 2>/dev/null | head -1)
+  [ -z "$SRC" ] && { echo "GitHub 에 tossbot 폴더가 없어요"; rm -rf "$T"; return 1; }
+  if apply_src "$SRC"; then
+    echo "$SHA" > .last_sha
+    echo "✅ GitHub 최신 버전($SHA)으로 업데이트하고 다시 켰어요 (.env·투자금 설정은 그대로)"
+    notify "🆕 로봇을 새 버전($SHA)으로 자동 업데이트했어요. 보유 종목은 이어서 관리해요."
+  else
+    notify "⚠️ 새 버전($SHA)이 시험을 통과하지 못해서 지금 버전을 그대로 써요."
+  fi
+  rm -rf "$T"
+}
+
+case "$1" in
+  상태|status)   systemctl status tossbot --no-pager | head -12 ;;
+  기록|log)      journalctl -u tossbot -n 80 --no-pager -o cat; echo "--- (실시간으로 보려면: tb 실시간)" ;;
+  실시간|follow) journalctl -u tossbot -f -o cat ;;
+  확인|check)    .venv/bin/python -m bot.main check ;;
+  시험|test)     echo "장중에만! 1주 사고 손절 걸었다 지우고 팝니다."; read -p "계속하려면 Enter… " _; .venv/bin/python -m bot.selftest ;;
+  재시작|restart) sudo systemctl restart tossbot && echo "다시 켰어요" ;;
+  끄기|stop)     sudo systemctl stop tossbot && echo "로봇 프로그램을 껐어요 (보유 종목의 손절 조건주문은 토스 서버에 남아 있어요)" ;;
+  키|env)        nano .env && sudo systemctl restart tossbot ;;
+  업데이트|update)
+    if [ "$2" = "zip" ]; then
+      Z=$(ls -t ~/tossbot*.zip 2>/dev/null | head -1)
+      [ -z "$Z" ] && { echo "홈 폴더에 tossbot.zip 을 먼저 올려 주세요"; exit 1; }
+      T=$(mktemp -d); unzip -q "$Z" -d "$T"
+      apply_src "$T/tossbot" && echo "✅ zip 으로 업데이트하고 다시 켰어요"
+      rm -rf "$T"
+    else
+      update_github force
+    fi ;;
+  자동업데이트|auto)   # 매일 한국 06:40 (미장 끝난 뒤, 국장 전) GitHub 새 버전 확인
+    sudo tee /etc/systemd/system/tossbot-update.service >/dev/null <<UNIT
+[Unit]
+Description=Toss bot auto update
+[Service]
+Type=oneshot
+User=$(whoami)
+WorkingDirectory=$DIR
+ExecStart=$DIR/server/tb 자동확인
+UNIT
+    sudo tee /etc/systemd/system/tossbot-update.timer >/dev/null <<UNIT
+[Unit]
+Description=Toss bot auto update (daily)
+[Timer]
+OnCalendar=*-*-* 06:40:00
+Persistent=true
+[Install]
+WantedBy=timers.target
+UNIT
+    sudo systemctl daemon-reload && sudo systemctl enable --now tossbot-update.timer >/dev/null 2>&1
+    echo "✅ 자동 업데이트 켬: 매일 한국 시간 06:40 (미장 끝나고 국장 전)에 새 버전이 있으면 시험 후 적용해요"
+    systemctl list-timers tossbot-update.timer --no-pager | head -3 ;;
+  자동확인) update_github ;;
+  *) echo "tb 상태 | tb 기록 | tb 실시간 | tb 확인 | tb 시험 | tb 재시작 | tb 끄기 | tb 키 | tb 업데이트 | tb 업데이트 zip | tb 자동업데이트" ;;
+esac

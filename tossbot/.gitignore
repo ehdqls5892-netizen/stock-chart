@@ -1,0 +1,6 @@
+.env
+.token.json
+logs/
+STOP
+.venv/
+__pycache__/

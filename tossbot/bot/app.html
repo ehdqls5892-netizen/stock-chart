@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>토스 단타 로봇</title>
+<style>
+:root{--bg:#F2F4F6;--card:#fff;--ink:#191F28;--muted:#6B7684;--line:#E5E8EB;--blue:#3182F6;--blue-soft:#E8F3FF;
+  --up:#F04452;--up-soft:#FEEBEC;--down:#3182F6;--down-soft:#E8F3FF;--ok:#12B76A;--warn:#F79009}
+@media (prefers-color-scheme:dark){:root{--bg:#101318;--card:#1B1F26;--ink:#E9ECEF;--muted:#98A2B3;--line:#2A3039;
+  --blue-soft:#14243A;--up-soft:#3A1A1E;--down-soft:#14243A}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,"Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:20px 16px 40px;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+h1{font-size:20px;margin:0}.badge{font-size:12px;font-weight:700;padding:2px 10px;border-radius:99px;background:var(--line)}
+.badge.live{background:var(--up);color:#fff}.badge.paper{background:var(--blue-soft);color:var(--blue)}
+.phase{margin-left:auto;font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}.dot.on{background:var(--ok);animation:b 1.5s infinite}
+@keyframes b{50%{opacity:.3}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px}
+.btns{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:14px 10px;cursor:pointer;background:var(--line);color:var(--ink)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.start{background:var(--blue);color:#fff}button.live{background:var(--up);color:#fff}
+button.keep{background:var(--blue-soft);color:var(--blue)}button.sell{background:var(--up-soft);color:var(--up)}
+.help{font-size:12px;color:var(--muted);margin:8px 0 0}
+.msg{font-size:13px;margin-top:8px;min-height:1em;color:var(--blue)}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.mk2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mkc{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.mkc h3{margin:0;font-size:15px;display:flex;align-items:center;gap:6px}.mkc .ph{font-size:13px;color:var(--muted)}
+.cap{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.cap input{width:120px;padding:7px 9px;border:1px solid var(--line);border-radius:10px;font-size:15px;font-weight:700;background:var(--bg);color:var(--ink)}
+.cap button{padding:7px 12px;border-radius:10px;border:0;background:var(--ink);color:var(--card);font-weight:700;cursor:pointer}
+.bar{height:8px;border-radius:5px;background:var(--line);overflow:hidden}.bar i{display:block;height:100%;background:#3182f6}
+.mkc .row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}.mkc .row div{font-size:11px;color:var(--muted)}.mkc .row b{display:block;font-size:16px;color:var(--ink)}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px}
+.tile>span{display:block;font-size:12px;color:var(--muted)}.tile b{display:block;font-size:20px}
+.up{color:var(--up)}.down{color:var(--down)}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:9px 6px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-size:12px;color:var(--muted);font-weight:600;border-top:0}td:first-child,th:first-child{text-align:left}
+.tag{font-size:11px;font-weight:700;padding:1px 7px;border-radius:99px;margin-left:4px;background:var(--line)}
+.tag.carry{background:#FFF4E5;color:var(--warn)}.tag.half{background:var(--blue-soft);color:var(--blue)}
+h2{font-size:15px;margin:0 0 8px}
+.log{font:12px/1.5 ui-monospace,Consolas,monospace;max-height:320px;overflow:auto;white-space:pre-wrap;color:var(--muted)}
+.empty{color:var(--muted);font-size:13px;padding:6px 0}
+.scroll{overflow-x:auto}
+@media(max-width:640px){.btns,.tiles{grid-template-columns:1fr 1fr}.mk2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>토스 단타 로봇</h1>
+    <span id="mode" class="badge">대기</span>
+    <span id="mk" class="badge">국장 · 미장</span>
+    <span class="phase"><i id="dot" class="dot"></i><span id="phase">대기</span></span>
+  </header>
+
+  <section class="card">
+    <div class="btns">
+      <button class="start" id="bPaper">연습 시작</button>
+      <button class="live" id="bLive">실전 시작</button>
+      <button class="keep" id="bKeep">종료 · 보유 유지</button>
+      <button class="sell" id="bSell">종료 · 전부 팔기</button>
+    </div>
+    <label style="display:flex;gap:8px;align-items:center;margin-top:10px;font-size:14px"><input type="checkbox" id="repeat" checked> 매일 계속 (장이 끝나면 다음 장도 자동으로 이어서 해요 · 주말·공휴일은 건너뜀)</label>
+    <p class="help">시작을 누르면 지금부터 자동매매를 해요(장 전이면 장 시작을 기다려요). <b>보유 유지</b>로 끝내면 보유 종목은 토스 서버의 '시장가 손절' 조건주문이 지켜요 — PC를 꺼도, 다음 날 갭하락으로 시작해도 손절선 아래면 바로 팔려요. <b>전부 팔기</b>는 보유 종목을 시장가로 모두 정리하고 끝내요.</p>
+    <div class="msg" id="msg"></div>
+  </section>
+
+  <section class="mk2" id="mks"></section>
+
+  <section class="card">
+    <h2>보유 종목</h2>
+    <div class="scroll"><table><thead><tr><th>종목</th><th>수량</th><th>산 가격</th><th>지금</th><th>수익률</th><th>손절선</th></tr></thead><tbody id="pos"></tbody></table></div>
+    <div class="empty" id="posEmpty">보유 종목이 없어요.</div>
+  </section>
+
+  <section class="card">
+    <h2>오늘 매도</h2>
+    <div class="scroll"><table><thead><tr><th>종목</th><th>수량</th><th>산 가격</th><th>판 가격</th><th>수익률</th><th>손익</th><th>이유</th></tr></thead><tbody id="closed"></tbody></table></div>
+    <div class="empty" id="closedEmpty">아직 없어요.</div>
+  </section>
+
+  <section class="card">
+    <h2>기록</h2>
+    <div class="log" id="log"></div>
+  </section>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const FL={KR:"🇰🇷",US:"🇺🇸"}, NM={KR:"국장",US:"미장"};
+const wonm=(v,mk)=>v==null?"–":mk==="US"?"$"+Number(v).toFixed(2):Math.round(v).toLocaleString("ko-KR")+"원";
+let PIN=""; try{ PIN=localStorage.getItem("tossbot_pin")||""; }catch(e){}
+const H=()=>({"Content-Type":"application/json","X-Pin":PIN});
+function askPin(){ const p=prompt("PIN 을 입력하세요 (.env 의 APP_PIN)"); if(p!=null){ PIN=p.trim(); try{ localStorage.setItem("tossbot_pin",PIN); }catch(e){} refresh.asked=0; refresh(); } }
+const pc=v=>v==null?"–":`<span class="${v>0?"up":v<0?"down":""}">${v>0?"+":""}${v.toFixed(2)}%</span>`;
+async function post(path,body){ const r=await fetch(path,{method:"POST",headers:H(),body:JSON.stringify(body||{})}); if(r.status===401){ askPin(); return; } const j=await r.json(); $("msg").textContent=j.msg||""; refresh(); }
+$("bPaper").onclick=()=>post("/api/start",{mode:"paper",repeat:$("repeat").checked});
+$("bLive").onclick=()=>{ if(confirm("실제 돈으로 주문해요. 시작할까요?")) post("/api/start",{mode:"live",repeat:$("repeat").checked}); };
+$("bKeep").onclick=()=>post("/api/stop",{how:"keep"});
+$("bSell").onclick=()=>{ if(confirm("보유 종목을 전부 시장가로 팔고 끝낼까요?")) post("/api/stop",{how:"sell"}); };
+const CAPV={};
+async function setCap(mk){ const v=($("cap_"+mk).value||"").replace(/[,\s원$]/g,""); if(!v) return; $("cap_"+mk).blur(); await post("/api/capital",{market:mk,amount:v}); }
+async function refresh(){
+  let s; try{ const r=await fetch("/api/status",{headers:H()}); if(r.status===401){ $("phase").textContent="PIN 을 입력하세요"; if(!refresh.asked){refresh.asked=1; askPin();} return; } s=await r.json(); }catch(e){ $("phase").textContent="로봇 프로그램이 꺼져 있어요"; $("dot").className="dot"; return; }
+  const M=s.markets||{};
+  $("mode").textContent=s.running?(s.mode==="live"?"실전":"연습"):"대기";
+  $("mode").className="badge "+(s.running?(s.mode==="live"?"live":"paper"):"");
+  $("phase").textContent=s.running?"실행 중"+(s.repeat?" · 매일 계속":""):"멈춤";
+  $("dot").className="dot"+(s.running?" on":"");
+  $("bPaper").disabled=!!s.running;
+  $("bLive").disabled=!!s.running||!s.live_enabled; $("bLive").title=s.live_enabled?"":"config.json 의 live.enabled 를 true 로 바꿔야 켜져요";
+  $("bKeep").disabled=$("bSell").disabled=!s.running;
+  const keep={}; for(const mk of Object.keys(M)){ const el=$("cap_"+mk); if(el) keep[mk]={v:el.value,f:document.activeElement===el}; }
+  $("mks").innerHTML=Object.entries(M).map(([mk,x])=>`<div class="mkc"><h3><span style="white-space:nowrap">${FL[mk]} ${NM[mk]}</span> <span class="ph">· ${esc(x.phase||"대기")}${x.stop_req&&x.running?" · 종료 처리 중":""}</span></h3>
+    ${x.halted?`<div class="ph" style="color:var(--up)">⛔ ${esc(x.halted)}</div>`:""}${x.error?`<div class="ph" style="color:var(--up)">❌ ${esc(x.error)}</div>`:""}
+    <div class="cap">오늘 투자금 <input id="cap_${mk}" inputmode="decimal" placeholder="${mk==="US"?"예: 350":"예: 500000"}"> ${mk==="US"?"달러":"원"} <button onclick="setCap('${mk}')">정하기</button></div>
+    ${x.capital?`<div class="bar"><i style="width:${Math.min(100,(x.invested||0)/x.capital*100).toFixed(0)}%"></i></div>
+    <div class="ph">${wonm(x.capital,mk)} 중 ${wonm(x.invested||0,mk)} 사용 · 남은 돈 ${wonm(x.available,mk)} · 하루 손실 한도 ${wonm(x.loss_limit,mk)}</div>`:""}
+    <div class="row"><div>오늘 손익<b class="${x.realized>0?"up":x.realized<0?"down":""}">${wonm(x.realized,mk)}</b></div><div>매수<b>${x.trades||0}회</b></div><div>지켜보는<b>${x.universe||0}개</b></div><div>실시간<b>${x.running?(x.ws?"연결":"–"):"–"}</b></div></div></div>`).join("");
+  for(const [mk,x] of Object.entries(M)){ const el=$("cap_"+mk); if(!el) continue;
+    const server=x.capital?String(mk==="US"?x.capital:Math.round(x.capital)):"";
+    const typed=keep[mk]&&(keep[mk].f||(keep[mk].v!==""&&keep[mk].v!==CAPV[mk]));
+    el.value=typed?keep[mk].v:server; if(keep[mk]&&keep[mk].f) el.focus(); if(!typed) CAPV[mk]=server; }
+  const P=s.positions||[];
+  $("pos").innerHTML=P.map(p=>`<tr><td>${FL[p.market]||""} ${esc(p.name)} <span style="color:var(--muted);font-size:12px">${esc(p.symbol)}</span>${p.carry?`<span class="tag carry">들고 가는 중 ${p.days}일</span>`:""}${p.partial?'<span class="tag half">절반 익절함</span>':""}${p.state!=="open"?`<span class="tag">${p.state==="pending"?"매수 중":p.state==="closing"?"매도 중":esc(p.state)}</span>`:""}</td><td>${p.qty}</td><td>${wonm(p.entry,p.market)}</td><td>${wonm(p.last,p.market)}</td><td>${pc(p.pct)}</td><td>${wonm(p.sl,p.market)} <span style="font-size:12px">${pc(p.sl_pct)}</span></td></tr>`).join("");
+  $("posEmpty").style.display=P.length?"none":"";
+  const C=s.closed||[];
+  $("closed").innerHTML=C.map(c=>`<tr><td>${FL[c.market]||""} ${esc(c.name)}</td><td>${c.qty}</td><td>${wonm(c.entry,c.market)}</td><td>${wonm(c.exit,c.market)}</td><td>${pc(c.pct)}</td><td class="${c.pnl>0?"up":c.pnl<0?"down":""}">${wonm(c.pnl,c.market)}</td><td style="text-align:left;white-space:normal;font-size:12px">${esc(c.why)}</td></tr>`).join("");
+  $("closedEmpty").style.display=C.length?"none":"";
+  const L=s.log||[]; const box=$("log"); const atEnd=box.scrollTop+box.clientHeight>=box.scrollHeight-20;
+  box.textContent=L.join("\n"); if(atEnd) box.scrollTop=box.scrollHeight;
+}
+refresh(); setInterval(refresh,2000);
+</script>
+</body>
+</html>

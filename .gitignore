@@ -1,0 +1,7 @@
+
+# 토스 로봇: 키·기록·개인 설정은 절대 올리지 않음
+tossbot/.env
+tossbot/.token.json
+tossbot/settings.json
+tossbot/logs/
+__pycache__/
