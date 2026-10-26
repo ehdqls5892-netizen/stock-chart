@@ -57,7 +57,12 @@ def kr_frames():
     rows, names = [], {}
     new = [x for x in want if x not in have or x == want[0]]   # 오늘은 항상 다시 (장중 실행 대비)
     log("새로 받을 날짜", len(new))
+    t0 = time.time()
+    budget = float(os.getenv("FETCH_BUDGET_SEC", "1500"))       # 첫 실행이 길어지면 25분에서 끊고 다음 실행에 이어서
     for ds in new:
+        if time.time() - t0 > budget:
+            log(f"시간 예산 초과 → {ds} 이전 날짜는 다음 실행에 이어서 받아요")
+            break
         got = 0
         for mkname, mk in (("KOSPI", "코스피"), ("KOSDAQ", "코스닥")):
             for t in range(3):
@@ -82,14 +87,32 @@ def kr_frames():
     all_ = all_[all_["d"].isin(set(want))]
     OUT.mkdir(parents=True, exist_ok=True)
     all_.to_csv(OUT / "_cache.csv.gz", index=False, compression="gzip")
-    # 이름: 마지막 거래일 기준 상장 목록
+    # 이름: 지난 실행에 저장해 둔 이름을 쓰고, 새 종목만 조회
     last = sorted(set(all_.loc[all_["code"] != "_", "d"]))[-1]
+    try:
+        import requests
+        nu = (os.getenv("CACHE_URL") or "").replace("_cache.csv.gz", "names.json")
+        if nu:
+            r = requests.get(nu, timeout=30)
+            if r.status_code == 200:
+                names.update(r.json())
+    except Exception:
+        pass
+    t1 = time.time()
     for mkname in ("KOSPI", "KOSDAQ"):
-        for code in stock.get_market_ticker_list(last, market=mkname):
+        try:
+            codes = stock.get_market_ticker_list(last, market=mkname)
+        except Exception as e:
+            log("상장 목록 실패", mkname, e)
+            codes = []
+        for code in codes:
+            if code in names or time.time() - t1 > 600:
+                continue
             try:
                 names[code] = stock.get_market_ticker_name(code)
             except Exception:
                 pass
+    (OUT / "names.json").write_text(json.dumps(names, ensure_ascii=False), encoding="utf-8")
     live = all_[(all_["code"] != "_")]
     cur = set(live.loc[live["d"] == last, "code"])
     frames, meta = {}, {}
@@ -188,6 +211,12 @@ def main():
         items.append(it)
         as_of = max(as_of, a["bars"][-1][0])
     if not items:
+        if mk == "kr" and (OUT / "_cache.csv.gz").exists():
+            # 첫 실행이 시간 예산에서 끊겨 아직 40거래일이 안 모임 → 받은 만큼 저장하고 다음 실행에 이어서
+            (OUT / "index.json").write_text(json.dumps({"market": mk, "asOf": "", "count": 0, "items": [],
+                                                        "note": "1년치 시세를 모으는 중이에요"}, ensure_ascii=False), encoding="utf-8")
+            log("아직 모으는 중 → 캐시만 저장")
+            return
         raise SystemExit("분석된 종목이 없어요 (휴장이거나 시세 수신 실패)")
     idx = {"market": mk, "asOf": f"20{as_of[:2]}-{as_of[2:4]}-{as_of[4:]}", "count": len(items),
            "generatedAt": datetime.now(timezone.utc).isoformat(timespec="minutes"), "items": sorted(items)}
