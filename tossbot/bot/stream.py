@@ -126,3 +126,38 @@ class Stream:
                 self.ws.close()
         except Exception:
             pass
+
+
+class MultiStream:
+    """실시간 연결 여러 개(토스: 연결당 100종목, 계좌당 2연결)를 하나처럼 쓴다.
+    국장·미장은 열리는 시간이 겹치지 않아, 열린 시장이 연결 2개를 모두 써서 약 190종목을 감시."""
+
+    def __init__(self, api, market: str, on_trade, on_order=None, log=print, n: int = 2):
+        self.log = log
+        self.parts = [Stream(api, market, on_trade, on_order if i == 0 else None, log) for i in range(max(1, n))]
+        self.codes: list[str] = []
+
+    @property
+    def connected(self) -> bool:
+        return any(getattr(s, "connected", False) for s in self.parts)
+
+    def start(self):
+        for i, s in enumerate(self.parts):
+            try:
+                s.start()
+            except Exception as e:
+                self.log(f"[웹소켓] {i + 1}번 연결 시작 실패: {e}")
+
+    def set_codes(self, codes: list[str]):
+        self.codes = list(dict.fromkeys(codes))
+        live = [s for s in self.parts if getattr(s, "connected", True)] or self.parts[:1]
+        for i, s in enumerate(self.parts):
+            chunk = self.codes[i * 95:(i + 1) * 95] if s in live else []
+            s.set_codes(chunk)
+
+    def stop(self):
+        for s in self.parts:
+            try:
+                s.stop()
+            except Exception:
+                pass

@@ -132,6 +132,8 @@ class BaseBroker:
         c = self.cfg.get("carry", {})
         if not c.get("enabled"):
             return "들고 가기 꺼짐"
+        if p.extra.get("etf"):
+            return "ETF·레버리지는 하루 안에 정리 (밤사이 갭·녹아내림 위험)"
         if p.state != "open" or last is None:
             return "보유 상태 아님"
         sw = self.cfg.get("swing", {}) if p.extra.get("swing") else {}
@@ -170,7 +172,7 @@ class BaseBroker:
     def can_add(self, p: Position, last: float) -> bool:
         """이미 본전 이상 손절선이 걸려 있고(잃지 않는 상태), 1R 이상 이익일 때만."""
         a = self.cfg.get("pyramid", {})
-        if not a.get("enabled") or p.state != "open" or p.extra.get("add_oid"):
+        if not a.get("enabled") or p.state != "open" or p.extra.get("add_oid") or p.extra.get("etf"):
             return False
         if p.extra.get("adds", 0) >= a.get("max_adds", 2):
             return False
@@ -426,6 +428,10 @@ class LiveBroker(BaseBroker):
         except TossError as e:
             self.log(f"[실전] 매수 주문 실패 {name}: {e}")
             self.notify(f"⚠️ 매수 주문 실패 {name}: {e.code} {e.message}")
+            if not hasattr(self, "rejected"):
+                self.rejected = {}
+            if e.code != "insufficient-buying-power":
+                self.rejected[sym] = e.code                  # 같은 종목을 오늘 계속 시도하지 않게
             if e.code == "insufficient-buying-power" and self.m == "US":
                 self.notify("💵 달러가 부족해요. 토스 앱에서 환전하거나 '원화로 바로 주문'(자동 환전)을 켜 주세요.")
             return None

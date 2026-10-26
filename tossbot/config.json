@@ -33,9 +33,12 @@
         "1d"
       ]
     ],
-    "per_ranking": 30,
-    "max_symbols": 85,
-    "refresh_min": 10
+    "per_ranking": 100,
+    "max_symbols": 180,
+    "refresh_min": 10,
+    "stream_connections": 2,
+    "allow_etf": true,
+    "etf_weight": 0.6
   },
   "watchlist": {
     "KR": [],
@@ -67,7 +70,8 @@
       "min_pct": 2.5,
       "max_pct": 4.5,
       "atr_mult": 3.0,
-      "below_level_pct": 0.5
+      "below_level_pct": 0.5,
+      "etf_max_pct": 7.0
     },
     "take_profit": {
       "hard_pct": 15,

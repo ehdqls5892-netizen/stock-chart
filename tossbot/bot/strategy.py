@@ -36,6 +36,7 @@ class SymState:
     last_ts: float = 0.0
     excluded: str | None = None  # 제외 이유 (경고 종목 등)
     cooldown_until: dt.datetime | None = None
+    etf: bool = False            # ETF·ETN(레버리지 포함): 하루 안에 정리, 불타기·스윙 안 함
     entries_today: int = 0
 
     # REST 캔들로 분봉 갱신 (거래량은 이게 정확)
@@ -381,7 +382,8 @@ def exit_levels(market: str, entry: float, sig: dict, cfg: dict, st: SymState | 
     dist = max(entry - struct, a * s["atr_mult"])
     if sig.get("stop"):                       # 데스크 계획 손절선이 있으면 그걸 우선(허용 범위 안에서)
         dist = entry - float(sig["stop"])
-    dist = min(max(dist, entry * s["min_pct"] / 100), entry * s["max_pct"] / 100)
+    max_pct = s.get("etf_max_pct", 7.0) if (st is not None and getattr(st, "etf", False)) else s["max_pct"]
+    dist = min(max(dist, entry * s["min_pct"] / 100), entry * max_pct / 100)
     sl = round_tick(market, entry - dist, "down")
     tp = round_tick(market, entry * (1 + t["hard_pct"] / 100), "up")
     return tp, sl, entry - sl, a

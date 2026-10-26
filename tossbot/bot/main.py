@@ -136,7 +136,7 @@ class Bot:
 
     def mark_swing(self, p, sig):
         """차트가 좋은 종목은 스윙(며칠~몇 주)으로: 추적 손절 폭을 넓히고, 최대 익절가를 높이고, 들고 가기 기준을 낮춤."""
-        if not self.cfg.get("swing", {}).get("enabled"):
+        if not self.cfg.get("swing", {}).get("enabled") or p.extra.get("etf"):
             p.extra["q0"] = p.qty
             return
         d = self.ctx.get("daily", {}).get(p.symbol) or {}
@@ -330,8 +330,11 @@ class Bot:
         try:
             for info in self.api.stocks(codes):
                 sym = info.get("symbol")
-                if info.get("securityType") not in ("STOCK", "FOREIGN_STOCK", "DEPOSITARY_RECEIPT"):
+                stype = str(info.get("securityType") or "")
+                is_fund = ("ETF" in stype or "ETN" in stype)
+                if stype not in ("STOCK", "FOREIGN_STOCK", "DEPOSITARY_RECEIPT") and not (is_fund and u.get("allow_etf")):
                     continue
+                self.syms.setdefault(sym, SymState(sym)).etf = is_fund
                 if self.m == "KR" and info.get("isCommonShare") is False:
                     continue
                 nm = info.get("name") or sym
@@ -453,8 +456,9 @@ class Bot:
 
         self.build_universe()
         self.refresh_bars(list(dict.fromkeys(self.universe + list(self.broker.pos))))
-        from .stream import Stream
-        self.stream = Stream(self.api, self.m, self.on_trade, self.broker.on_order_event if live else None, self.log)
+        from .stream import MultiStream
+        self.stream = MultiStream(self.api, self.m, self.on_trade, self.broker.on_order_event if live else None, self.log,
+                                  n=self.cfg["universe"].get("stream_connections", 2))
         self.stream.start()
         time.sleep(2)
         self.stream.set_codes(list(dict.fromkeys(list(self.broker.pos) + self.universe)))
@@ -517,13 +521,19 @@ class Bot:
                             sl_exec = add_ticks(self.m, sl, -2 if live else -1)
                             fee = self.cfg["fees"][self.m]
                             w = self.risk.strength(sig)
+                            if getattr(st, "etf", False):
+                                w = min(w, self.cfg["universe"].get("etf_weight", 0.6))   # 레버리지 ETF 는 작게
                             qty = self.risk.qty_for(est, sl_exec, cash, (fee["buy_pct"] + fee["sell_pct"] + fee["sell_tax_pct"]) / 100,
                                                     self.broker.invested(), w)
                             if qty < 1:
                                 continue
                             why = (f"확신도 {sig['grade']}(비중 {w:g}배) · " if sig.get("grade") else "") + sig["reason"]
                             p = self.broker.enter(sym, st.name or sym, st.last, qty, tp, sl, why, r=R, atr=a)
+                            if not p and sym in getattr(self.broker, "rejected", {}):
+                                st.excluded = f"주문 불가({self.broker.rejected[sym]})"   # 교육·예탁금 등 → 오늘은 다시 안 시도
                             if p:
+                                if getattr(st, "etf", False):
+                                    p.extra["etf"] = True
                                 self.mark_swing(p, sig)
                                 st.entries_today += 1
                                 self.risk.trades += 1
