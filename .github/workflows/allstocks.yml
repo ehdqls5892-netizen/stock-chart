@@ -1,0 +1,51 @@
+name: 전 종목 차트 (검색용)
+
+on:
+  schedule:
+    - cron: "25 7 * * 1-5"
+    - cron: "55 21 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      market:
+        description: "kr 또는 us"
+        required: true
+        default: "kr"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: allstocks-${{ github.event.inputs.market || github.event.schedule }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt lxml html5lib
+      - name: Decide market
+        id: mk
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then M="${{ github.event.inputs.market }}";
+          elif [ "${{ github.event.schedule }}" = "25 7 * * 1-5" ]; then M=kr; else M=us; fi
+          echo "m=$M" >> $GITHUB_OUTPUT
+      - name: 전 종목 분석
+        env:
+          CACHE_URL: https://raw.githubusercontent.com/${{ github.repository }}/data-${{ steps.mk.outputs.m }}/_cache.csv.gz
+        run: python screener/allstocks.py ${{ steps.mk.outputs.m }}
+      - name: 브랜치에 올리기
+        run: |
+          cd out
+          git init -q
+          git checkout -q -b data-${{ steps.mk.outputs.m }}
+          git config user.name "cof-bot"
+          git config user.email "cof-bot@users.noreply.github.com"
+          git add -A
+          git commit -qm "전 종목 차트 $(date -u +%F)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data-${{ steps.mk.outputs.m }}
