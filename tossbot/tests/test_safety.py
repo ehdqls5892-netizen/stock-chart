@@ -67,7 +67,10 @@ def run(mode, paths, patch=None, api_patch=None):
 
 if __name__ == "__main__":
     print("\n### 1. 장 마감 전 정리 (실전)")
-    b = run("live", {"444444": ("옆으로주", path_drift)})
+    def no_hold(c):
+        c["carry"]["hold_if_intact"] = False   # 이 시험은 '마감 전 정리' 동작만 확인
+        c["github_chart_url"] = ""
+    b = run("live", {"444444": ("옆으로주", path_drift)}, no_hold)
     assert any(x[0] == "cancel_cond" for x in b.api.log), "조건주문 취소가 안 됐어요"
     assert any(x[0] == "order" and x[2] == "SELL" for x in b.api.log), "마감 전 매도가 안 됐어요"
     assert b.broker.closed and "마감" in b.broker.closed[0].exit_reason

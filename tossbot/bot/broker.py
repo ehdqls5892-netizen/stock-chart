@@ -139,9 +139,16 @@ class BaseBroker:
         sw = self.cfg.get("swing", {}) if p.extra.get("swing") else {}
         prof = (last / p.entry - 1) * 100
         need = sw.get("min_profit_pct", c["min_profit_pct"])
+        slack = sw.get("vwap_slack_pct", 0)
         if prof < need:
-            return f"수익 {prof:+.1f}% < 기준 {need}%"
-        if c.get("require_above_vwap") and vw and last < vw * (1 - sw.get("vwap_slack_pct", 0) / 100):
+            # 손절선이 아직 살아 있고(1% 넘게 위), 손실이 작고, 오늘 평균 단가 근처 이상이면 → 손절선 그대로 들고 감
+            intact = (c.get("hold_if_intact", True) and p.sl and last >= p.sl * 1.01
+                      and prof >= -c.get("hold_max_loss_pct", 2.0) and (not vw or last >= vw * 0.99))
+            if not intact:
+                return (f"수익 {prof:+.1f}% < 기준 {need}%, 손절선 유지 보유 조건(평균 단가 위·손실 2% 이내·손절선과 1% 이상 거리)도 안 맞음"
+                        if c.get("hold_if_intact", True) else f"수익 {prof:+.1f}% < 기준 {need}%")
+            slack = max(slack, 1.0)
+        if c.get("require_above_vwap") and vw and last < vw * (1 - slack / 100):
             return "오늘 평균 단가(VWAP) 아래로 밀림"
         days = len(set(p.extra.get("days_held", []) + [self.today().isoformat()]))
         maxd = sw.get("max_days", c["max_days"])
@@ -166,6 +173,9 @@ class BaseBroker:
             return max(p.sl, lock, min(room, round_tick(self.m, last, "down")))
         lock = round_tick(self.m, p.entry * (1 + c["lock_profit_pct"] / 100), "down")
         trail = round_tick(self.m, last * (1 - c["carry_stop_pct"] / 100), "down")
+        if last < lock * 1.005:
+            # 이익이 아직 작음 → '본전+1%' 를 강제하면 바로 팔리니, 원래 손절선(또는 지금가 −5%)을 그대로 유지
+            return max(p.sl, min(trail, round_tick(self.m, last * 0.995, "down")))
         return max(p.sl, lock, min(trail, round_tick(self.m, last, "down")))
 
     # ───── 추가 매수(불타기) ─────

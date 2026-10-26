@@ -4,6 +4,9 @@ python -m tests.sim paper   연습 모드 흐름
 python -m tests.sim live    실전 흐름 (가짜 서버에 주문·조건주문이 제대로 가는지)
 """
 from __future__ import annotations
+import os
+os.environ["TOSSBOT_NO_BG"] = "1"   # 가짜 시계 시험: 뒤 작업 스레드 끔
+os.environ["TOSSBOT_OFFLINE"] = "1"  # 시험 중엔 GitHub 데스크 자료를 안 받음
 
 import datetime as dt
 import json

@@ -116,6 +116,9 @@ class Bot:
         self.risk = Risk(self.cfg, ROOT / "STOP")
         self.syms: dict[str, SymState] = {}
         self.ctx: dict = {"plans": {}, "daily": {}, "earn_block": set(), "watched": set()}
+        self.dirty: set = set()          # 새 체결이 들어와 다시 점검할 종목
+        self.hot: dict = {}              # 크게 움직인 종목 → 분봉을 먼저 보정
+        self._bg_stop = True
         self.stream = None
         self.stop_req: str | None = None   # None / "keep"(보유 유지하고 끝) / "sell"(전부 팔고 끝)
         self.phase = "준비 중"
@@ -159,6 +162,47 @@ class Bot:
             self.log(f"📈 {p.name} 스윙 후보로 관리 ({', '.join(why)}) · 추적 손절 폭 넓게, 들고 가기 기준 낮게")
         self.broker.save_state()
 
+    def _bg_loop(self, no_entry_t):
+        """뒤에서 따로 도는 일: ① 분봉 거래량 보정(초당 N종목, 보유·크게 움직인 종목 먼저) ② 후보 목록 갱신.
+        매매 판단(메인 루프)은 이 일들 때문에 멈추지 않는다."""
+        while not self._bg_stop:
+            t0 = time.time()
+            self._bg_tick(no_entry_t)
+            time.sleep(max(0.05, 1.0 - (time.time() - t0)))
+
+    def _bg_tick(self, no_entry_t):
+        bs = self.__dict__.setdefault("_bgs", {"rr": 0, "last_uni": time.time(), "warned": False})
+        rate = int(self.cfg["live"].get("rest_per_sec", 8))
+        try:
+            n = now(self.m)
+            if (time.time() - bs["last_uni"] > self.cfg["universe"]["refresh_min"] * 60 and n < no_entry_t
+                    and not self.stop_req):
+                bs["last_uni"] = time.time()
+                old = set(self.universe)
+                self.build_universe()
+                new = [x for x in self.universe if x not in old]
+                if new:
+                    self.refresh_bars(new)
+                    self.log(f"후보 갱신: 새로 {len(new)}개 (총 {len(self.universe)}개)")
+                self.stream.set_codes(list(dict.fromkeys(list(self.broker.pos) + self.universe)))
+            watch = list(dict.fromkeys(list(self.broker.pos) + self.universe))
+            if watch:
+                hot = [x for x, t in list(self.hot.items()) if time.time() - t < 90 and x in self.syms]
+                pri = list(dict.fromkeys(list(self.broker.pos) + hot))[: max(1, rate // 2)]
+                rest = []
+                while len(pri) + len(rest) < rate and len(rest) < len(watch):
+                    rest.append(watch[bs["rr"] % len(watch)])
+                    bs["rr"] += 1
+                for sym in dict.fromkeys(pri + rest):
+                    try:
+                        self.syms[sym].load_candles(self.api.candles(sym, "1m", 5), self.m)
+                    except Exception:
+                        pass
+        except Exception as e:
+            if not bs["warned"]:
+                self.log(f"뒤 작업 오류(계속 진행): {e}")
+                bs["warned"] = True
+
     def load_desk(self):
         """주식비서 데스크 자료(GitHub docs/data/desk-<m>-*.json)를 읽는다. 없으면 조용히 건너뜀.
         - report: 마감 리포트의 1순위·픽·관심종목 가격 계획, 테마·이슈 종목
@@ -168,7 +212,7 @@ class Bot:
         ctx = self.ctx
         ctx["plans"], ctx["earn_block"], ctx["earn_good"], ctx["watched"] = {}, set(), {}, set()
         base = self.cfg.get("desk_feed_url")
-        if not base:
+        if not base or os.getenv("TOSSBOT_OFFLINE") == "1":
             return
         import requests
         today = now(self.m).date()
@@ -388,6 +432,10 @@ class Bot:
         st = self.syms.get(sym)
         if not st:
             return
+        self.dirty.add(sym)
+        prev = st.last
+        if prev and abs(price / prev - 1) >= 0.002:      # 0.2% 넘게 튀면 '뜨거운 종목' → 분봉 거래량을 먼저 다시 맞춤
+            self.hot[sym] = time.time()
         t = parse_ts(ts, self.m) or now(self.m)
         st.on_trade(price, vol, t)
         self.broker.on_price(sym, price, t)
@@ -467,8 +515,13 @@ class Bot:
                 f"{p.name} {p.qty}주(손절선 {money(self.m, p.sl)})" for p in self.broker.carried()))
         self.notify(f"▶️ 로봇 시작 ({self.m}, {'실전' if live else '연습'}) · 후보 {len(self.universe)}개")
 
-        last_refresh, last_universe, last_status = 0.0, time.time(), 0.0
-        rr = 0
+        last_status, last_full = 0.0, 0.0
+        self._bg_stop = False
+        import threading
+        inline_bg = os.getenv("TOSSBOT_NO_BG") == "1"     # 가짜 시계 시험: 같은 일을 메인 루프에서 1초마다
+        last_bg = 0.0
+        if not inline_bg:
+            threading.Thread(target=self._bg_loop, args=(no_entry_t,), daemon=True).start()
         try:
             while True:
                 n = now(self.m)
@@ -482,35 +535,26 @@ class Bot:
                 if self.risk.kill_switch() and self.broker.open_count():
                     for sym in list(self.broker.pos):
                         self.broker.flatten(sym, "긴급 정지", self.syms.get(sym).last if sym in self.syms else None)
-                # 분봉 정확도 보정: 1초에 몇 종목씩 돌아가며 REST 캔들로 다시 맞춤
-                watch = list(dict.fromkeys(list(self.broker.pos) + self.universe))
-                if time.time() - last_refresh > 1.0 and watch:
-                    batch = watch[rr:rr + 4] or watch[:4]
-                    rr = (rr + 4) % max(1, len(watch))
-                    for sym in batch:
-                        try:
-                            self.syms[sym].load_candles(self.api.candles(sym, "1m", 5), self.m)
-                        except Exception:
-                            pass
-                    last_refresh = time.time()
-                # 30분마다 후보 갱신 (새로 거래대금이 몰린 종목 반영)
-                if time.time() - last_universe > self.cfg["universe"]["refresh_min"] * 60 and n < no_entry_t:
-                    old = set(self.universe)
-                    self.build_universe()
-                    new = [s for s in self.universe if s not in old]
-                    if new:
-                        self.refresh_bars(new)
-                    self.stream.set_codes(list(dict.fromkeys(self.universe + list(self.broker.pos))))
-                    last_universe = time.time()
+                if inline_bg and time.time() - last_bg >= 1.0:
+                    self._bg_tick(no_entry_t)
+                    last_bg = time.time()
                 # 진입
                 if self.open_t <= n < no_entry_t and not self.stop_req:
                     why = self.risk.can_enter(self.broker.open_count(), self.broker.invested())
                     if why is None:
                         cands = []
-                        for sym in self.universe:
-                            if sym in self.broker.pos:
+                        # 방금 체결이 들어온 종목은 바로(0.2초마다), 나머지는 3초마다 전체 점검
+                        changed, self.dirty = self.dirty, set()
+                        full = time.time() - last_full > 3
+                        if full:
+                            last_full = time.time()
+                        for sym in (self.universe if full else [x for x in self.universe if x in changed]):
+                            if sym in self.broker.pos or sym not in self.syms:
                                 continue
-                            sig = entry_signal(self.syms[sym], n, self.open_t, self.cfg, self.ctx)
+                            try:
+                                sig = entry_signal(self.syms[sym], n, self.open_t, self.cfg, self.ctx)
+                            except RuntimeError:          # 실시간 스레드가 분봉을 고치는 중 → 다음 차례에
+                                sig = None
                             if sig:
                                 cands.append((sig["score"], sym, sig))
                         cands.sort(key=lambda x: -x[0])          # 여러 종목이 동시에 신호 → 가장 센 것부터
@@ -586,13 +630,14 @@ class Bot:
                 if time.time() - last_status > 300:
                     self.status()
                     last_status = time.time()
-                time.sleep(0.5)
+                time.sleep(0.2)
         except KeyboardInterrupt:
             self.log("Ctrl+C 로 멈춤")
             if self.broker.open_count():
                 self.log(f"⚠️ 아직 보유 중 {self.broker.open_count()}건 — 실전이면 토스 서버의 익절·손절 조건주문은 그대로 살아 있어요.")
         finally:
             if self.stream:
+                self._bg_stop = True
                 self.stream.stop()
             self.summary()
             self.phase = "종료됨"

@@ -42,7 +42,12 @@ s = Position("SW", "스윙주", 10, 10000, 14000, 9700, "시험", "x", state="op
              extra={"R": 300, "swing": True, "support": 9500})
 d = Position("DT", "단타주", 10, 10000, 11500, 9700, "시험", "x", state="open", peak=10100, extra={"R": 300})
 assert b.carry_check(s, 10080, 10050) is None, "스윙인데 +0.8% 로 못 들고 감"
-assert b.carry_check(d, 10080, 10050) is not None, "단타인데 +0.8% 로 들고 감"
+assert b.carry_check(d, 10080, 10050) is None, "손절선 살아 있고 평균 단가 위인데 정리함"
+assert b.carry_stop(d, 10080) == 9700, "작은 이익일 땐 원래 손절선 유지"
+assert b.carry_check(d, 10080, 10300) is not None, "평균 단가 아래로 밀렸는데 들고 감"
+cfg["carry"]["hold_if_intact"] = False
+assert b.carry_check(d, 10080, 10050) is not None, "옛 규칙(+3%)에서 +0.8% 로 들고 감"
+cfg["carry"]["hold_if_intact"] = True
 ss = b.carry_stop(s, 10080)
 print("스윙 밤사이 손절선", ss, "(지금가 −7% 와 지지선 9500 아래 중 높은 값, 원래 손절 9700 보다 낮아지진 않음)")
 assert ss == 9700

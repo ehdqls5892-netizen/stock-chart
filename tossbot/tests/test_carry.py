@@ -81,6 +81,7 @@ def main(mode):
     cfg["github_chart_url"] = ""
     cfg["risk"]["KR"].update(max_positions=2, budget_per_trade=300000, max_loss_per_trade=9000, daily_loss_limit=25000)
     cfg["carry"]["max_positions"] = 2
+    cfg["carry"]["hold_if_intact"] = False      # 이 시험은 '수익 기준' 들고 가기만 확인 (손절선 유지 보유는 test_pyramid 에서)
     (root / "config.json").write_text(json.dumps(cfg))
     M.ROOT = root
     M._API = None
