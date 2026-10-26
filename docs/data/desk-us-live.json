@@ -1,0 +1,34 @@
+{
+ "market": "us",
+ "date": "2026-10-26",
+ "updatedAt": "2026-10-26T18:06+00:00",
+ "plans": {
+  "CRWD": {
+   "name": "크라우드스트라이크",
+   "stop": 237.94,
+   "entryLow": 247.75,
+   "entryHigh": 257.57,
+   "t1": 286.99,
+   "src": "장중 1순위",
+   "score": 49
+  }
+ },
+ "watch": [
+  "RRC",
+  "TSLA",
+  "FIX",
+  "NVDA",
+  "FICO",
+  "NU",
+  "XP",
+  "MU",
+  "MSFT",
+  "GOOGL",
+  "AMZN",
+  "XOM",
+  "CVX",
+  "META",
+  "VZ"
+ ],
+ "earn_good": {}
+}
