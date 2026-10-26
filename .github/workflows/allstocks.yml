@@ -39,13 +39,17 @@ jobs:
         env:
           CACHE_URL: https://raw.githubusercontent.com/${{ github.repository }}/data-${{ steps.mk.outputs.m }}/_cache.csv.gz
         run: python screener/allstocks.py ${{ steps.mk.outputs.m }}
-      - name: 브랜치에 올리기
+      - name: 브랜치에 올리기 (실패해도 run.log 는 올려서 원인 확인)
+        if: always()
         run: |
-          cd out
+          mkdir -p out && cd out
           git init -q
           git checkout -q -b data-${{ steps.mk.outputs.m }}
           git config user.name "cof-bot"
           git config user.email "cof-bot@users.noreply.github.com"
           git add -A
           git commit -qm "전 종목 차트 $(date -u +%F)"
-          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" data-${{ steps.mk.outputs.m }}
+          BR=data-${{ steps.mk.outputs.m }}
+          [ -f index.json ] || BR=$BR-log      # 실패한 실행은 기록만 따로 (좋은 자료를 덮어쓰지 않게)
+          git branch -m "$BR"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$BR"

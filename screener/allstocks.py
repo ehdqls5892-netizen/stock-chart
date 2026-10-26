@@ -28,12 +28,19 @@ DAYS = 260          # 약 1년치 거래일 (120일선·지지/저항 계산용)
 
 
 def log(*a):
-    print(*a, file=sys.stderr, flush=True)
+    msg = " ".join(str(x) for x in a)
+    print(msg, file=sys.stderr, flush=True)
+    try:
+        OUT.mkdir(parents=True, exist_ok=True)
+        with open(OUT / "run.log", "a", encoding="utf-8") as f:
+            f.write(datetime.now(timezone.utc).strftime("%H:%M:%S ") + msg + "\n")
+    except Exception:
+        pass
 
 
 # ─────────────────────────── 한국: pykrx 날짜별 전 종목 ───────────────────────────
 
-def kr_frames():
+def kr_frames_krx():
     from pykrx import stock
     cache = pd.DataFrame()
     url = os.getenv("CACHE_URL")
@@ -55,6 +62,24 @@ def kr_frames():
             want.append(d.strftime("%Y%m%d"))
         d -= timedelta(days=1)
     rows, names = [], {}
+    # 거래소(KRX) 응답 확인: 최근 평일 5개 중 하나도 안 오면 야후로 바꿈
+    ok = 0
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as FT
+    ex = ThreadPoolExecutor(max_workers=1)
+    for ds in want[:3]:
+        try:
+            df0 = ex.submit(stock.get_market_ohlcv_by_ticker, ds, market="KOSPI").result(timeout=30)
+            if df0 is not None and not df0.empty:
+                ok += 1
+                break
+            log("KRX 확인: 빈 응답", ds)
+        except FT:
+            log("KRX 확인: 30초 안에 응답 없음", ds)
+        except Exception as e:
+            log("KRX 확인 실패", ds, repr(e)[:200])
+    ex.shutdown(wait=False)
+    if not ok:
+        raise RuntimeError("KRX 응답 없음")
     new = [x for x in want if x not in have or x == want[0]]   # 오늘은 항상 다시 (장중 실행 대비)
     log("새로 받을 날짜", len(new))
     t0 = time.time()
@@ -88,7 +113,10 @@ def kr_frames():
     OUT.mkdir(parents=True, exist_ok=True)
     all_.to_csv(OUT / "_cache.csv.gz", index=False, compression="gzip")
     # 이름: 지난 실행에 저장해 둔 이름을 쓰고, 새 종목만 조회
-    last = sorted(set(all_.loc[all_["code"] != "_", "d"]))[-1]
+    days = sorted(set(all_.loc[all_["code"] != "_", "d"]))
+    if not days:
+        raise RuntimeError("KRX 시세가 하나도 없음")
+    last = days[-1]
     try:
         import requests
         nu = (os.getenv("CACHE_URL") or "").replace("_cache.csv.gz", "names.json")
@@ -127,6 +155,71 @@ def kr_frames():
         frames[code] = df
         meta[code] = {"name": names.get(code, code), "market": g["mk"].iloc[-1]}
     return frames, meta
+
+
+def kr_list_kind():
+    """한국거래소 KIND 상장법인 목록(코스피·코스닥): code -> {name, market}."""
+    import requests
+    out = {}
+    for mk, typ in (("코스피", "stockMkt"), ("코스닥", "kosdaqMkt")):
+        try:
+            r = requests.get("https://kind.krx.co.kr/corpgeneral/corpList.do",
+                             params={"method": "download", "searchType": "13", "marketType": typ},
+                             headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
+            r.encoding = "euc-kr"
+            t = pd.read_html(io.StringIO(r.text), header=0)[0]
+            for _, row in t.iterrows():
+                code = str(row.get("종목코드", "")).strip().zfill(6)
+                if code.isdigit():
+                    out[code] = {"name": str(row.get("회사명", code)).strip(), "market": mk}
+        except Exception as e:
+            log("KIND 목록 실패", mk, repr(e)[:200])
+    if not out:   # 마지막 수단: 기존 유니버스
+        for x in json.loads((ROOT / "config" / "universe_kr.json").read_text(encoding="utf-8")):
+            out[x["code"]] = {"name": x["name"], "market": x.get("market", "")}
+    return out
+
+
+def kr_frames_yahoo():
+    """KRX 가 막힐 때: KIND 목록 + 야후 일봉(1년)."""
+    import yfinance as yf
+    uni = kr_list_kind()
+    log("야후로 받기 · 한국 목록", len(uni))
+    frames, t0 = {}, time.time()
+    codes = list(uni)
+    budget = float(os.getenv("FETCH_BUDGET_SEC", "1500"))
+    for i in range(0, len(codes), 80):
+        if time.time() - t0 > budget:
+            log("시간 예산 초과 → 받은 만큼만", len(frames))
+            break
+        part = codes[i:i + 80]
+        syms = [f"{c}.{'KQ' if uni[c]['market'] == '코스닥' else 'KS'}" for c in part]
+        try:
+            df = yf.download(syms, period="1y", interval="1d", group_by="ticker", auto_adjust=False,
+                             progress=False, threads=True)
+        except Exception as e:
+            log("야후 실패", repr(e)[:200])
+            time.sleep(5)
+            continue
+        for c, sname in zip(part, syms):
+            try:
+                h = (df[sname] if len(syms) > 1 else df).dropna(subset=["Close"])
+                h = h[h["Volume"] > 0]
+                if len(h) >= 40:
+                    frames[c] = h[["Open", "High", "Low", "Close", "Volume"]].astype(float)
+            except Exception:
+                pass
+        time.sleep(1.5)
+    log("야후 한국 시세", len(frames))
+    return frames, uni
+
+
+def kr_frames():
+    try:
+        return kr_frames_krx()
+    except Exception as e:
+        log("KRX 방식 실패 → 야후 방식으로:", repr(e)[:300])
+        return kr_frames_yahoo()
 
 
 # ─────────────────────────── 미국: S&P500 + 나스닥100 (yfinance) ───────────────────────────
