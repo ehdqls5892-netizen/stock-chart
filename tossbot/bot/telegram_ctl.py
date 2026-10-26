@@ -2,7 +2,8 @@
 
 .env 에 TG_TOKEN, TG_CHAT 이 있으면 켜져요. TG_CHAT 이 아닌 사람이 보낸 메시지는 무시해요.
 봇 채팅방에 아래 버튼이 생겨요:
-  📊 상태 | ▶️ 연습 시작 | 🔴 실전 시작 | ⏹ 종료(보유 유지) | 💰 종료(전부 팔기)
+  📊 상태 | 💵 투자금 | ▶️ 연습 시작 | 🔴 실전 시작 | ⏹ 종료(보유 유지) | 💰 종료(전부 팔기)
+'업데이트' 라고 보내면 GitHub 새 버전을 바로 받아 시험 후 적용해요(서버).
 실전 시작·전부 팔기는 한 번 더 확인 버튼을 눌러야 실행돼요.
 """
 from __future__ import annotations
@@ -92,11 +93,28 @@ class TelegramControl:
         v = float(m.group(1)) * (10000 if m.group(2) else 1)
         return "💵 " + self.capital_fn(mk, v)
 
+    def update_now(self) -> str:
+        """GitHub 최신 버전을 바로 받아 시험 후 적용 (서버에서만). 로봇 프로그램 밖에서 돌려야 재시작돼도 끊기지 않음."""
+        import shutil
+        import subprocess
+        from pathlib import Path
+        tb = Path(__file__).resolve().parent.parent / "server" / "tb"
+        if not shutil.which("systemd-run") or not tb.exists():
+            return "이 컴퓨터에서는 텔레그램 업데이트를 쓸 수 없어요 (서버 전용)."
+        try:
+            subprocess.Popen(["systemd-run", "--no-block", "--collect", "--unit", f"tossbot-update-now-{int(time.time())}",
+                              str(tb), "자동확인"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except Exception as e:
+            return f"업데이트를 시작하지 못했어요: {e}"
+        return "🆕 GitHub 새 버전을 확인하고 있어요. 새 버전이 있으면 시험 후 적용하고 1~2분 안에 알려 드릴게요 (없으면 조용히 그대로)."
+
     def handle(self, text: str):
         t = (text or "").strip()
         now = time.time()
         if t.startswith("투자금") or t.startswith("💵"):
             return self.send(self.capital_cmd(t))
+        if t in ("업데이트", "/update", "🆕 업데이트"):
+            return self.send(self.update_now())
         if "상태" in t or t in ("/status", "/start"):
             return self.send(self.status_text())
         if "연습 시작" in t:
