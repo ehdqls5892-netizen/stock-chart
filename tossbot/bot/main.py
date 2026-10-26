@@ -302,9 +302,12 @@ class Bot:
             cal = self.api.calendar(self.m) or {}
             pick = None
             # 미장은 토스 일정이 한국 날짜 기준이라, 한국 자정 이후엔 지금 열린 장이 previousBusinessDay 에 있다
+            # 마감 정리 시각(예: 15:15·15:45)이 이미 지난 장은 건너뜀 → 하루를 끝낸 뒤 같은 장을 다시 시작하지 않게
+            cut = dt.timedelta(minutes=(parse_hm(s["close"]).hour * 60 + parse_hm(s["close"]).minute)
+                               - (parse_hm(s["flatten"]).hour * 60 + parse_hm(s["flatten"]).minute))
             for key in ("previousBusinessDay", "today", "nextBusinessDay"):
                 r = reg_of(cal.get(key) or {})
-                if r and n < r[1]:
+                if r and n < r[1] - cut:
                     pick = r
                     break
             # 미장: 토스 일정의 'today' 는 한국 날짜 기준이라, 한국 자정이 지나면 지금 열려 있는
@@ -312,7 +315,7 @@ class Bot:
             if self.m == "US" and (not pick or pick[0] > n):
                 o = dt.datetime.combine(n.date(), parse_hm(s["open"]), tz)
                 c = dt.datetime.combine(n.date(), parse_hm(s["close"]), tz)
-                if n.weekday() < 5 and o <= n < c and self.us_trading_now(n):
+                if n.weekday() < 5 and o <= n < c - cut and self.us_trading_now(n):
                     self.log("뉴욕 오늘 장이 열려 있어요 → 지금 장으로 시작 (토스 일정은 한국 날짜 기준이라 보정)")
                     pick = (o, c)
             if not pick:
