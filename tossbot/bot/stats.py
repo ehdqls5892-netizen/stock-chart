@@ -28,8 +28,8 @@ def setup_of(rec: dict) -> str:
     return "?"
 
 
-def load(root: Path, market: str, days: int):
-    d = root / "logs" / "live" / market
+def load(root: Path, market: str, days: int, mode: str = "live"):
+    d = root / "logs" / mode / market
     since = dt.date.today() - dt.timedelta(days=days)
     out = []
     for f in sorted(d.glob("trades-*.jsonl")) if d.exists() else []:
@@ -99,10 +99,15 @@ def verdict(recs: list, capital: float | None) -> str:
 
 def report(root: Path, days: int = 14, capitals: dict | None = None) -> str:
     capitals = capitals or {}
-    out = [f"📈 최근 {days}일 성적 (실전)"]
-    for mk, nm in (("KR", "🇰🇷 국장"), ("US", "🇺🇸 미장")):
-        recs = load(root, mk, days)
-        out.append(f"\n{nm}\n" + summarize(recs, mk, capitals.get(mk)))
-        if recs:
-            out.append(verdict(load(root, mk, 60), capitals.get(mk)))
-    return "\n".join(out)
+    out = []
+    for mode, title in (("live", "실전"), ("paper", "연습")):
+        if mode == "paper" and not any(load(root, mk, days, "paper") for mk in ("KR", "US")):
+            continue
+        out.append(f"📈 최근 {days}일 성적 ({title})")
+        for mk, nm in (("KR", "🇰🇷 국장"), ("US", "🇺🇸 미장")):
+            recs = load(root, mk, days, mode)
+            out.append(f"{nm}\n" + summarize(recs, mk, capitals.get(mk)))
+            if recs:
+                out.append(verdict(load(root, mk, 60, mode), capitals.get(mk)))
+        out.append("")
+    return "\n".join(out).strip()
