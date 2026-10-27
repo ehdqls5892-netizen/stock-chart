@@ -55,6 +55,7 @@ class BaseBroker:
         self.dir = journal_dir
         self.dir.mkdir(parents=True, exist_ok=True)
         self.on_closed = None  # 콜백(pos)
+        self.judge = None      # 콜백(sym) → {vwap, vol_x, market, bad}: 손절 판단용 (main 이 넣어 줌)
 
     def today(self) -> dt.date:
         from .util import now
@@ -103,18 +104,29 @@ class BaseBroker:
         if self.on_closed:
             self.on_closed(p)
 
-    # ───── 보유 중 관리: 본전 지키기 · 절반 익절 · 추적 손절 ─────
+    # ───── 보유 중 관리: 나눠 익절 · 숨 쉴 공간 · 본전 지키기 · 추적 손절 ─────
     def manage(self, p: Position, last: float):
-        """(새 손절선 또는 None, 절반 팔지 여부, 이유). 손절선은 올리기만 한다."""
+        """(새 손절선 또는 None, 나눠 팔기 (비율, 이름) 또는 None, 이유). 손절선은 올리기만 한다.
+
+        1R(처음 손절 폭만큼) 오르면 1/3 익절해서 이익을 실제로 챙기고, 손절선은 '산 값 −0.4R'까지만 올린다
+          → 남은 물량이 다시 밀려 팔려도 전체로는 본전 이상 (예전엔 바로 본전에 걸어서 +0.1~0.3% 에 자주 털렸음)
+        1.5R → 남은 물량 손절선을 본전(수수료 포함) 위로.  2R → 남은 것의 절반 2차 익절 + 추적 손절 시작.
+        """
         t = self.cfg["strategy"]["take_profit"]
         R = p.extra.get("R") or max(p.entry - p.sl, p.entry * 0.01)
         a = p.extra.get("atr") or p.entry * 0.004
         p.peak = max(p.peak or p.entry, last)
         new_sl, why = p.sl, ""
+        if t.get("cushion_at_R") and last >= p.entry + R * t["cushion_at_R"]:
+            cu = round_tick(self.m, p.entry - R * t.get("cushion_R", 0.4), "up")
+            if cu > new_sl:
+                new_sl, why = cu, f"이익 {t['cushion_at_R']:g}R → 손절선을 산 값 −{t.get('cushion_R', 0.4):g}R 로 (1차 익절로 전체는 본전 이상)"
         if t.get("breakeven_at_R") and last >= p.entry + R * t["breakeven_at_R"]:
-            be = add_ticks(self.m, p.entry, 2)
+            fee = self.fee["buy_pct"] + self.fee["sell_pct"] + self.fee["sell_tax_pct"]
+            be = round_tick(self.m, p.entry * (1 + fee / 100), "up")
+            be = max(be, add_ticks(self.m, p.entry, 1))
             if be > new_sl:
-                new_sl, why = be, "본전 지키기"
+                new_sl, why = be, "본전 지키기(수수료 포함)"
                 p.be_moved = True
         if t.get("trail_start_R") and p.peak >= p.entry + R * t["trail_start_R"]:
             tmin = self.cfg.get("swing", {}).get("trail_min_pct", 6.0) if p.extra.get("swing") else t["trail_min_pct"]
@@ -122,9 +134,78 @@ class BaseBroker:
             tr = round_tick(self.m, p.peak - gap, "down")
             if tr > new_sl:
                 new_sl, why = tr, f"추적 손절: 고점 {money(self.m, p.peak)}에서 {gap / p.peak * 100:.1f}% 아래"
-        part = (not p.partial_done and t.get("partial_ratio", 0) > 0 and p.qty >= 2
-                and last >= p.entry + R * t["partial_at_R"])
+        part = None
+        plist = t.get("partials") or ([[t["partial_at_R"], t.get("partial_ratio", 0.5), "절반 익절"]]
+                                      if t.get("partial_at_R") else [])
+        i = int(p.extra.get("parts", 1 if p.partial_done else 0))
+        if i < len(plist) and p.qty >= 2:
+            at, ratio, label = (list(plist[i]) + ["익절"])[:3]
+            if last >= p.entry + R * at:
+                part = (ratio, label)
         return (new_sl if new_sl > p.sl else None), part, why
+
+    def part_qty(self, p: Position, ratio: float) -> int:
+        """나눠 팔 수량: 최소 1주, 최소 1주는 남김."""
+        return max(1, min(p.qty - 1, int(round(p.qty * ratio))))
+
+    # ───── 손절 판단: 손절선(판단선)에 닿아도 바로 팔지 않고 '진짜 빠지는지' 본다 ─────
+    def hard_level(self, p: Position, sl: float | None = None) -> float:
+        """토스 서버에 거는 최후 손절선. 손실 구간에서만 판단선보다 조금 아래(지금 손절 폭의 절반, 최대 −6%).
+        이익 구간(손절선 ≥ 산 값)·ETF·추가 매수한 종목은 판단선 그대로 → 챙긴 이익은 정확히 지킨다."""
+        sl = p.sl if sl is None else sl
+        j = self.cfg.get("stop_judge", {})
+        if not j.get("enabled") or sl >= p.entry or p.extra.get("etf") or p.extra.get("adds"):
+            return sl                                  # 추가 매수한 종목도 손절선 그대로(더 산 만큼 위험을 늘리지 않음)
+        h = sl - (p.entry - sl) * j.get("hard_extra_R", 0.5)
+        h = max(h, p.entry * (1 - j.get("hard_max_pct", 6.0) / 100))
+        return min(round_tick(self.m, h, "down"), sl)
+
+    def judge_stop(self, p: Position, last: float):
+        """판단선 아래일 때: ('sell', 이유) / ('wait', 이유) / 판단선 위면 None.
+        바로 파는 경우: 파는 거래량이 많음 · 오늘 평균 단가(VWAP) 1% 넘게 아래 · 시장 전체가 약함 · 악재(실적 실망·차트 주의)
+                       · 최후 손절선 닿음 · 정해진 시간(10분) 안에 회복 못 함
+        기다리는 경우: 거래량 적은 '살짝 밀림' + 시장 괜찮음 + 평균 단가 근처 → 일시적 흔들림일 가능성"""
+        j = self.cfg.get("stop_judge", {})
+        if last > p.sl:
+            if p.extra.pop("soft_since", None) is not None:
+                p.extra.pop("soft_logged", None)
+                self.log(f"↩️ {p.name} 손절 판단선 {money(self.m, p.sl)} 위로 회복 — 계속 보유")
+            return None
+        hard = self.hard_level(p)
+        if not j.get("enabled") or hard >= p.sl:
+            return "sell", ("추적 손절선 도달" if p.sl >= p.entry else "손절선 도달")
+        if last <= hard:
+            return "sell", f"최후 손절선 {money(self.m, hard)} 도달"
+        info = {}
+        if self.judge:
+            try:
+                info = self.judge(p.symbol) or {}
+            except Exception:
+                info = {}
+        why = []
+        if (info.get("vol_x") or 0) >= j.get("heavy_vol_x", 1.5):
+            why.append(f"파는 거래량이 평소의 {info['vol_x']:.1f}배")
+        vw = info.get("vwap")
+        if vw and last < vw * (1 - j.get("below_vwap_pct", 1.0) / 100):
+            why.append("오늘 평균 단가보다 1% 넘게 아래")
+        mk = info.get("market")
+        if mk is not None and mk <= j.get("market_weak_pct", -0.5):
+            why.append(f"시장 전체가 약함(최근 15분 평균 {mk:+.1f}%)")
+        if info.get("bad"):
+            why.append(info["bad"])
+        since = p.extra.setdefault("soft_since", time.time())
+        if why:
+            return "sell", "손절선 아래 + " + ", ".join(why)
+        g = j.get("grace_min", 10)
+        if time.time() - since > g * 60:
+            return "sell", f"손절선 아래에서 {g}분 동안 회복 못 함"
+        msg = (f"⏳ {p.name} 손절 판단선 {money(self.m, p.sl)} 아래지만 거래량 적고 시장 괜찮아서 최대 {g}분 지켜봐요 "
+               f"(최후 손절선 {money(self.m, hard)} 아래로 가면 토스 서버가 바로 팔아요)")
+        if not p.extra.get("soft_logged"):
+            p.extra["soft_logged"] = 1
+            self.log(msg)
+            self.notify(msg)
+        return "wait", msg
 
     # ───── 이익 난 종목 다음 날까지 들고 가기 ─────
     def carry_check(self, p: Position, last: float | None, vw: float | None) -> str | None:
@@ -263,13 +344,13 @@ class BaseBroker:
             self.log(f"{tag} {p.name} 손절선 ↑ {money(self.m, new_sl)} ({why}) · 지금 팔려도 {(new_sl / p.entry - 1) * 100:+.1f}%")
             p.extra["logged_sl"] = new_sl
 
-    def record_partial(self, p: Position, qty: int, price: float):
+    def record_partial(self, p: Position, qty: int, price: float, label: str = "나눠 익절"):
         part = Position(p.symbol, p.name, qty, p.entry, p.tp, p.sl, p.reason, p.opened_at, state="closed")
-        part.exit_price, part.exit_reason = price, "절반 익절"
+        part.exit_price, part.exit_reason = price, label
         part.pnl = self.calc_pnl(part, price)
         self.closed.append(part)
-        msg = (f"🟢 절반 익절 {p.name} {qty}주 {money(self.m, p.entry)} → {money(self.m, price)} "
-               f"({(price / p.entry - 1) * 100:+.2f}%) 손익 {money(self.m, part.pnl)} · 남은 {p.qty}주는 추적 손절로 계속 보유")
+        msg = (f"🟢 {label} {p.name} {qty}주 {money(self.m, p.entry)} → {money(self.m, price)} "
+               f"({(price / p.entry - 1) * 100:+.2f}%) 손익 {money(self.m, part.pnl)} · 남은 {p.qty}주는 계속 보유(손절선 {money(self.m, p.sl)})")
         self.log(msg)
         self.notify(msg)
         self._journal("partial", part)
@@ -298,15 +379,22 @@ class PaperBroker(BaseBroker):
             return
         if last >= p.tp:
             self._close(p, p.tp, "익절가 도달")
-        elif last <= p.sl:
-            self._close(p, add_ticks(self.m, min(p.sl, last), -1), "손절가 도달")
-        else:
+            return
+        d = self.judge_stop(p, last)
+        if d and d[0] == "sell":
+            hard = self.hard_level(p)
+            px = min(hard, last) if last <= hard else last
+            self._close(p, add_ticks(self.m, px, -1), d[1])
+        elif d is None:
             new_sl, part, why = self.manage(p, last)
             if part:
-                q = int(p.qty * self.cfg["strategy"]["take_profit"]["partial_ratio"])
+                q = self.part_qty(p, part[0])
                 p.qty -= q
                 p.partial_done = True
-                self.record_partial(p, q, add_ticks(self.m, last, -1))
+                p.extra["parts"] = int(p.extra.get("parts", 0)) + 1
+                if new_sl:
+                    p.sl = new_sl
+                self.record_partial(p, q, add_ticks(self.m, last, -1), part[1])
             if new_sl:
                 self._log_raise(p, new_sl, why, "[연습]")
                 p.sl = new_sl
@@ -464,12 +552,15 @@ class LiveBroker(BaseBroker):
     def _arm_exit(self, p: Position):
         try:
             # 손절은 '시장가' 조건주문: 손절선에 닿으면 토스 서버가 바로 시장가로 판다 (갭하락·PC 꺼짐에도 작동)
-            r = self.api.create_stop_market(p.symbol, p.qty, price_str(self.m, p.sl), self._expire(p))
+            hard = self.hard_level(p)
+            r = self.api.create_stop_market(p.symbol, p.qty, price_str(self.m, hard), self._expire(p))
             p.cond_id = r["conditionalOrderId"]
             p.state = "open"
-            p.peak = p.entry
-            self.log(f"[실전] {p.name} 손절 {money(self.m, p.sl)} 시장가 조건주문 등록 (토스 서버 감시) · 익절은 추적 손절")
-            self.notify(f"✅ 체결 {p.name} {p.qty}주 @ {money(self.m, p.entry)} · 손절 {money(self.m, p.sl)} 걸어둠 · 익절은 추적 손절(최대 {money(self.m, p.tp)})")
+            p.peak = p.peak or p.entry
+            both = (f"손절 판단선 {money(self.m, p.sl)}(로봇이 거래량·시장 보고 판단) · 최후 손절 {money(self.m, hard)}(토스 서버)"
+                    if hard < p.sl else f"손절 {money(self.m, p.sl)}(토스 서버)")
+            self.log(f"[실전] {p.name} {both} 시장가 조건주문 등록 · 익절은 나눠 팔기+추적 손절")
+            self.notify(f"✅ 체결 {p.name} {p.qty}주 @ {money(self.m, p.entry)} · {both} · 익절은 나눠 팔기+추적 손절")
         except TossError as e:
             # 조건주문을 못 걸면 위험하니 바로 판다
             self.log(f"[실전] 조건주문 실패 {p.name}: {e} → 즉시 매도")
@@ -511,8 +602,8 @@ class LiveBroker(BaseBroker):
         if last >= p.tp:
             self._market_sell(p, "최대 익절가 도달")
             return
-        # 예비 장치: 손절선 아래에서 20초 넘게 안 팔렸으면(서버 조건주문 지연 등) 직접 시장가 정리
-        gap = add_ticks(self.m, p.sl, -3)
+        # 예비 장치: 서버 손절선(최후 손절선) 아래에서 20초 넘게 안 팔렸으면(서버 조건주문 지연 등) 직접 시장가 정리
+        gap = add_ticks(self.m, self.hard_level(p), -3)
         if last < gap and time.time() - p.extra.get("below_since", time.time()) > 20:
             self._market_sell(p, "손절선 아래 — 직접 시장가 정리")
             return
@@ -520,24 +611,36 @@ class LiveBroker(BaseBroker):
             p.extra.setdefault("below_since", time.time())
         else:
             p.extra.pop("below_since", None)
+        # 손절 판단선 아래: 진짜 빠지는 것 같으면 바로 팔고, 살짝 밀린 거면 잠깐 지켜봄
+        # (이익 구간 손절선·최후 손절선은 토스 서버가 판다 → 로봇이 같이 팔지 않음)
+        hard = self.hard_level(p)
+        if last <= hard:
+            return
+        if hard < p.sl:
+            d = self.judge_stop(p, last)
+            if d:
+                if d[0] == "sell":
+                    self._market_sell(p, d[1])
+                return
         new_sl, part, why = self.manage(p, last)
         if part and not p.extra.get("partial_oid"):
-            p.partial_done = True
-            q = int(p.qty * self.cfg["strategy"]["take_profit"]["partial_ratio"])
+            q = self.part_qty(p, part[0])
             remain = p.qty - q
             try:
                 # 조건주문 수량을 먼저 줄여야 팔 수량이 남는다
                 self._modify(p, remain, new_sl or p.sl)
                 r = self.api.create_order(p.symbol, "SELL", q, "MARKET", None, "part-" + uuid.uuid4().hex[:24])
-                p.extra.update(partial_oid=r["orderId"], partial_q=q)
+                p.partial_done = True
+                p.extra["parts"] = int(p.extra.get("parts", 0)) + 1
+                p.extra.update(partial_oid=r["orderId"], partial_q=q, partial_label=part[1])
                 p.qty = remain
                 if new_sl:
                     p.sl = new_sl
-                self.log(f"[실전] {p.name} 절반({q}주) 시장가 익절 주문")
+                self.log(f"[실전] {p.name} {part[1]} {q}주 시장가 주문")
                 self.save_state()
                 return
             except TossError as e:
-                self.log(f"[실전] 절반 익절 실패 {p.name}: {e}")
+                self.log(f"[실전] {part[1]} 실패 {p.name}: {e}")
         if new_sl and time.time() - p.extra.get("mod_t", 0) > self.cfg["live"].get("trail_update_sec", 15):
             p.extra["mod_t"] = time.time()
             try:
@@ -588,7 +691,8 @@ class LiveBroker(BaseBroker):
     def _modify(self, p: Position, qty: int, sl: float):
         old = p.cond_id
         try:
-            p.cond_id, how = self.api.replace_stop_market(old, p.symbol, qty, price_str(self.m, sl), self._expire(p))
+            p.cond_id, how = self.api.replace_stop_market(old, p.symbol, qty, price_str(self.m, self.hard_level(p, sl)),
+                                                          self._expire(p))
             if how != "정정":
                 self.log(f"[실전] {p.name} 손절 주문 교체: {how}")
             self.save_state()
@@ -640,7 +744,7 @@ class LiveBroker(BaseBroker):
                         if o.get("status") == "FILLED":
                             ex = o.get("execution") or {}
                             px = f(ex.get("averageFilledPrice"), last_prices.get(p.symbol, p.entry))
-                            self.record_partial(p, int(p.extra.pop("partial_q")), px)
+                            self.record_partial(p, int(p.extra.pop("partial_q")), px, p.extra.pop("partial_label", "나눠 익절"))
                             p.extra.pop("partial_oid", None)
                     c = self.api.get_conditional(p.cond_id)
                     if c.get("status") in ("COMPLETED", "ORDERED", "EXPIRED"):
@@ -653,7 +757,10 @@ class LiveBroker(BaseBroker):
                             ex = o.get("execution") or {}
                             if o.get("status") == "FILLED":
                                 px = f(ex.get("averageFilledPrice"), p.sl)
-                                self._close(p, px, "추적 손절선에서 매도(이익 확정)" if px >= p.entry else "손절 체결")
+                                hard = self.hard_level(p)
+                                self._close(p, px, "추적 손절선에서 매도(이익 확정)" if self.calc_pnl(p, px) >= 0
+                                            else "본전 지키기 선에서 매도" if p.sl >= p.entry
+                                            else "최후 손절선 체결" if hard < p.sl else "손절 체결")
                                 break
                         else:
                             if c.get("status") == "EXPIRED":

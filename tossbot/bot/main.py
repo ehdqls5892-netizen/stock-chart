@@ -211,6 +211,7 @@ class Bot:
         """
         ctx = self.ctx
         ctx["plans"], ctx["earn_block"], ctx["earn_good"], ctx["watched"] = {}, set(), {}, set()
+        ctx["earn_bad"] = set()
         base = self.cfg.get("desk_feed_url")
         if not base or os.getenv("TOSSBOT_OFFLINE") == "1":
             return
@@ -261,6 +262,7 @@ class Bot:
                 if 0 <= (ed - today).days <= 1 and code not in ctx["earn_good"]:
                     ctx["earn_block"].add(code)        # 발표 전(오늘·내일) → 결과 모르니 새로 안 삼
             ctx["earn_block"].update(c for c in bad if c not in ctx["earn_good"])  # 실적 실망 → 안 삼
+            ctx["earn_bad"].update(c for c in bad if c not in ctx["earn_good"])
         ctx["watched"].update(ctx["plans"])
         ctx["watched"].update(ctx["earn_good"])
         if rep or live or earn:
@@ -449,6 +451,50 @@ class Bot:
         if st and p.pnl < 0:
             st.cooldown_until = now(self.m) + dt.timedelta(minutes=self.cfg["strategy"]["cooldown_min"])
 
+    # ───────── 손절 판단 재료: 거래량·평균 단가·시장 흐름·악재 ─────────
+    def market_move(self):
+        """시장 흐름: 후보 종목들의 최근 15분 평균 등락률(%). 종목이 적으면 None. 30초마다 다시 계산."""
+        t = time.time()
+        if t - getattr(self, "_mm_t", 0) < 30:
+            return getattr(self, "_mm", None)
+        vals = []
+        try:
+            for sym in list(self.universe)[:150]:
+                st = self.syms.get(sym)
+                if not st or not st.last:
+                    continue
+                bars = session_bars(st, self.open_t)
+                if len(bars) < 16 or not bars[-16].c:
+                    continue
+                vals.append((st.last / bars[-16].c - 1) * 100)
+        except RuntimeError:                           # 실시간 스레드가 분봉 고치는 중
+            return getattr(self, "_mm", None)
+        self._mm = sum(vals) / len(vals) if len(vals) >= 15 else None
+        self._mm_t = t
+        return self._mm
+
+    def stop_info(self, sym):
+        out = {}
+        st = self.syms.get(sym)
+        if st:
+            try:
+                bars = session_bars(st, self.open_t)
+            except RuntimeError:
+                bars = []
+            out["vwap"] = vwap(bars) if bars else None
+            if len(bars) >= 8:
+                recent, base = bars[-3:], bars[-23:-3]
+                avg = sum(b.v for b in base) / len(base) if base else 0
+                if avg > 0 and recent[-1].c < recent[0].o:   # 내려가면서 거래량이 많은지(파는 힘)
+                    out["vol_x"] = sum(b.v for b in recent) / len(recent) / avg
+        out["market"] = self.market_move()
+        d = (self.ctx.get("daily") or {}).get(sym) or {}
+        if sym in self.ctx.get("earn_bad", ()):
+            out["bad"] = "실적 실망 종목"
+        elif d.get("label") == "주의":
+            out["bad"] = "일봉 차트가 '주의'"
+        return out
+
     # ───────── 본 루프 ─────────
     def run(self):
         live = self.mode == "live"
@@ -484,6 +530,7 @@ class Bot:
         self.broker = (LiveBroker(self.api, self.m, self.cfg, self.dir, self.log, self.notify) if live
                        else PaperBroker(self.m, self.cfg, self.dir, self.log, self.notify))
         self.broker.on_closed = self.on_closed
+        self.broker.judge = self.stop_info
         self.broker.restore()
         if live:
             self.broker.verify_carried()

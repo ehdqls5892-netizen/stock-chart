@@ -75,12 +75,24 @@
     },
     "take_profit": {
       "hard_pct": 15,
-      "breakeven_at_R": 1.0,
-      "partial_at_R": 2.0,
-      "partial_ratio": 0.5,
-      "trail_start_R": 1.5,
+      "breakeven_at_R": 1.5,
+      "trail_start_R": 2.0,
       "trail_atr_mult": 4.0,
-      "trail_min_pct": 3.0
+      "trail_min_pct": 3.0,
+      "cushion_at_R": 1.0,
+      "cushion_R": 0.4,
+      "partials": [
+        [
+          1.0,
+          0.34,
+          "1차 익절"
+        ],
+        [
+          2.0,
+          0.5,
+          "2차 익절"
+        ]
+      ]
     },
     "min_day_change_pct_any": -8,
     "setups": {
@@ -272,5 +284,14 @@
       "r2g"
     ],
     "gap_min": 15
+  },
+  "stop_judge": {
+    "enabled": true,
+    "hard_extra_R": 0.5,
+    "hard_max_pct": 6.0,
+    "grace_min": 10,
+    "heavy_vol_x": 1.5,
+    "below_vwap_pct": 1.0,
+    "market_weak_pct": -0.5
   }
 }
