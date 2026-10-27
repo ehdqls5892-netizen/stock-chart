@@ -185,7 +185,8 @@
       "risk_per_trade_pct_cap": 1.8,
       "protect_after_pct": 2.0,
       "protect_size": 0.5,
-      "protect_giveback_pct": 50
+      "protect_giveback_pct": 50,
+      "min_qty": 2
     },
     "US": {
       "daily_capital": 350,
@@ -225,7 +226,8 @@
       "risk_per_trade_pct_cap": 1.8,
       "protect_after_pct": 2.0,
       "protect_size": 0.5,
-      "protect_giveback_pct": 50
+      "protect_giveback_pct": 50,
+      "min_qty": 2
     }
   },
   "fees": {

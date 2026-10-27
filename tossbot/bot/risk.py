@@ -118,6 +118,8 @@ class Risk:
         q = max(0, min(q1, q2))
         if q and q * price < min_amt and q1 > q:   # 너무 조금만 사지는 경우(손절폭이 아주 넓음)는 건너뜀
             return 0
+        if q < self.c.get("min_qty", 1):            # 1주만 살 수 있으면 안 삼 (나눠 익절이 안 되고 수익도 작음)
+            return 0
         return q
 
     def record_exit(self, pnl: float):
