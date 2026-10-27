@@ -1,170 +1,144 @@
 {
  "market": "us",
- "date": "2026-10-23",
+ "date": "2026-10-26",
  "plans": {
-  "CCI": {
-   "name": "크라운캐슬",
-   "stop": 85.2,
-   "entryLow": 85.6,
-   "entryHigh": 86.0,
-   "t1": 91.03,
+  "TSLA": {
+   "name": "테슬라",
+   "stop": 384.89,
+   "entryLow": 388.26,
+   "entryHigh": 391.62,
+   "t1": 415.38,
    "src": "1순위",
-   "t2": 94.64,
-   "score": 54
+   "t2": 450.0,
+   "score": 68
   },
-  "CRWD": {
-   "name": "크라우드스트라이크",
-   "stop": 237.94,
-   "entryLow": 247.75,
-   "entryHigh": 257.57,
-   "t1": 286.99,
+  "CLS": {
+   "name": "셀레스티카",
+   "stop": 246.65,
+   "entryLow": 283.38,
+   "entryHigh": 288.0,
+   "t1": 333.86,
    "src": "픽",
-   "score": 53
+   "t2": 375.0,
+   "score": 62
   },
-  "PANW": {
-   "name": "팔로알토 네트웍스",
-   "stop": 354.92,
-   "entryLow": 367.74,
-   "entryHigh": 380.55,
-   "t1": 398.52,
+  "LITE": {
+   "name": "루멘텀",
+   "stop": 756.17,
+   "entryLow": 787.14,
+   "entryHigh": 818.1,
+   "t1": 1143.0,
    "src": "픽",
-   "t2": 432.33,
-   "score": 52
-  },
-  "COP": {
-   "name": "코노코필립스",
-   "stop": 145.63,
-   "entryLow": 148.21,
-   "entryHigh": 150.79,
-   "t1": 152.77,
-   "src": "픽",
-   "score": 47
-  },
-  "SAIL": {
-   "name": "세일포인트",
-   "stop": 20.06,
-   "entryLow": 20.92,
-   "entryHigh": 21.79,
-   "t1": 22.21,
-   "src": "픽",
-   "t2": 23.05,
-   "score": 45
-  },
-  "SBAC": {
-   "name": "SBA커뮤니케이션",
-   "stop": 181.05,
-   "entryLow": 182.9,
-   "entryHigh": 184.75,
-   "t1": 196.84,
-   "src": "관심",
-   "t2": 226.05,
-   "score": 46
-  },
-  "NET": {
-   "name": "클라우드플레어",
-   "stop": 303.61,
-   "entryLow": 314.67,
-   "entryHigh": 325.73,
-   "t1": 343.42,
-   "src": "관심",
-   "t2": 370.35,
-   "score": 50
-  },
-  "ZS": {
-   "name": "지스케일러",
-   "stop": 237.76,
-   "entryLow": 246.45,
-   "entryHigh": 255.15,
-   "t1": 276.88,
-   "src": "관심",
-   "t2": 336.99,
-   "score": 50
-  },
-  "OKTA": {
-   "name": "옥타",
-   "stop": 201.33,
-   "entryLow": 207.19,
-   "entryHigh": 213.05,
-   "t1": 214.83,
-   "src": "관심",
-   "t2": 235.0,
-   "score": 48
-  },
-  "OXY": {
-   "name": "옥시덴탈",
-   "stop": 62.5,
-   "entryLow": 63.34,
-   "entryHigh": 64.17,
-   "t1": 67.45,
-   "src": "관심",
-   "t2": 69.58,
-   "score": 49
-  },
-  "MU": {
-   "name": "마이크론",
-   "stop": 856.49,
-   "entryLow": 867.02,
-   "entryHigh": 877.55,
-   "t1": 891.89,
-   "src": "관심",
-   "t2": 1255.0,
-   "score": 42
-  },
-  "AMD": {
-   "name": "AMD",
-   "stop": 507.93,
-   "entryLow": 512.36,
-   "entryHigh": 516.79,
-   "t1": 523.92,
-   "src": "관심",
-   "t2": 636.21,
+   "t2": 1200.0,
    "score": 50
   },
   "MSFT": {
    "name": "마이크로소프트",
-   "stop": 515.7,
-   "entryLow": 520.11,
-   "entryHigh": 524.51,
-   "t1": 553.72,
-   "src": "관심",
+   "stop": 516.72,
+   "entryLow": 524.66,
+   "entryHigh": 532.6,
+   "t1": 551.15,
+   "src": "픽",
    "t2": 599.24,
-   "score": 52
+   "score": 64
   },
-  "AMZN": {
-   "name": "아마존",
-   "stop": 246.45,
-   "entryLow": 247.22,
-   "entryHigh": 248.0,
-   "t1": 250.38,
+  "NVDA": {
+   "name": "엔비디아",
+   "stop": 214.37,
+   "entryLow": 214.9,
+   "entryHigh": 216.0,
+   "t1": 221.64,
    "src": "관심",
-   "t2": 287.2,
-   "score": 52
+   "score": 59
   },
-  "KLAC": {
-   "name": "KLA",
-   "stop": 144.82,
-   "entryLow": 145.22,
-   "entryHigh": 145.61,
-   "t1": 149.84,
+  "AMD": {
+   "name": "AMD",
+   "stop": 525.37,
+   "entryLow": 528.33,
+   "entryHigh": 531.28,
+   "t1": 557.21,
    "src": "관심",
-   "t2": 175.0,
-   "score": 47
+   "score": 56
+  },
+  "MU": {
+   "name": "마이크론",
+   "stop": 893.96,
+   "entryLow": 898.83,
+   "entryHigh": 903.7,
+   "t1": 926.07,
+   "src": "관심",
+   "score": 54
+  },
+  "ANET": {
+   "name": "아리스타",
+   "stop": 156.24,
+   "entryLow": 166.74,
+   "entryHigh": 177.24,
+   "t1": 182.05,
+   "src": "관심",
+   "score": 53
+  },
+  "PLTR": {
+   "name": "팔란티어",
+   "stop": 194.73,
+   "entryLow": 196.79,
+   "entryHigh": 198.84,
+   "t1": 212.94,
+   "src": "관심",
+   "t2": 206.43,
+   "score": 51
+  },
+  "INTC": {
+   "name": "인텔",
+   "stop": 85.43,
+   "entryLow": 87.95,
+   "entryHigh": 90.47,
+   "t1": 94.52,
+   "src": "관심",
+   "score": 50
+  },
+  "AAPL": {
+   "name": "애플",
+   "stop": 340.47,
+   "entryLow": 342.19,
+   "entryHigh": 343.91,
+   "t1": 348.15,
+   "src": "관심",
+   "score": 49
+  },
+  "COHR": {
+   "name": "코히런트",
+   "stop": 209.29,
+   "entryLow": 215.4,
+   "entryHigh": 221.5,
+   "t1": 396.0,
+   "src": "관심",
+   "score": 48
   }
  },
  "watch": [
-  "S",
-  "SPCX",
+  "AAOI",
+  "ARM",
+  "QCOM",
+  "TSM",
   "XOM",
-  "CVX",
-  "GOOGL",
-  "INTC",
-  "TMUS",
-  "VZ",
-  "DVN",
-  "UAL",
-  "DAL",
-  "NVDA",
-  "LRCX",
-  "WDC"
+  "ALAB",
+  "MRVL",
+  "CRDO",
+  "AVGO",
+  "PBR",
+  "PBR-A",
+  "NU",
+  "MELI",
+  "ITUB",
+  "EWZ",
+  "NVO",
+  "COST",
+  "JPM",
+  "RTX",
+  "CLF",
+  "BE",
+  "LMT",
+  "SHOP"
  ]
 }
