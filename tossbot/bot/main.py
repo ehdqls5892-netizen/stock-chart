@@ -705,8 +705,10 @@ class Bot:
                 need = self.risk.capital or self.cfg["risk"][self.m].get("budget_per_trade", 0)
                 if self.m == "KR" and cash is not None and self.risk.capital and cash < self.risk.capital:
                     self.log(f"계좌의 매수 가능 금액이 오늘 투자금보다 적어요 → {money(self.m, cash)} 안에서만 사요")
+                if self.risk.capital:
+                    need = min(need, self.risk.available(self.broker.invested()) or 0)   # 이미 산(들고 온) 금액은 빼고 비교
                 if self.m == "US" and (cash or 0) < need:
-                    self.log("달러 잔고가 1회 매수 금액보다 적어요. 토스의 '원화로 바로 주문(자동 환전)'이 켜져 있으면 그대로 주문되고, "
+                    self.log(f"달러 잔고({money(self.m, cash or 0)})가 지금 더 살 수 있는 금액({money(self.m, need)})보다 적어요. 토스의 '원화로 바로 주문(자동 환전)'이 켜져 있으면 그대로 주문되고, "
                              "아니면 주문이 거절돼요 → 토스 앱에서 환전하거나 자동 환전을 켜 주세요.")
                     cash = None
             except TossError as e:
