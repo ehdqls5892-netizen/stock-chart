@@ -415,6 +415,69 @@ class Bot:
         self.log(f"후보 {len(self.universe)}개: " + ", ".join(self.syms[s].name or s for s in self.universe[:40])
                  + (f" … 제외 {len(ex)}개" if ex else ""))
 
+    # ───────── 실시간 뉴스 ─────────
+    def _news_loop(self, no_entry_t):
+        while not getattr(self, "_bg_stop", False):
+            try:
+                self.news_tick(no_entry_t)
+            except Exception as e:
+                self.log(f"📰 뉴스 감시 오류: {e}")
+            time.sleep(5)
+
+    def news_tick(self, no_entry_t):
+        c = self.cfg.get("news", {})
+        if not c.get("enabled") or os.getenv("TOSSBOT_OFFLINE") == "1":
+            return
+        if getattr(self, "news", None) is None:
+            from .news import NewsWatch
+            names = {s: st.name for s, st in self.syms.items() if st.name}
+            try:
+                import requests
+                raw = self.cfg.get("allstocks_url", "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/data-{m}/index.json")
+                for it in (requests.get(raw.format(m=self.m.lower()), timeout=20).json().get("items") or []):
+                    names.setdefault(it[0], it[1])
+            except Exception as e:
+                self.log(f"📰 종목 이름 목록을 못 받아 후보 종목 이름으로만 뉴스를 봐요: {e}")
+            self.news = NewsWatch(self.m, names, self.log, self.notify, c.get("queries_per_min", 6), c.get("max_age_min", 90))
+            self.ctx["news_good"], self.ctx["news_bad"] = self.news.good, self.news.bad
+            self.log(f"📰 실시간 뉴스 감시 시작 (종목 {len(names)}개 이름으로 찾음, 1분마다)")
+        for code, tone, title in self.news.poll():
+            st = self.syms.get(code)
+            nm = (st.name if st and st.name else None) or code
+            if tone > 0:
+                self.log(f"📰 호재 뉴스 {nm}: {title}")
+                if code not in self.universe and now(self.m) < no_entry_t:
+                    self.add_symbol(code, "뉴스 호재")
+            else:
+                self.log(f"📰 악재 뉴스 {nm}: {title}")
+                p = self.broker.pos.get(code) if getattr(self, "broker", None) else None
+                if p:
+                    self.notify(f"⚠️ 보유 중인 {p.name} 악재 뉴스: {title}\n→ 손절 판단선 아래로 가면 기다리지 않고 바로 정리해요")
+
+    def add_symbol(self, sym, why=""):
+        """장중에 새 종목을 후보에 바로 추가 (보통주·경고 없음 확인 → 분봉 받기 → 실시간 구독)."""
+        try:
+            info = (self.api.stocks([sym]) or [{}])[0]
+            stype = str(info.get("securityType") or "")
+            if stype not in ("STOCK", "FOREIGN_STOCK", "DEPOSITARY_RECEIPT"):
+                return
+            if self.m == "KR" and info.get("isCommonShare") is False:
+                return
+            st = self.syms.setdefault(sym, SymState(sym))
+            st.name = info.get("name") or st.name or sym
+            ws = self.api.warnings(sym)
+            if any(w.get("warningType") in BAD_WARNINGS and not w.get("endDate") for w in ws):
+                return
+            self.prev_close(sym)
+            st.load_candles(self.api.candles(sym, "1m", 120), self.m)
+        except Exception as e:
+            self.log(f"후보 추가 실패 {sym}: {e}")
+            return
+        self.universe = [sym] + [x for x in self.universe if x != sym]
+        if self.stream:
+            self.stream.set_codes(list(dict.fromkeys(list(self.broker.pos) + self.universe)))
+        self.log(f"➕ 후보 추가 {st.name}({why}) · 차트 신호가 나오면 우선 매수")
+
     def prev_close(self, sym):
         st = self.syms.setdefault(sym, SymState(sym))
         if st.prev_close is None:
@@ -528,8 +591,11 @@ class Bot:
                     out["vol_x"] = sum(b.v for b in recent) / len(recent) / avg
         out["market"] = self.market_move()
         d = (self.ctx.get("daily") or {}).get(sym) or {}
+        nb = (self.ctx.get("news_bad") or {}).get(sym)
         if sym in self.ctx.get("earn_bad", ()):
             out["bad"] = "실적 실망 종목"
+        elif nb:
+            out["bad"] = "악재 뉴스(" + nb.get("title", "")[:30] + ")"
         elif d.get("label") == "주의":
             out["bad"] = "일봉 차트가 '주의'"
         return out
@@ -631,6 +697,7 @@ class Bot:
         last_bg = 0.0
         if not inline_bg:
             threading.Thread(target=self._bg_loop, args=(no_entry_t,), daemon=True).start()
+            threading.Thread(target=self._news_loop, args=(no_entry_t,), daemon=True).start()
         try:
             while True:
                 n = now(self.m)

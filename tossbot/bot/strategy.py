@@ -263,6 +263,8 @@ def sig_open(st, now, open_t, cfg, bars, done, p, vw, ctx):
         return None
     eg = (ctx or {}).get("earn_good", {}).get(st.symbol)
     pre = (ctx or {}).get("pre", {}).get(st.symbol)        # 프리마켓에서 이미 오른 종목
+    if pre is None and st.symbol in (ctx or {}).get("news_good", {}):
+        pre = 0.0                                          # 장 전·장 초반 호재 뉴스 종목도 같은 방식으로
     if st.symbol not in (ctx or {}).get("watched", ()) and not eg and pre is None:
         return None
     pc = st.prev_close
@@ -292,7 +294,7 @@ def sig_open(st, now, open_t, cfg, bars, done, p, vw, ctx):
         if (not pl and pre is None) or len(done) < 2 or not all(b.c > b.o for b in done[-2:]) or done[-1].c <= done[-2].c:
             return None
         vx = c["vol_mult_min"]
-    src = ("실적 서프라이즈" if eg else pl.get("src") or (f"프리마켓 {pre:+.1f}%" if pre is not None else "")
+    src = ("실적 서프라이즈" if eg else pl.get("src") or (f"프리마켓 {pre:+.1f}%" if pre else "뉴스 호재" if pre is not None else "")
            or ("차트 " + d.get("scan", "")).strip())
     return {"setup": "open", "reason": f"장초반 출발({src}) · 갭 {gap:+.1f}% · 첫 봉 고점 {hi:g} 돌파 · 거래량 평소 {vx:.0f}배",
             "or_high": hi, "vwap": vw, "vol_x": min(vx / 2, 6), "level": max(min(b.l for b in done), vw * 0.995)}
@@ -310,6 +312,8 @@ def entry_signal(st: SymState, now: dt.datetime, open_t: dt.datetime, cfg: dict,
     ctx = ctx or {}
     if st.symbol in ctx.get("earn_block", ()):       # 오늘·내일 실적 발표 → 새로 사지 않음
         return None
+    if st.symbol in ctx.get("news_bad", {}) and st.symbol not in ctx.get("earn_good", {}):
+        return None                                  # 방금 악재 뉴스 → 새로 사지 않음
     on = cfg["strategy"].get("setups", {})
     early = now < open_t + dt.timedelta(minutes=cfg["strategy"]["orb_minutes"])
     if early and not (on.get("open") or {}).get("enabled"):
@@ -343,6 +347,10 @@ def entry_signal(st: SymState, now: dt.datetime, open_t: dt.datetime, cfg: dict,
             pl = ctx["plans"][st.symbol]
             if (pl.get("score") or 0) >= 70 or pl.get("src") in ("1순위", "장중 1순위"):
                 sc += 0.5                            # 데스크 종합 점수 70+ 또는 1순위
+        nw = ctx.get("news_good", {}).get(st.symbol)
+        if nw:
+            sc += 0.8                                # 방금 호재 뉴스(공급계약·목표가 상향·특징주 등)
+            sig["reason"] = f"뉴스 호재({nw.get('title', '')[:30]}) · " + sig["reason"]
         if st.symbol in ctx.get("earn_good", {}):
             sc += 1.2                                # 실적 서프라이즈 종목 가산
             sig["reason"] = "실적 서프라이즈 · " + sig["reason"]

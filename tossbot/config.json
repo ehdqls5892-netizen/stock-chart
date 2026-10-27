@@ -317,5 +317,10 @@
     "corr": 0.7,
     "max_same": 2,
     "bars": 60
+  },
+  "news": {
+    "enabled": true,
+    "queries_per_min": 6,
+    "max_age_min": 90
   }
 }
