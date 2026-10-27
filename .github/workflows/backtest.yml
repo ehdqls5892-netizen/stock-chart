@@ -1,0 +1,58 @@
+name: 로봇 백테스트 (실제 1분봉)
+
+on:
+  workflow_dispatch:
+    inputs:
+      market:
+        description: "kr 또는 us"
+        required: true
+        default: "us"
+      days:
+        description: "최근 며칠(거래일, 최대 약 18)"
+        required: true
+        default: "10"
+      top:
+        description: "받을 종목 수 (거래대금 상위)"
+        required: true
+        default: "150"
+  schedule:
+    - cron: "30 22 * * 5"   # 매주 토요일 07:30(한국) 미장
+    - cron: "40 22 * * 5"   # 국장
+
+permissions:
+  contents: write
+
+jobs:
+  bt:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: 설치
+        run: pip install -r tossbot/requirements.txt yfinance pandas
+      - name: 시장 정하기
+        id: mk
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then M="${{ github.event.inputs.market }}"; D="${{ github.event.inputs.days }}"; T="${{ github.event.inputs.top }}";
+          elif [ "${{ github.event.schedule }}" = "30 22 * * 5" ]; then M=us; D=10; T=150; else M=kr; D=10; T=200; fi
+          echo "m=$M" >> $GITHUB_OUTPUT; echo "d=$D" >> $GITHUB_OUTPUT; echo "t=$T" >> $GITHUB_OUTPUT
+      - name: 전 종목 일봉(종목 고르기용)
+        run: git clone -q --depth 1 -b data-${{ steps.mk.outputs.m }} https://github.com/${{ github.repository }} ../data
+      - name: 백테스트
+        working-directory: tossbot
+        run: |
+          python tools/backtest.py ${{ steps.mk.outputs.m }} --data ../../data --days ${{ steps.mk.outputs.d }} --top ${{ steps.mk.outputs.t }} --out ../out > ../bt.log 2> >(tee ../bt.err >&2)
+          tail -c 200000 ../bt.log > ../out/bt-${{ steps.mk.outputs.m }}.log
+      - name: 결과 올리기 (bt 브랜치)
+        if: always()
+        run: |
+          mkdir -p out && cp -f bt.err out/bt-${{ steps.mk.outputs.m }}.err 2>/dev/null || true
+          cd out
+          git init -q && git checkout -q -b bt-${{ steps.mk.outputs.m }}
+          git config user.name "cof-bot" && git config user.email "cof-bot@users.noreply.github.com"
+          git add -A && git commit -qm "백테스트 $(date -u +%F)"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" bt-${{ steps.mk.outputs.m }}
