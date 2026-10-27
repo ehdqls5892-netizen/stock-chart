@@ -140,7 +140,22 @@
         "max_chase_pct": 1.5,
         "vol_mult_min": 4,
         "earn_max_gap_pct": 12,
-        "pre_max_gap_pct": 10
+        "pre_max_gap_pct": 10,
+        "markets": [
+          "KR"
+        ]
+      },
+      "gapdown": {
+        "enabled": false,
+        "markets": [
+          "US"
+        ],
+        "start_min": 2,
+        "end_min": 20,
+        "min_gap_pct": -4,
+        "max_gap_pct": -15,
+        "max_below_open_pct": 1.5,
+        "stop_pct": 5.0
       }
     },
     "earn_max_day_change_pct": 25,
@@ -186,7 +201,8 @@
       "protect_after_pct": 2.0,
       "protect_size": 0.5,
       "protect_giveback_pct": 50,
-      "min_qty": 2
+      "min_qty": 2,
+      "max_drawdown_pct": 10
     },
     "US": {
       "daily_capital": 5000,
@@ -227,7 +243,8 @@
       "protect_after_pct": 2.0,
       "protect_size": 0.5,
       "protect_giveback_pct": 50,
-      "min_qty": 2
+      "min_qty": 2,
+      "max_drawdown_pct": 10
     }
   },
   "fees": {
@@ -326,5 +343,11 @@
     "enabled": true,
     "queries_per_min": 6,
     "max_age_min": 90
+  },
+  "setup_gate": {
+    "enabled": true,
+    "days": 30,
+    "min_trades": 8,
+    "min_pf": 0.7
   }
 }

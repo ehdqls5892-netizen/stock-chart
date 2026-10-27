@@ -11,9 +11,9 @@ import datetime as dt
 import json
 from pathlib import Path
 
-SETUP_NAMES = {"open": "장초반 출발", "orb": "시초 돌파", "hod": "고점 돌파", "vwap": "평균단가 반등", "plan": "데스크 계획",
+SETUP_NAMES = {"gapdown": "갭하락 반등", "open": "장초반 출발", "orb": "시초 돌파", "hod": "고점 돌파", "vwap": "평균단가 반등", "plan": "데스크 계획",
                "support": "지지선 반등", "r2g": "갭하락 회복", "?": "기타"}
-_KEYS = [("장초반", "open"), ("시초", "orb"), ("오늘 고점", "hod"), ("VWAP", "vwap"), ("데스크", "plan"),
+_KEYS = [("갭하락 반등", "gapdown"), ("장초반", "open"), ("시초", "orb"), ("오늘 고점", "hod"), ("VWAP", "vwap"), ("데스크", "plan"),
          ("일봉", "support"), ("갭하락", "r2g")]
 
 
@@ -66,16 +66,30 @@ def summarize(recs: list, market: str, capital: float | None = None) -> str:
         peak = max(peak, eq)
         mdd = max(mdd, peak - eq)
     days = len({r["_day"] for r in recs})
+    byday: dict = {}
+    for r, x in zip(recs, pnl):
+        byday[r["_day"]] = byday.get(r["_day"], 0) + x
+    dv = list(byday.values())
+    sharpe = None
+    if len(dv) >= 5:
+        mu = sum(dv) / len(dv)
+        sd = (sum((x - mu) ** 2 for x in dv) / (len(dv) - 1)) ** 0.5
+        sharpe = mu / sd * 252 ** 0.5 if sd else None
     lines = [f"매매 {len(recs)}건({days}일) · 승률 {len(wins) / len(recs) * 100:.0f}% · 합계 {fmt(tot)} (하루 평균 {fmt(tot / days)})",
              f"평균 이익 {fmt(aw)} / 평균 손실 {fmt(al)}" + (f" → 손익비 {aw / al:.1f}" if al else "")
              + f" · 1회 기대값 {fmt(tot / len(recs))}",
-             f"최대 낙폭 {fmt(mdd)}" + (f" (투자금의 {mdd / capital * 100:.1f}%)" if capital else "")]
+             f"최대 낙폭 {fmt(mdd)}" + (f" (투자금의 {mdd / capital * 100:.1f}%)" if capital else "")
+             + (f" · 샤프 {sharpe:+.2f}" + (" (마이너스 → 고칠 필요)" if sharpe < 0 else "") if sharpe is not None else "")]
     by: dict[str, list] = {}
     for r, x in zip(recs, pnl):
         by.setdefault(setup_of(r), []).append(x)
     rows = sorted(by.items(), key=lambda kv: -sum(kv[1]))
+    def tag(v):
+        w, l = sum(x for x in v if x > 0), -sum(x for x in v if x <= 0)
+        pf = w / l if l else 9.9
+        return "✅" if pf >= 1.2 else "⚠️" if pf >= 0.8 else "❌"
     lines.append("방식별: " + " · ".join(
-        f"{SETUP_NAMES.get(k, k)} {len(v)}건 {sum(1 for x in v if x > 0) / len(v) * 100:.0f}% {fmt(sum(v))}" for k, v in rows))
+        f"{tag(v)}{SETUP_NAMES.get(k, k)} {len(v)}건 {sum(1 for x in v if x > 0) / len(v) * 100:.0f}% {fmt(sum(v))}" for k, v in rows))
     return "\n".join(lines)
 
 

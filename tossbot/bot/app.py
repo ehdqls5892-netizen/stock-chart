@@ -117,6 +117,71 @@ def _watchdog():
                 os._exit(1)
 
 
+def resume_dd() -> str:
+    """계좌 낙폭 한도 멈춤 풀기: 지금부터 낙폭을 새로 계산."""
+    import datetime as dt
+    st = M.load_settings()
+    locks = st.get("dd_lock") or {}
+    if not locks:
+        return "멈춘 시장이 없어요."
+    names = ", ".join({"KR": "국장", "US": "미장"}.get(k, k) for k in locks)
+    stamp = dt.datetime.now().isoformat(timespec="seconds")
+    for mk in list(locks):
+        st.setdefault("dd_base", {})[mk] = stamp
+        b = STATE["bots"].get(mk)
+        if b is not None and hasattr(b, "risk") and b.risk.halted and "낙폭" in b.risk.halted:
+            b.risk.halted = None
+    st["dd_lock"] = {}
+    M.save_settings(st)
+    return f"▶️ {names} 다시 매수할 수 있어요. 낙폭은 지금부터 새로 계산해요."
+
+
+def _briefing_loop(send):
+    """장 시작 전 브리핑: 국장 08:40(한국), 미장 09:15(뉴욕) — 평일."""
+    import datetime as dt
+    import time
+    from zoneinfo import ZoneInfo
+    from . import stats
+    done = set()
+    while True:
+        try:
+            for mk, hm, tz in (("KR", "08:40", "Asia/Seoul"), ("US", "09:15", "America/New_York")):
+                n = dt.datetime.now(ZoneInfo(tz))
+                key = (mk, n.date())
+                if n.weekday() >= 5 or key in done or n.strftime("%H:%M") < hm or n.strftime("%H:%M") > "10:30":
+                    continue
+                done.add(key)
+                s = status()
+                cfg = _cfg()
+                if mk not in M.markets_of(cfg):
+                    continue
+                x = s["markets"].get(mk, {})
+                name = {"KR": "🇰🇷 국장", "US": "🇺🇸 미장"}[mk]
+                fmt = (lambda v: f"${v:,.2f}") if mk == "US" else (lambda v: f"{v:,.0f}원")
+                st = M.load_settings()
+                lines = [f"🌅 {name} 장 전 브리핑 ({n.strftime('%m/%d')})",
+                         f"투자금 {fmt(x.get('capital') or 0)} · 하루 손실 한도 {fmt(x.get('loss_limit') or 0)}"]
+                pos = [p for p in s.get("positions", []) if p.get("market") == mk]
+                lines.append("보유: " + (", ".join(f"{p['name']} {p['qty']}주(손절 {fmt(p['sl'])})" for p in pos) if pos else "없음"))
+                for mode, title in (("live", "실전"), ("paper", "연습")):
+                    recs = stats.load(M.ROOT, mk, 14, mode)
+                    if recs:
+                        last = max(r["_day"] for r in recs)
+                        lp = sum(float(r.get("pnl") or 0) for r in recs if r["_day"] == last)
+                        lines.append(f"[{title}] 지난 장({last[5:]}) {fmt(lp)} · 최근 14일: " +
+                                     stats.summarize(recs, mk, x.get("capital")).split("\n")[0])
+                if (st.get("dd_lock") or {}).get(mk):
+                    lines.append(f"🛑 낙폭 한도로 멈춤: {st['dd_lock'][mk]} → '재개'를 보내야 다시 사요")
+                if (st.get("gated") or {}).get(mk):
+                    lines.append("🚫 꺼진 방식: " + ", ".join(st["gated"][mk]))
+                if x.get("halted"):
+                    lines.append(f"⛔ {x['halted']}")
+                send("\n".join(lines))
+        except Exception:
+            pass
+        time.sleep(30)
+
+
 def set_capital(mk: str, amount) -> str:
     """오늘 투자금 바꾸기. 실행 중이면 바로 반영 (이미 산 종목은 그대로)."""
     mk = (mk or "").upper()
@@ -271,8 +336,10 @@ def main():
         print("   윈도우 방화벽 창이 뜨면 '개인 네트워크'만 허용을 누르세요.")
     from .telegram_ctl import TelegramControl
     tc = TelegramControl(start, stop, status, set_capital)
+    tc.resume_fn = resume_dd
     if tc.enabled:
         tc.start()
+        threading.Thread(target=_briefing_loop, args=(lambda t: tc.send(t),), daemon=True).start()
         print("💬 텔레그램으로도 조작할 수 있어요 (봇 채팅방에서 '상태' 를 보내 보세요).")
     if os.getenv("APP_HEADLESS", "0") != "1":
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()

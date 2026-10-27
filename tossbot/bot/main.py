@@ -584,9 +584,75 @@ class Bot:
 
     def on_closed(self, p):
         self.risk.record_exit(p.pnl)
+        try:
+            self.dd_check()
+        except Exception as e:
+            self.log(f"낙폭 확인 오류: {e}")
         st = self.syms.get(p.symbol)
         if st and p.pnl < 0:
             st.cooldown_until = now(self.m) + dt.timedelta(minutes=self.cfg["strategy"]["cooldown_min"])
+
+    # ───────── 계좌 낙폭 한도: 누적 손익이 고점에서 투자금의 N% 넘게 줄면 전부 정리하고 '재개' 전까지 멈춤 ─────────
+    def dd_check(self, flatten: bool = True):
+        lim = self.cfg["risk"][self.m].get("max_drawdown_pct", 0)
+        if not lim or not self.risk.capital:
+            return
+        st = load_settings()
+        lock = (st.get("dd_lock") or {}).get(self.m)
+        if not lock:
+            from .stats import load
+            base = (st.get("dd_base") or {}).get(self.m, "")
+            eq = peak = 0.0
+            for r in sorted(load(ROOT, self.m, 3650, self.mode), key=lambda r: r.get("t", "")):
+                if base and r.get("t", "") < base:
+                    continue
+                eq += float(r.get("pnl") or 0)
+                peak = max(peak, eq)
+            dd = peak - eq
+            if dd < self.risk.capital * lim / 100:
+                return
+            lock = f"{now(self.m).strftime('%m/%d %H:%M')} 누적 손익 고점 대비 −{money(self.m, dd)} (한도 {lim}%)"
+            st.setdefault("dd_lock", {})[self.m] = lock
+            save_settings(st)
+            msg = (f"🛑 계좌 낙폭 한도 도달: {lock}\n→ 들고 있는 종목을 전부 정리하고 새 매수를 멈춰요. "
+                   f"원인을 확인한 뒤 텔레그램에서 '재개'를 보내면 다시 시작해요.")
+            self.log(msg)
+            self.notify(msg)
+            if flatten and getattr(self, "broker", None):
+                for sym in list(self.broker.pos):
+                    stt = self.syms.get(sym)
+                    self.broker.flatten(sym, "계좌 낙폭 한도 — 전부 정리", stt.last if stt else None)
+        self.risk.halted = f"계좌 낙폭 한도로 멈춤 ({lock}) — 텔레그램 '재개'로 다시 시작"
+
+    # ───────── 성적 나쁜 매수 방식 자동 끄기 ─────────
+    def setup_gate(self):
+        g = self.cfg.get("setup_gate", {})
+        if not g.get("enabled"):
+            return
+        from .stats import SETUP_NAMES, load, setup_of
+        recs = load(ROOT, self.m, g.get("days", 30), "live") + load(ROOT, self.m, g.get("days", 30), "paper")
+        by: dict = {}
+        for r in recs:
+            by.setdefault(setup_of(r), []).append(float(r.get("pnl") or 0))
+        off = []
+        for name, v in by.items():
+            if name == "?" or len(v) < g.get("min_trades", 8):
+                continue
+            win, loss = sum(x for x in v if x > 0), -sum(x for x in v if x <= 0)
+            pf = win / loss if loss else 9.9
+            if pf < g.get("min_pf", 0.7) and sum(v) < 0:
+                if name == "orb":
+                    self.cfg["strategy"]["orb_enabled"] = False
+                elif name in self.cfg["strategy"].get("setups", {}):
+                    self.cfg["strategy"]["setups"][name]["enabled"] = False
+                off.append(f"{SETUP_NAMES.get(name, name)}({len(v)}건, 이익합/손실합 {pf:.2f})")
+        st = load_settings()
+        st.setdefault("gated", {})[self.m] = off
+        save_settings(st)
+        if off:
+            msg = "🚫 최근 성적이 나빠서 이번 장에서 끈 매수 방식: " + ", ".join(off)
+            self.log(msg)
+            self.notify(msg)
 
     # ───────── 손절 판단 재료: 거래량·평균 단가·시장 흐름·악재 ─────────
     def market_move(self):
@@ -694,6 +760,8 @@ class Bot:
         self.broker.restore()
         if live:
             self.broker.verify_carried()
+        self.setup_gate()
+        self.dd_check(flatten=True)
         for p in self.broker.pos.values():
             self.syms.setdefault(p.symbol, SymState(p.symbol)).name = p.name
 
@@ -805,6 +873,8 @@ class Bot:
                                 st.excluded = f"주문 불가({self.broker.rejected[sym]})"   # 교육·예탁금 등 → 오늘은 다시 안 시도
                             if p:
                                 p.extra["setup"], p.extra["grade"] = sig.get("setup"), sig.get("grade")
+                                if sig.get("setup") == "gapdown" and self.cfg["strategy"]["setups"].get("gapdown", {}).get("hold_eod", True):
+                                    p.extra["hold_eod"] = True
                                 if getattr(st, "etf", False):
                                     p.extra["etf"] = True
                                 self.mark_swing(p, sig)

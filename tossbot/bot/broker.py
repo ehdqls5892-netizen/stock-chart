@@ -116,6 +116,8 @@ class BaseBroker:
         R = p.extra.get("R") or max(p.entry - p.sl, p.entry * 0.01)
         a = p.extra.get("atr") or p.entry * 0.004
         p.peak = max(p.peak or p.entry, last)
+        if p.extra.get("hold_eod"):
+            return None, None, ""          # 갭하락 반등: 손절선만 두고 그날 종가 무렵까지 그대로 (백테스트와 같은 방식)
         new_sl, why = p.sl, ""
         if t.get("cushion_at_R") and last >= p.entry + R * t["cushion_at_R"]:
             cu = round_tick(self.m, p.entry - R * t.get("cushion_R", 0.4), "up")
@@ -215,6 +217,8 @@ class BaseBroker:
             return "들고 가기 꺼짐"
         if p.extra.get("etf"):
             return "ETF·레버리지는 하루 안에 정리 (밤사이 갭·녹아내림 위험)"
+        if p.extra.get("hold_eod"):
+            return "갭하락 반등은 그날 종가 무렵 정리"
         if p.state != "open" or last is None:
             return "보유 상태 아님"
         sw = self.cfg.get("swing", {}) if p.extra.get("swing") else {}

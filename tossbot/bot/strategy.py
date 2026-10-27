@@ -86,7 +86,7 @@ def opening_range(bars: list[Bar], open_t: dt.datetime, minutes: int):
 
 
 def _common(st: SymState, now: dt.datetime, open_t: dt.datetime, cfg: dict, early: bool = False, earn: bool = False,
-            adding: bool = False):
+            adding: bool = False, deep: float | None = None):
     """모든 매수 방식에 공통인 거름망. 통과하면 (bars, done, p, vw) 를, 아니면 None.
     early=True 는 장 시작 직후(⑦ 장초반 출발)용: 15분 기다림·봉 개수 조건을 건너뜀."""
     s = cfg["strategy"]
@@ -107,7 +107,7 @@ def _common(st: SymState, now: dt.datetime, open_t: dt.datetime, cfg: dict, earl
     if st.prev_close:
         chg = (p / st.prev_close - 1) * 100
         cap = s.get("earn_max_day_change_pct", 25) if earn else s["max_day_change_pct"]
-        if chg > cap or chg < s.get("min_day_change_pct_any", -8):
+        if chg > cap or chg < (min(deep, s.get("min_day_change_pct_any", -8)) if deep else s.get("min_day_change_pct_any", -8)):
             return None
     f = s.get("filters", {})
     d = st.daily or {}
@@ -310,9 +310,31 @@ def sig_open(st, now, open_t, cfg, bars, done, p, vw, ctx):
             "or_high": hi, "vwap": vw, "vol_x": min(vx / 2, 6), "level": max(min(b.l for b in done), vw * 0.995)}
 
 
-SETUPS = [("open", sig_open), ("orb", sig_orb), ("hod", sig_hod), ("vwap", sig_vwap), ("plan", sig_plan),
+def sig_gapdown(st, now, open_t, cfg, bars, done, p, vw, ctx):
+    """⑨ 갭하락 반등(미장 대형주): 전날보다 −4% 이상 빠져 시작한 대형주가 장 초반 더 무너지지 않으면 산다.
+    백테스트(미장 1분봉 한 달): −4% 이하 갭 96건 평균 +0.40%(수수료 뒤), −6% 이하 30건 평균 +1.0%. 손절은 넓게(−4.5%)."""
+    c = cfg["strategy"]["setups"].get("gapdown") or {}
+    m = (now - open_t).total_seconds() / 60
+    if not (c.get("start_min", 2) <= m < c.get("end_min", 20)):
+        return None
+    pc = st.prev_close
+    if not pc or not bars or len(done) < 2:
+        return None
+    o = bars[0].o
+    gap = (o / pc - 1) * 100
+    if not (c.get("max_gap_pct", -15) <= gap <= c.get("min_gap_pct", -4)):
+        return None
+    lo = min(b.l for b in bars)
+    if p < o * (1 - c.get("max_below_open_pct", 1.5) / 100) or p <= lo * 1.001:
+        return None                                  # 시가 아래로 계속 무너지는 중이면 안 삼
+    return {"setup": "gapdown", "reason": f"갭하락 반등 · 시가 {gap:+.1f}% · 지금 시가 대비 {(p / o - 1) * 100:+.1f}%",
+            "or_high": max(b.h for b in bars), "vwap": vw or p, "vol_x": 2.0, "level": lo,
+            "stop": round(p * (1 - c.get("stop_pct", 5.0) / 100), 4)}
+
+
+SETUPS = [("open", sig_open), ("gapdown", sig_gapdown), ("orb", sig_orb), ("hod", sig_hod), ("vwap", sig_vwap), ("plan", sig_plan),
           ("support", sig_support), ("r2g", sig_r2g)]
-PRIORITY = {"open": 3.2, "orb": 3.0, "hod": 2.6, "plan": 2.8, "vwap": 2.4, "support": 2.2, "r2g": 2.0}
+PRIORITY = {"gapdown": 2.9, "open": 3.2, "orb": 3.0, "hod": 2.6, "plan": 2.8, "vwap": 2.4, "support": 2.2, "r2g": 2.0}
 
 
 def entry_signal(st: SymState, now: dt.datetime, open_t: dt.datetime, cfg: dict, ctx: dict | None = None,
@@ -326,18 +348,28 @@ def entry_signal(st: SymState, now: dt.datetime, open_t: dt.datetime, cfg: dict,
         return None                                  # 방금 악재 뉴스 → 새로 사지 않음
     on = cfg["strategy"].get("setups", {})
     early = now < open_t + dt.timedelta(minutes=cfg["strategy"]["orb_minutes"])
-    if early and not (on.get("open") or {}).get("enabled"):
+    gd = on.get("gapdown") or {}
+    gd_on = bool(gd.get("enabled") and cfg.get("market") in gd.get("markets", ["US"]))
+    if early and not ((on.get("open") or {}).get("enabled") or gd_on):
         return None
-    base = _common(st, now, open_t, cfg, early=early, earn=st.symbol in ctx.get("earn_good", {}), adding=adding)
+    base = _common(st, now, open_t, cfg, early=early, earn=st.symbol in ctx.get("earn_good", {}), adding=adding,
+                   deep=gd.get("max_gap_pct", -15) if gd_on and not adding else None)
     if not base:
         return None
     bars, done, p, vw = base
     best = None
     for name, fn in SETUPS:
-        if early and name != "open":
+        if early and name not in ("open", "gapdown"):
             continue
+        if name == "gapdown":
+            if not gd_on:
+                continue
+        elif st.prev_close and (p / st.prev_close - 1) * 100 < cfg["strategy"].get("min_day_change_pct_any", -8):
+            continue                                   # 크게 빠진 종목은 갭하락 반등 방식만 봄
         if name != "orb" and not (on.get(name) or {}).get("enabled"):
             continue
+        if cfg.get("market") not in (on.get(name) or {}).get("markets", ["KR", "US"]):
+            continue                                   # 시장별로 켜고 끔 (백테스트 결과에 따라)
         if name == "orb" and not cfg["strategy"].get("orb_enabled", True):
             continue
         try:

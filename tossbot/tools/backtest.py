@@ -262,6 +262,9 @@ def run(m: str, data: dict, names: dict, capital: float, uni_n: int, last_days: 
     cfg["github_chart_url"] = ""
     cfg["desk_feed_url"] = ""
     cfg["news"]["enabled"] = False
+    cfg.setdefault("setup_gate", {})["enabled"] = False      # 비교 실험이 섞이지 않게 (켜려면 --set)
+    for mm in ("KR", "US"):
+        cfg["risk"][mm]["max_drawdown_pct"] = 0
     for kv in sets:                               # --set strategy.filters.daily_trend=true
         k, v = kv.split("=", 1)
         node = cfg

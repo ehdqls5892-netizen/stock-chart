@@ -121,6 +121,13 @@ class TelegramControl:
             pat = re.compile(r"매수|매도|체결|익절|손절|뉴스|후보 추가|안 사요|멈춰|프리마켓|시장 전체|🔗|⛔|오류")
             pick = [x for x in lines if (key in x if key else pat.search(x))][-25:]
             return self.send("📜 최근 기록" + (f" ({key})" if key else "") + "\n" + ("\n".join(pick) if pick else "해당 기록이 없어요 (로봇이 다시 켜지면 그 이전 기록은 화면에서 사라져요)"))
+        if t == "재개":
+            self.pending["resume"] = now
+            return self.send("▶️ 계좌 낙폭 한도로 멈춘 매수를 다시 시작해요. 60초 안에 '재개 확인' 을 보내면 실행해요.", kb=False)
+        if t == "재개 확인":
+            if now - self.pending.pop("resume", 0) < 60 and getattr(self, "resume_fn", None):
+                return self.send(self.resume_fn())
+            return self.send("확인 시간이 지났어요. 다시 '재개' 를 보내 주세요.")
         if "성적" in t:
             from pathlib import Path
             from .stats import report

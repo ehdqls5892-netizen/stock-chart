@@ -114,7 +114,25 @@ check("프리마켓 갭 종목 (고르지 않았어도)", *make(opn, upto=3), {"
 check("프리마켓 갭 +9% 도 10% 까지는", *make(gap_big, upto=3), {"pre": {"TEST": 8.8}, "daily": {"TEST": {"vol_min": 1000}}}, expect="open")
 check("프리마켓 갭 종목 — 장 열린 뒤 거래량 약하면 안 삼", *make(opn, upto=3), {"pre": {"TEST": 2.4}, "daily": {"TEST": {"vol_min": 9000}}}, expect=None)
 
+# ⑨ 갭하락 반등(미장 전용): −5% 갭으로 시작 → 더 무너지지 않고 시가 근처에서 버팀
+cfg_us = json.loads(json.dumps(cfg)); cfg_us["market"] = "US"; cfg_us["strategy"]["setups"]["gapdown"]["enabled"] = True   # 기본은 꺼짐(백테스트 손실)
+cfg_us["strategy"]["price_range"]["US"] = [1, 100000]
+def gd(m):
+    return [(9500, 9520, 9440, 9480, 3000), (9480, 9530, 9470, 9520, 2500), (9520, 9560, 9510, 9550, 2500)][m]
+st, now = make(gd, upto=3)
+sig = entry_signal(st, now, OPEN, cfg_us, {})
+print("갭하락 반등(미장):", sig and sig["setup"], sig and sig["reason"])
+assert sig and sig["setup"] == "gapdown"
+assert entry_signal(*make(gd, upto=3), OPEN, cfg, {}) is None, "국장에선 갭하락 반등을 안 함"
+def gd_fall(m):
+    return [(9500, 9510, 9400, 9420, 3000), (9420, 9425, 9300, 9310, 2500), (9310, 9320, 9250, 9260, 2500)][m]
+assert entry_signal(*make(gd_fall, upto=3), OPEN, cfg_us, {}) is None, "계속 무너지는데 삼"
+
 # 신호 없음 · 실적 발표 임박
 check("옆으로만(신호 없음)", *make(lambda m: bar(10000, 1000), upto=40), expect=None)
 check("실적 임박이면 안 삼", *make(orb, upto=20), {"earn_block": {"TEST"}}, expect=None)
 print("\n✅ 매수 방식 시험 통과")
+# 시장별 켜고 끄기: 장초반 출발은 국장만 (미장 백테스트에서 손실)
+cfg_us2 = json.loads(json.dumps(cfg)); cfg_us2["market"] = "US"; cfg_us2["strategy"]["price_range"]["US"] = [1, 100000]
+assert entry_signal(*make(opn, upto=3), OPEN, cfg_us2, watched) is None, "미장인데 장초반 출발로 삼"
+print("✅ 시장별 방식 켜기·끄기 확인")
