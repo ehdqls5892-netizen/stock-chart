@@ -311,5 +311,11 @@
   },
   "market_filter": {
     "weak_pct": -0.7
+  },
+  "diversify": {
+    "enabled": true,
+    "corr": 0.7,
+    "max_same": 2,
+    "bars": 60
   }
 }

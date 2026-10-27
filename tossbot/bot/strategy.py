@@ -354,6 +354,23 @@ def entry_signal(st: SymState, now: dt.datetime, open_t: dt.datetime, cfg: dict,
     return best
 
 
+def corr(a: SymState, b: SymState, since: dt.datetime, n: int = 60) -> float | None:
+    """두 종목의 최근 n개 1분 수익률 상관계수(같이 움직이는 정도, −1~1). 겹치는 분봉이 20개 미만이면 None."""
+    ka = {k: v.c for k, v in list(a.bars.items()) if k >= since and v.c}
+    kb = {k: v.c for k, v in list(b.bars.items()) if k >= since and v.c}
+    ks = sorted(set(ka) & set(kb))[-(n + 1):]
+    if len(ks) < 21:
+        return None
+    ra = [ka[y] / ka[x] - 1 for x, y in zip(ks, ks[1:])]
+    rb = [kb[y] / kb[x] - 1 for x, y in zip(ks, ks[1:])]
+    ma, mb = sum(ra) / len(ra), sum(rb) / len(rb)
+    va = sum((x - ma) ** 2 for x in ra)
+    vb = sum((y - mb) ** 2 for y in rb)
+    if va <= 0 or vb <= 0:
+        return None
+    return sum((x - ma) * (y - mb) for x, y in zip(ra, rb)) / (va * vb) ** 0.5
+
+
 def atr(bars: list[Bar], n: int = 14) -> float | None:
     """1분봉 평균 흔들림 폭(ATR). 이 종목이 평소 1분에 얼마나 출렁이는지."""
     if len(bars) < 3:

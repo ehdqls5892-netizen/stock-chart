@@ -96,6 +96,27 @@ def start(mode: str, repeat: bool = True) -> str:
         return f"시작했어요 ({names})." + (" 매일 다음 장도 자동으로 이어서 해요." if repeat else "")
 
 
+def _watchdog():
+    """서버 전용: 장중에 로봇이 3분 넘게 멈춰 있으면(먹통) 알리고 프로그램을 끝냄 → systemd 가 10초 뒤 다시 켜고 이어받음."""
+    import os
+    import time
+    while True:
+        time.sleep(30)
+        if STATE.get("stop_all"):
+            continue
+        for mk, b in list(STATE.get("bots", {}).items()):
+            beat = getattr(b, "beat", None)
+            if beat and getattr(b, "phase", "") in ("장중 매매", "새 진입 없이 보유분 관리", "마감 정리") \
+                    and time.time() - beat > 180:
+                try:
+                    b.notify(f"⚠️ {mk} 로봇이 3분 넘게 멈춰 있어서 다시 켜요 (보유 종목·손절 주문은 이어받아요)")
+                    b.log("⚠️ 멈춤 감지 → 프로그램 다시 시작")
+                except Exception:
+                    pass
+                time.sleep(3)
+                os._exit(1)
+
+
 def set_capital(mk: str, amount) -> str:
     """오늘 투자금 바꾸기. 실행 중이면 바로 반영 (이미 산 종목은 그대로)."""
     mk = (mk or "").upper()
@@ -255,6 +276,8 @@ def main():
         print("💬 텔레그램으로도 조작할 수 있어요 (봇 채팅방에서 '상태' 를 보내 보세요).")
     if os.getenv("APP_HEADLESS", "0") != "1":
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
+    if os.getenv("APP_HEADLESS", "0") == "1":
+        threading.Thread(target=_watchdog, daemon=True).start()     # 서버: 먹통이면 스스로 다시 켜기
     # 서버용: 꺼지기 전에 실행 중이었으면 다시 켜기 (재부팅·업데이트 뒤 자동 복구)
     if os.getenv("APP_RESUME", "0") == "1":
         mode = M.load_settings().get("resume")

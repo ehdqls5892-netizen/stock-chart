@@ -24,7 +24,7 @@ from .api import TossAPI, TossError
 from .broker import LiveBroker, PaperBroker
 from .notify import Notifier
 from .risk import Risk
-from .strategy import SymState, entry_signal, exit_levels, session_bars, vwap
+from .strategy import SymState, corr, entry_signal, exit_levels, session_bars, vwap
 from .util import TZ, add_ticks, f, money, now, parse_hm, parse_ts
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -451,6 +451,9 @@ class Bot:
             g = (p / pc - 1) * 100
             if c.get("min_gap_pct", 2) <= g <= c.get("max_gap_pct", 15):
                 found.append((g, sym))
+        same = sum(1 for sym in pool if px.get(sym) and self.syms[sym].prev_close and px[sym] == self.syms[sym].prev_close)
+        if pool and same >= len(pool) * 0.9:
+            self.log("🌅 프리마켓 시세가 안 들어와요(지금 가격 = 어제 종가). 장 열린 뒤 첫 1~15분 '장초반 출발'로만 잡아요")
         found.sort(reverse=True)
         found = found[: c.get("max_add", 25)]
         self.ctx["pre"] = {sym: round(g, 1) for g, sym in found}
@@ -530,6 +533,25 @@ class Bot:
         elif d.get("label") == "주의":
             out["bad"] = "일봉 차트가 '주의'"
         return out
+
+    def same_group(self, sym) -> str | None:
+        """이 종목과 같이 움직이는(오늘 1분 수익률 상관 0.7+) 보유 종목이 이미 max_same 개 이상이면 그 이름들."""
+        c = self.cfg.get("diversify", {})
+        if not c.get("enabled") or not getattr(self, "broker", None):
+            return None
+        st = self.syms.get(sym)
+        hits = []
+        for p in self.broker.pos.values():
+            o = self.syms.get(p.symbol)
+            if not st or not o or p.symbol == sym:
+                continue
+            try:
+                r = corr(st, o, self.open_t, c.get("bars", 60))
+            except RuntimeError:
+                r = None
+            if r is not None and r >= c.get("corr", 0.7):
+                hits.append(p.name)
+        return ", ".join(hits) if len(hits) >= c.get("max_same", 1) else None
 
     # ───────── 본 루프 ─────────
     def run(self):
@@ -612,6 +634,7 @@ class Bot:
         try:
             while True:
                 n = now(self.m)
+                self.beat = time.time()                      # 멈춤 감시용 (app 의 감시 스레드가 봄)
                 today = n.date().isoformat()
                 self.phase = ("장중 매매" if n < no_entry_t else "새 진입 없이 보유분 관리" if n < flatten_t else "마감 정리")
                 if self.stop_req and self.handle_stop(today):
@@ -655,6 +678,12 @@ class Bot:
                         cands.sort(key=lambda x: -x[0])          # 여러 종목이 동시에 신호 → 가장 센 것부터
                         for _, sym, sig in cands:
                             st = self.syms[sym]
+                            same = self.same_group(sym)
+                            if same:
+                                if time.time() - st.__dict__.get("_grp_log", 0) > 900:
+                                    st._grp_log = time.time()
+                                    self.log(f"🔗 {st.name or sym} 은 보유 중인 {same} 와 같이 움직여서 안 사요 (한 테마에 몰빵 방지)")
+                                continue
                             est = add_ticks(self.m, st.last, self.cfg["live"]["buy_slip_ticks"] if live else 1)
                             tp, sl, R, a = exit_levels(self.m, est, sig, self.cfg, st, self.open_t)
                             sl_exec = add_ticks(self.m, sl, -2 if live else -1)
