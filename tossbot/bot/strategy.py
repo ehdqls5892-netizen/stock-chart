@@ -262,14 +262,16 @@ def sig_open(st, now, open_t, cfg, bars, done, p, vw, ctx):
     if not (open_t + dt.timedelta(minutes=c["start_min"]) <= now < open_t + dt.timedelta(minutes=c["end_min"])):
         return None
     eg = (ctx or {}).get("earn_good", {}).get(st.symbol)
-    if st.symbol not in (ctx or {}).get("watched", ()) and not eg:
+    pre = (ctx or {}).get("pre", {}).get(st.symbol)        # 프리마켓에서 이미 오른 종목
+    if st.symbol not in (ctx or {}).get("watched", ()) and not eg and pre is None:
         return None
     pc = st.prev_close
     if not pc or not bars or vw is None:
         return None
     o = bars[0].o
     gap = (o / pc - 1) * 100
-    if not (c["min_gap_pct"] <= gap <= (c.get("earn_max_gap_pct", 12) if eg else c["max_gap_pct"])):
+    mx = c.get("earn_max_gap_pct", 12) if eg else c.get("pre_max_gap_pct", 10) if pre is not None else c["max_gap_pct"]
+    if not (c["min_gap_pct"] <= gap <= mx):
         return None
     first = done[:2]
     hi = max(b.h for b in first)
@@ -287,10 +289,11 @@ def sig_open(st, now, open_t, cfg, bars, done, p, vw, ctx):
         if vx < c["vol_mult_min"]:
             return None
     else:                                                    # 평소 거래량 자료가 없는 데스크 종목: 연속 양봉으로 대신 확인
-        if not pl or len(done) < 2 or not all(b.c > b.o for b in done[-2:]) or done[-1].c <= done[-2].c:
+        if (not pl and pre is None) or len(done) < 2 or not all(b.c > b.o for b in done[-2:]) or done[-1].c <= done[-2].c:
             return None
         vx = c["vol_mult_min"]
-    src = "실적 서프라이즈" if eg else (pl.get("src") or ("차트 " + d.get("scan", "")).strip())
+    src = ("실적 서프라이즈" if eg else pl.get("src") or (f"프리마켓 {pre:+.1f}%" if pre is not None else "")
+           or ("차트 " + d.get("scan", "")).strip())
     return {"setup": "open", "reason": f"장초반 출발({src}) · 갭 {gap:+.1f}% · 첫 봉 고점 {hi:g} 돌파 · 거래량 평소 {vx:.0f}배",
             "or_high": hi, "vwap": vw, "vol_x": min(vx / 2, 6), "level": max(min(b.l for b in done), vw * 0.995)}
 
@@ -343,7 +346,7 @@ def entry_signal(st: SymState, now: dt.datetime, open_t: dt.datetime, cfg: dict,
         if st.symbol in ctx.get("earn_good", {}):
             sc += 1.2                                # 실적 서프라이즈 종목 가산
             sig["reason"] = "실적 서프라이즈 · " + sig["reason"]
-        elif st.symbol in ctx.get("watched", ()):
+        elif st.symbol in ctx.get("watched", ()) or st.symbol in ctx.get("pre", {}):
             sc += 0.3
         sig["score"] = round(sc, 2)
         if not best or sig["score"] > best["score"]:

@@ -115,7 +115,7 @@ class Bot:
             old.replace(self.dir / "state.json")   # 예전 버전 보유 기록 옮기기
         self.risk = Risk(self.cfg, ROOT / "STOP")
         self.syms: dict[str, SymState] = {}
-        self.ctx: dict = {"plans": {}, "daily": {}, "earn_block": set(), "watched": set()}
+        self.ctx: dict = {"plans": {}, "daily": {}, "earn_block": set(), "watched": set(), "pre": {}}
         self.dirty: set = set()          # 새 체결이 들어와 다시 점검할 종목
         self.hot: dict = {}              # 크게 움직인 종목 → 분봉을 먼저 보정
         self._bg_stop = True
@@ -354,7 +354,10 @@ class Bot:
         for s in self.cfg.get("watchlist", {}).get(self.m, []):
             picks.setdefault(s, "")
         self.load_desk()
-        front = list(self.ctx["earn_good"]) + list(self.ctx["plans"]) + [c for c in self.ctx["watched"] if c not in self.ctx["plans"]]
+        self.premarket_scan(list(self.ctx["earn_good"]) + list(self.ctx["plans"]) + list(picks) + list(self.ctx["watched"]))
+        pre = sorted(self.ctx["pre"], key=lambda c: -self.ctx["pre"][c])
+        front = (list(self.ctx["earn_good"]) + list(self.ctx["plans"]) + pre
+                 + [c for c in self.ctx["watched"] if c not in self.ctx["plans"]])
         picks = {**{c: "" for c in front}, **picks}       # 실적 서프라이즈·데스크 종목을 맨 앞에
         gh = self.cfg.get("github_chart_url")
         if gh:
@@ -406,21 +409,54 @@ class Bot:
                 pass
         # 전일 종가: 일봉 2개
         for sym in keep:
-            st = self.syms[sym]
-            if st.prev_close is None:
-                try:
-                    d = self.api.candles(sym, "1d", 2)
-                    today = now(self.m).date()
-                    prev = [(parse_ts(c.get("timestamp"), self.m), c) for c in d]
-                    prev = [x for x in prev if x[0] and x[0].date() < today]
-                    if prev:
-                        st.prev_close = f(max(prev, key=lambda x: x[0])[1].get("closePrice"))
-                except TossError:
-                    pass
+            self.prev_close(sym)
         self.universe = [s for s in keep if not self.syms[s].excluded]
         ex = [f"{self.syms[s].name}({self.syms[s].excluded})" for s in keep if self.syms[s].excluded]
         self.log(f"후보 {len(self.universe)}개: " + ", ".join(self.syms[s].name or s for s in self.universe[:40])
                  + (f" … 제외 {len(ex)}개" if ex else ""))
+
+    def prev_close(self, sym):
+        st = self.syms.setdefault(sym, SymState(sym))
+        if st.prev_close is None:
+            try:
+                d = self.api.candles(sym, "1d", 2)
+                today = now(self.m).date()
+                prev = [(parse_ts(c.get("timestamp"), self.m), c) for c in d]
+                prev = [x for x in prev if x[0] and x[0].date() < today]
+                if prev:
+                    st.prev_close = f(max(prev, key=lambda x: x[0])[1].get("closePrice"))
+            except TossError:
+                pass
+        return st.prev_close
+
+    def premarket_scan(self, pool):
+        """장 시작 몇 분 전: 프리마켓(한국은 장전 시간외·동시호가)에서 이미 많이 오른 종목을 미리 후보 맨 앞에 넣는다.
+        여기서 사지는 않는다 — 장이 열리면 '장초반 출발'(첫 1~15분)로 정규장 가격·거래량을 확인하고 산다."""
+        c = self.cfg.get("premarket", {})
+        if not c.get("enabled") or now(self.m) >= self.open_t:
+            return
+        pool = [x for x in dict.fromkeys(pool) if x][: c.get("max_check", 100)]
+        if not pool:
+            return
+        try:
+            px = {x.get("symbol"): f(x.get("lastPrice")) for x in (self.api.prices(pool) or [])}
+        except Exception as e:
+            self.log(f"프리마켓 시세 조회 실패: {e}")
+            return
+        found = []
+        for sym in pool:
+            p, pc = px.get(sym), self.prev_close(sym)
+            if not p or not pc:
+                continue
+            g = (p / pc - 1) * 100
+            if c.get("min_gap_pct", 2) <= g <= c.get("max_gap_pct", 15):
+                found.append((g, sym))
+        found.sort(reverse=True)
+        found = found[: c.get("max_add", 25)]
+        self.ctx["pre"] = {sym: round(g, 1) for g, sym in found}
+        if found:
+            self.log("🌅 프리마켓 갭 상승 후보 " + str(len(found)) + "개 (장 열리면 바로 확인): "
+                     + ", ".join(f"{self.syms[s].name or s} {g:+.1f}%" for g, s in found[:10]))
 
     def refresh_bars(self, syms=None):
         for sym in syms or self.universe:
@@ -516,8 +552,9 @@ class Bot:
         if n >= self.close_t:
             self.log("오늘 장이 이미 끝났어요.")
             return
-        if n < self.open_t - dt.timedelta(minutes=3):
-            w = (self.open_t - dt.timedelta(minutes=3) - n).total_seconds()
+        lead = max(3, int(self.cfg.get("premarket", {}).get("lead_min", 8)) if self.cfg.get("premarket", {}).get("enabled") else 3)
+        if n < self.open_t - dt.timedelta(minutes=lead):
+            w = (self.open_t - dt.timedelta(minutes=lead) - n).total_seconds()
             self.log(f"장 시작까지 {int(w // 3600)}시간 {int(w % 3600 // 60)}분 기다려요. 이 창(화면)을 켜 둔 채로 두세요.")
             self.phase = f"장 시작 기다리는 중 ({self.open_t.strftime('%m/%d %H:%M')} {'한국' if self.m == 'KR' else '뉴욕'} 시간 시작)"
             end = time.time() + max(0, w)

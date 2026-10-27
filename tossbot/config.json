@@ -139,7 +139,8 @@
         "max_gap_pct": 6,
         "max_chase_pct": 1.5,
         "vol_mult_min": 4,
-        "earn_max_gap_pct": 12
+        "earn_max_gap_pct": 12,
+        "pre_max_gap_pct": 10
       }
     },
     "earn_max_day_change_pct": 25,
@@ -293,5 +294,13 @@
     "heavy_vol_x": 1.5,
     "below_vwap_pct": 1.0,
     "market_weak_pct": -0.5
+  },
+  "premarket": {
+    "enabled": true,
+    "lead_min": 8,
+    "min_gap_pct": 2.0,
+    "max_gap_pct": 15,
+    "max_check": 100,
+    "max_add": 25
   }
 }

@@ -7,7 +7,7 @@ REPO="ehdqls5892-netizen/stock-chart"
 apply_src() {   # $1 = 새 tossbot 폴더. 시험 통과하면 적용하고 다시 켬
   SRC="$1"
   echo "새 버전 시험 중…"
-  if ! (cd "$SRC" && for t in tests.test_setups tests.test_capital tests.test_pyramid tests.test_desk tests.test_exit; do
+  if ! (cd "$SRC" && for t in tests.test_setups tests.test_capital tests.test_pyramid tests.test_desk tests.test_exit tests.test_premarket; do
           [ -f "tests/${t#tests.}.py" ] || continue
           "$DIR/.venv/bin/python" -m "$t" >/tmp/tb-test.log 2>&1 || { echo "❌ 시험 실패: $t"; tail -5 /tmp/tb-test.log; exit 1; }
         done); then

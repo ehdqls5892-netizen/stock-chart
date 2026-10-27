@@ -118,6 +118,9 @@ class FakeAPI:
     def warnings(self, s):
         return []
 
+    def prices(self, syms):
+        return [{"symbol": s, "lastPrice": str(self.price(s))} for s in syms if s in PATHS]
+
     def price(self, sym):
         return snap(PATHS[sym][1](CLK.t)[0], sym)
 

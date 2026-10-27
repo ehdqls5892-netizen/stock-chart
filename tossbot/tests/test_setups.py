@@ -109,6 +109,11 @@ check("장초반 출발 — 갭 +9% 는 너무 올라서 안 삼", *make(gap_big
 check("실적 서프라이즈 (갭 +9%)", *make(gap_big, upto=3),
       {"earn_good": {"TEST": {"date": "2026-10-26", "text": "예상보다 좋음"}}, "daily": {"TEST": {"vol_min": 1000}}}, expect="open")
 
+# ⑨ 프리마켓 갭 종목: 데스크가 안 고른 종목이라도 장 전에 오른 종목이면 장초반 출발로 확인
+check("프리마켓 갭 종목 (고르지 않았어도)", *make(opn, upto=3), {"pre": {"TEST": 2.4}, "daily": {"TEST": {"vol_min": 1000}}}, expect="open")
+check("프리마켓 갭 +9% 도 10% 까지는", *make(gap_big, upto=3), {"pre": {"TEST": 8.8}, "daily": {"TEST": {"vol_min": 1000}}}, expect="open")
+check("프리마켓 갭 종목 — 장 열린 뒤 거래량 약하면 안 삼", *make(opn, upto=3), {"pre": {"TEST": 2.4}, "daily": {"TEST": {"vol_min": 9000}}}, expect=None)
+
 # 신호 없음 · 실적 발표 임박
 check("옆으로만(신호 없음)", *make(lambda m: bar(10000, 1000), upto=40), expect=None)
 check("실적 임박이면 안 삼", *make(orb, upto=20), {"earn_block": {"TEST"}}, expect=None)
