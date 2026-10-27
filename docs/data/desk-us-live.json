@@ -1,7 +1,7 @@
 {
  "market": "us",
  "date": "2026-10-27",
- "updatedAt": "2026-10-27T13:54+00:00",
+ "updatedAt": "2026-10-27T15:04+00:00",
  "plans": {
   "CLS": {
    "name": "셀레스티카",
@@ -11,21 +11,26 @@
    "t1": 333.86,
    "src": "장중 1순위",
    "t2": 375.0,
-   "score": 72
+   "score": 69
   }
  },
  "watch": [
   "CLS",
-  "AVGO",
   "SOFI",
-  "KO",
+  "PNR",
+  "GM",
   "UPS",
+  "BA",
   "PYPL",
+  "FERG",
+  "MTSI",
+  "MELI",
   "AMD",
-  "MU",
+  "AVGO",
   "NVDA",
   "META",
-  "TSLA"
+  "KO",
+  "MSFT"
  ],
  "earn_good": {}
 }
