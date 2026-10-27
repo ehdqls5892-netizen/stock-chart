@@ -28,6 +28,8 @@ from .strategy import SymState, corr, entry_signal, exit_levels, session_bars, v
 from .util import TZ, add_ticks, f, money, now, parse_hm, parse_ts
 
 ROOT = Path(__file__).resolve().parent.parent
+import re as _re
+LEV = _re.compile(r"(\b[23]X\b|Bull|Bear|Leverag|Inverse|UltraPro|UltraShort|Ultra 2x|레버리지|인버스|곱버스|2배|3배)", _re.I)
 BAD_WARNINGS = {"LIQUIDATION_TRADING", "INVESTMENT_WARNING", "INVESTMENT_RISK", "OVERHEATED",
                 "VI_STATIC_AND_DYNAMIC", "VI_STATIC", "VI_DYNAMIC"}
 
@@ -392,6 +394,8 @@ class Bot:
                 nm = info.get("name") or sym
                 if any(w in nm for w in ("스팩", "SPAC")):
                     continue
+                if not u.get("allow_etf") and (is_fund or LEV.search(nm)):
+                    continue                            # 레버리지·인버스·ETF 제외
                 keep.append(sym)
                 self.syms.setdefault(sym, SymState(sym)).name = nm
         except TossError as e:
@@ -461,6 +465,8 @@ class Bot:
             info = (self.api.stocks([sym]) or [{}])[0]
             stype = str(info.get("securityType") or "")
             if stype not in ("STOCK", "FOREIGN_STOCK", "DEPOSITARY_RECEIPT"):
+                return
+            if LEV.search(info.get("name") or ""):
                 return
             if self.m == "KR" and info.get("isCommonShare") is False:
                 return

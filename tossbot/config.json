@@ -37,7 +37,7 @@
     "max_symbols": 180,
     "refresh_min": 3,
     "stream_connections": 2,
-    "allow_etf": true,
+    "allow_etf": false,
     "etf_weight": 0.6
   },
   "watchlist": {
