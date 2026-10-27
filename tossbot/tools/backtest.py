@@ -318,7 +318,8 @@ def run(m: str, data: dict, names: dict, capital: float, uni_n: int, last_days: 
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("market", choices=["kr", "us"])
-    ap.add_argument("--data", required=True)
+    ap.add_argument("--data", default="")
+    ap.add_argument("--load", default="", help="저장해 둔 1분봉(data-<m>.pkl.gz)으로 다시 돌리기")
     ap.add_argument("--days", type=int, default=10)
     ap.add_argument("--top", type=int, default=150)
     ap.add_argument("--uni", type=int, default=100)
@@ -326,10 +327,18 @@ def main():
     ap.add_argument("--out", default="out")
     a = ap.parse_args()
     cap = a.capital or (1_000_000 if a.market == "kr" else 1000)
-    syms = pick_symbols(a.market, Path(a.data), a.top)
-    log(f"종목 {len(syms)}개 1분봉 받는 중…")
-    data = download(a.market, syms, a.days)
-    data = {c: v for c, v in data.items() if v}
+    import gzip
+    import pickle
+    if a.load:
+        syms, data = pickle.load(gzip.open(a.load, "rb"))
+    else:
+        syms = pick_symbols(a.market, Path(a.data), a.top)
+        log(f"종목 {len(syms)}개 1분봉 받는 중…")
+        data = download(a.market, syms, a.days)
+        data = {c: v for c, v in data.items() if v}
+        Path(a.out).mkdir(parents=True, exist_ok=True)
+        with gzip.open(Path(a.out) / f"data-{a.market}.pkl.gz", "wb") as f:   # 다시 돌려 볼 때 쓰려고 저장
+            pickle.dump((syms, data), f)
     log(f"받음 {len(data)}개")
     names = {c: syms[c]["name"] for c in syms}
     days, trades = run(a.market, data, names, cap, a.uni, a.days)
