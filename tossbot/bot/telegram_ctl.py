@@ -17,7 +17,7 @@ import requests
 KB = {"keyboard": [[{"text": "📊 상태"}, {"text": "💵 투자금"}],
                    [{"text": "▶️ 연습 시작"}, {"text": "🔴 실전 시작"}],
                    [{"text": "⏹ 종료(보유 유지)"}, {"text": "💰 종료(전부 팔기)"}],
-                   [{"text": "📈 성적"}]],
+                   [{"text": "📈 성적"}, {"text": "📜 기록"}]],
       "resize_keyboard": True, "is_persistent": True}
 
 
@@ -114,6 +114,13 @@ class TelegramControl:
         now = time.time()
         if t.startswith("투자금") or t.startswith("💵"):
             return self.send(self.capital_cmd(t))
+        if t in ("기록", "/log", "📜 기록") or t.startswith("기록 "):
+            import re
+            key = t[3:].strip() if t.startswith("기록 ") else ""
+            lines = (self.status_fn().get("log") or [])
+            pat = re.compile(r"매수|매도|체결|익절|손절|뉴스|후보 추가|안 사요|멈춰|프리마켓|시장 전체|🔗|⛔|오류")
+            pick = [x for x in lines if (key in x if key else pat.search(x))][-25:]
+            return self.send("📜 최근 기록" + (f" ({key})" if key else "") + "\n" + ("\n".join(pick) if pick else "해당 기록이 없어요 (로봇이 다시 켜지면 그 이전 기록은 화면에서 사라져요)"))
         if "성적" in t:
             from pathlib import Path
             from .stats import report

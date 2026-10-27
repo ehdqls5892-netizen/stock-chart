@@ -563,7 +563,8 @@ class LiveBroker(BaseBroker):
             both = (f"손절 판단선 {money(self.m, p.sl)}(로봇이 거래량·시장 보고 판단) · 최후 손절 {money(self.m, hard)}(토스 서버)"
                     if hard < p.sl else f"손절 {money(self.m, p.sl)}(토스 서버)")
             self.log(f"[실전] {p.name} {both} 시장가 조건주문 등록 · 익절은 나눠 팔기+추적 손절")
-            self.notify(f"✅ 체결 {p.name} {p.qty}주 @ {money(self.m, p.entry)} · {both} · 익절은 나눠 팔기+추적 손절")
+            self.notify(f"✅ 체결 {p.name} {p.qty}주 @ {money(self.m, p.entry)} · {both} · 익절은 나눠 팔기+추적 손절"
+                        f"\n산 이유: {p.reason}")
         except TossError as e:
             # 조건주문을 못 걸면 위험하니 바로 판다
             self.log(f"[실전] 조건주문 실패 {p.name}: {e} → 즉시 매도")
