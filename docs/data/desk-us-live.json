@@ -1,37 +1,38 @@
 {
  "market": "us",
  "date": "2026-10-27",
- "updatedAt": "2026-10-27T16:52+00:00",
+ "updatedAt": "2026-10-27T17:52+00:00",
  "plans": {
-  "CLS": {
-   "name": "셀레스티카",
-   "stop": 246.65,
-   "entryLow": 283.38,
-   "entryHigh": 288.0,
-   "t1": 333.86,
+  "LITE": {
+   "name": "루멘텀",
+   "stop": 756.17,
+   "entryLow": 787.14,
+   "entryHigh": 818.1,
+   "t1": 1143.0,
    "src": "장중 1순위",
-   "t2": 375.0,
-   "score": 69
+   "t2": 1200.0,
+   "score": 49
   }
  },
  "watch": [
-  "BA",
   "CLS",
   "SOFI",
+  "BA",
+  "LITE",
+  "CDNS",
+  "XYL",
+  "VLO",
+  "AVGO",
+  "MELI",
+  "THRM",
   "CRDO",
   "ALAB",
-  "ANET",
-  "AVGO",
-  "FERG",
-  "MTSI",
-  "MELI",
   "AMD",
   "NVDA",
   "META",
+  "RCL",
   "UPS",
-  "PYPL",
-  "KO",
-  "MSFT"
+  "KO"
  ],
  "earn_good": {}
 }
