@@ -148,7 +148,7 @@
   },
   "risk": {
     "KR": {
-      "daily_capital": 500000,
+      "daily_capital": 1000000,
       "max_position_pct": 40,
       "min_position_pct": 8,
       "risk_per_trade_pct": 1.0,
@@ -189,7 +189,7 @@
       "min_qty": 2
     },
     "US": {
-      "daily_capital": 350,
+      "daily_capital": 5000,
       "max_position_pct": 40,
       "min_position_pct": 8,
       "risk_per_trade_pct": 1.0,
@@ -197,9 +197,9 @@
       "max_positions": 4,
       "max_trades_per_day": 10,
       "max_losses_in_row": 3,
-      "budget_per_trade": 70,
-      "max_loss_per_trade": 2,
-      "daily_loss_limit": 7,
+      "budget_per_trade": 1000,
+      "max_loss_per_trade": 50,
+      "daily_loss_limit": 150,
       "conviction": [
         [
           5.2,
