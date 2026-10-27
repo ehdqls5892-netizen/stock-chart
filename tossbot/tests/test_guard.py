@@ -20,7 +20,7 @@ today = dt.date.today().isoformat()
 
 def write(rows):
     (d / f"trades-{today}.jsonl").write_text("\n".join(json.dumps(
-        {"t": f"{today}T10:{i:02d}:00", "kind": "exit", "exit_price": 1, "pnl": p, "reason": r, "extra": {}},
+        {"t": (dt.datetime.now() - dt.timedelta(hours=1, minutes=60 - i)).isoformat(timespec="seconds"), "kind": "exit", "exit_price": 1, "pnl": p, "reason": r, "extra": {}},
         ensure_ascii=False) for i, (p, r) in enumerate(rows)), encoding="utf-8")
 
 
