@@ -66,6 +66,10 @@ def pick_symbols(m: str, data_dir: Path, top: int) -> dict:
     for _, code, name, mk in rows[:top]:
         yf_sym = (code + (".KQ" if "코스닥" in mk else ".KS")) if m == "kr" else code.replace(".", "-")
         out[code] = {"name": name, "market": mk, "yf": yf_sym}
+        try:
+            out[code]["daily"] = json.loads((data_dir / "s" / f"{code}.json").read_text(encoding="utf-8")).get("bars") or []
+        except ValueError:
+            out[code]["daily"] = []
     return out
 
 
@@ -242,7 +246,7 @@ class FakeStream:
 
 # ─────────────────────────── 실행 ───────────────────────────
 
-def run(m: str, data: dict, names: dict, capital: float, uni_n: int, last_days: int):
+def run(m: str, data: dict, names: dict, capital: float, uni_n: int, last_days: int, sets=(), daily=None):
     mk = m.upper()
     tz = U.TZ[mk]
     o_t, c_t = ((9, 0), (15, 30)) if m == "kr" else ((9, 30), (16, 0))
@@ -258,6 +262,15 @@ def run(m: str, data: dict, names: dict, capital: float, uni_n: int, last_days: 
     cfg["github_chart_url"] = ""
     cfg["desk_feed_url"] = ""
     cfg["news"]["enabled"] = False
+    for kv in sets:                               # --set strategy.filters.daily_trend=true
+        k, v = kv.split("=", 1)
+        node = cfg
+        ks = k.split(".")
+        for x in ks[:-1]:
+            node = node.setdefault(x, {})
+        node[ks[-1]] = json.loads(v)
+    daily = daily or {}
+    M.Bot.fetch_daily = lambda self, code: daily.get(code, [])
     (tmp / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
     (tmp / "settings.json").write_text(json.dumps({"capital": {mk: capital}}), encoding="utf-8")
     M.ROOT = tmp
@@ -325,6 +338,7 @@ def main():
     ap.add_argument("--uni", type=int, default=100)
     ap.add_argument("--capital", type=float)
     ap.add_argument("--out", default="out")
+    ap.add_argument("--set", action="append", default=[], help="설정 바꿔 돌리기 예: strategy.filters.daily_trend=true")
     a = ap.parse_args()
     cap = a.capital or (1_000_000 if a.market == "kr" else 1000)
     import gzip
@@ -341,7 +355,7 @@ def main():
             pickle.dump((syms, data), f)
     log(f"받음 {len(data)}개")
     names = {c: syms[c]["name"] for c in syms}
-    days, trades = run(a.market, data, names, cap, a.uni, a.days)
+    days, trades = run(a.market, data, names, cap, a.uni, a.days, a.set, {c: syms[c].get("daily", []) for c in syms})
     mk = a.market.upper()
     text = stats.summarize(trades, mk, cap) if trades else "매매 없음"
     verdict = stats.verdict(trades, cap) if trades else ""

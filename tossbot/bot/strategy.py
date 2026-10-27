@@ -37,6 +37,7 @@ class SymState:
     excluded: str | None = None  # 제외 이유 (경고 종목 등)
     cooldown_until: dt.datetime | None = None
     etf: bool = False            # ETF·ETN(레버리지 포함): 하루 안에 정리, 불타기·스윙 안 함
+    daily: dict = field(default_factory=dict)   # 일봉 요약(전날까지): ma5·ma20·ma60·close·high20
     entries_today: int = 0
 
     # REST 캔들로 분봉 갱신 (거래량은 이게 정확)
@@ -108,6 +109,15 @@ def _common(st: SymState, now: dt.datetime, open_t: dt.datetime, cfg: dict, earl
         cap = s.get("earn_max_day_change_pct", 25) if earn else s["max_day_change_pct"]
         if chg > cap or chg < s.get("min_day_change_pct_any", -8):
             return None
+    f = s.get("filters", {})
+    d = st.daily or {}
+    if f.get("daily_trend") and d.get("ma20") and not earn:
+        # 일봉 추세: 어제 종가가 20일선 위 + 20일선이 5일 전보다 높음(오르는 추세)에서만 단타
+        if d["close"] < d["ma20"] or (d.get("ma20_prev") and d["ma20"] < d["ma20_prev"]):
+            return None
+    if f.get("min_today_pct") is not None and st.prev_close and not adding:
+        if (p / st.prev_close - 1) * 100 < f["min_today_pct"]:
+            return None                                # 오늘 약한 종목(상대 강도 낮음)은 안 삼
     bars = session_bars(st, open_t)
     cur_min = now.replace(second=0, microsecond=0)
     done = [b for b in bars if b.t < cur_min]

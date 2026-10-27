@@ -411,6 +411,7 @@ class Bot:
         for sym in keep:
             self.prev_close(sym)
         self.universe = [s for s in keep if not self.syms[s].excluded]
+        self.load_daily(self.universe)
         ex = [f"{self.syms[s].name}({self.syms[s].excluded})" for s in keep if self.syms[s].excluded]
         self.log(f"후보 {len(self.universe)}개: " + ", ".join(self.syms[s].name or s for s in self.universe[:40])
                  + (f" … 제외 {len(ex)}개" if ex else ""))
@@ -470,6 +471,7 @@ class Bot:
                 return
             self.prev_close(sym)
             st.load_candles(self.api.candles(sym, "1m", 120), self.m)
+            self.load_daily([sym])
         except Exception as e:
             self.log(f"후보 추가 실패 {sym}: {e}")
             return
@@ -477,6 +479,33 @@ class Bot:
         if self.stream:
             self.stream.set_codes(list(dict.fromkeys(list(self.broker.pos) + self.universe)))
         self.log(f"➕ 후보 추가 {st.name}({why}) · 차트 신호가 나오면 우선 매수")
+
+    def fetch_daily(self, code):
+        """전 종목 일봉(GitHub data-<m>/s/<code>.json)의 bars. 없으면 []."""
+        import requests
+        url = self.cfg.get("allstocks_bar_url", "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/data-{m}/s/{code}.json")
+        try:
+            r = requests.get(url.format(m=self.m.lower(), code=code), timeout=10)
+            return (r.json().get("bars") or []) if r.status_code == 200 else []
+        except Exception:
+            return []
+
+    def load_daily(self, syms):
+        """일봉 추세 요약(전날까지만)을 종목별로 채운다. 하루 한 번, 이미 있으면 건너뜀."""
+        if not self.cfg["strategy"].get("filters", {}).get("daily_trend"):
+            return
+        today = now(self.m).strftime("%y%m%d")
+        for sym in syms:
+            st = self.syms.get(sym)
+            if not st or st.daily.get("_d") == today:
+                continue
+            bars = [b for b in self.fetch_daily(sym) if str(b[0]) < today and b[4]]
+            st.daily = {"_d": today}
+            if len(bars) >= 25:
+                cl = [b[4] for b in bars]
+                st.daily.update(close=cl[-1], ma5=sum(cl[-5:]) / 5, ma20=sum(cl[-20:]) / 20,
+                                ma20_prev=sum(cl[-25:-5]) / 20, ma60=sum(cl[-60:]) / min(60, len(cl)),
+                                high20=max(b[2] for b in bars[-20:]))
 
     def prev_close(self, sym):
         st = self.syms.setdefault(sym, SymState(sym))
