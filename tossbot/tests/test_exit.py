@@ -8,6 +8,7 @@ import bot.broker as B
 from bot.broker import PaperBroker, Position
 
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
+cfg["stop_judge"]["enabled"] = True     # 기본은 꺼짐(손절선에서 바로) — 켰을 때 동작 시험
 logs = []
 b = PaperBroker("KR", cfg, Path(tempfile.mkdtemp()), logs.append, lambda m: None)
 info = {}
