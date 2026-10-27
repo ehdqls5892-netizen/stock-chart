@@ -644,6 +644,14 @@ class Bot:
                                 sig = None
                             if sig:
                                 cands.append((sig["score"], sym, sig))
+                        mk = self.market_move()
+                        weak = self.cfg.get("market_filter", {}).get("weak_pct", -0.7)
+                        if mk is not None and mk <= weak and cands:
+                            # 시장 전체가 빠지는 중 → 돌파 매수는 잘 실패함. 실적 서프라이즈만 예외
+                            if time.time() - getattr(self, "_weak_log", 0) > 600:
+                                self._weak_log = time.time()
+                                self.log(f"🌧 시장 전체가 약해요(최근 15분 평균 {mk:+.1f}%) → 실적 서프라이즈 말고는 새로 안 사요")
+                            cands = [x for x in cands if x[1] in self.ctx.get("earn_good", {})]
                         cands.sort(key=lambda x: -x[0])          # 여러 종목이 동시에 신호 → 가장 센 것부터
                         for _, sym, sig in cands:
                             st = self.syms[sym]
@@ -663,6 +671,7 @@ class Bot:
                             if not p and sym in getattr(self.broker, "rejected", {}):
                                 st.excluded = f"주문 불가({self.broker.rejected[sym]})"   # 교육·예탁금 등 → 오늘은 다시 안 시도
                             if p:
+                                p.extra["setup"], p.extra["grade"] = sig.get("setup"), sig.get("grade")
                                 if getattr(st, "etf", False):
                                     p.extra["etf"] = True
                                 self.mark_swing(p, sig)
@@ -705,6 +714,8 @@ class Bot:
                         if p.state == "open":
                             vw = vwap(session_bars(st, self.open_t)) if st else None
                             why = self.broker.carry_check(p, last, vw)
+                            if why is None and sym in self.ctx.get("earn_block", ()) and sym not in self.ctx.get("earn_good", {}):
+                                why = "실적 발표가 오늘·내일이라 밤사이 위험 (결과에 따라 크게 튈 수 있음)"
                             if why is None:
                                 self.broker.carry(p, last)
                                 p.extra["carry_done"] = today

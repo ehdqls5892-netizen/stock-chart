@@ -16,7 +16,8 @@ import requests
 
 KB = {"keyboard": [[{"text": "📊 상태"}, {"text": "💵 투자금"}],
                    [{"text": "▶️ 연습 시작"}, {"text": "🔴 실전 시작"}],
-                   [{"text": "⏹ 종료(보유 유지)"}, {"text": "💰 종료(전부 팔기)"}]],
+                   [{"text": "⏹ 종료(보유 유지)"}, {"text": "💰 종료(전부 팔기)"}],
+                   [{"text": "📈 성적"}]],
       "resize_keyboard": True, "is_persistent": True}
 
 
@@ -113,6 +114,14 @@ class TelegramControl:
         now = time.time()
         if t.startswith("투자금") or t.startswith("💵"):
             return self.send(self.capital_cmd(t))
+        if "성적" in t:
+            from pathlib import Path
+            from .stats import report
+            try:
+                caps = {mk: x.get("capital") for mk, x in (self.status_fn().get("markets") or {}).items()}
+            except Exception:
+                caps = {}
+            return self.send(report(Path(__file__).resolve().parent.parent, 14, caps))
         if t in ("업데이트", "/update", "🆕 업데이트"):
             return self.send(self.update_now())
         if "상태" in t or t in ("/status", "/start"):

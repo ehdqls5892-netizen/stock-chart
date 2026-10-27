@@ -21,6 +21,7 @@ class Risk:
         self.trades = 0          # 오늘 진입 횟수
         self.losses_in_row = 0
         self.halted: str | None = None
+        self.peak = 0.0          # 오늘 확정 손익의 최고점 (번 돈 지키기)
 
     # ───────── 한도 숫자 ─────────
     @property
@@ -50,6 +51,10 @@ class Risk:
         if self.losses_in_row >= self.c["max_losses_in_row"]:
             self.halted = f"연속 {self.losses_in_row}번 손절이라 오늘은 매매를 멈춰요"
             return self.halted
+        pg = self.profit_guard()
+        if pg:
+            self.halted = pg
+            return self.halted
         if self.trades >= self.c["max_trades_per_day"]:
             return "오늘 매매 횟수를 다 썼어요"
         if open_positions >= self.c["max_positions"]:
@@ -57,6 +62,24 @@ class Risk:
         av = self.available(invested)
         if av is not None and av < self.capital * self.c.get("min_position_pct", 8) / 100:
             return "투자금을 다 쓰고 있어요 (팔리면 다시 사요)"
+        return None
+
+    # ───────── 번 돈 지키기 ─────────
+    def _protect_amt(self) -> float:
+        if not self.capital:
+            return 0.0
+        return self.capital * self.c.get("protect_after_pct", 2.0) / 100
+
+    def size_mult(self) -> float:
+        """오늘 이미 투자금의 2% 넘게 벌었으면 새 매매는 절반 크기로 (번 돈을 크게 걸지 않게)."""
+        a = self._protect_amt()
+        return self.c.get("protect_size", 0.5) if a and self.realized >= a else 1.0
+
+    def profit_guard(self) -> str | None:
+        """오늘 번 돈이 최고점의 절반 아래로 줄면 새 매수 멈춤 (이미 번 날을 손실의 날로 만들지 않게)."""
+        a = self._protect_amt()
+        if a and self.peak >= a and self.realized < self.peak * (1 - self.c.get("protect_giveback_pct", 50) / 100):
+            return f"오늘 번 돈 지키기: 최고 {self.peak:,.2f} → 지금 {self.realized:,.2f} (절반 넘게 반납) 이라 오늘 새 매수는 멈춰요"
         return None
 
     def strength(self, sig: dict | None) -> float:
@@ -78,6 +101,7 @@ class Risk:
                 invested: float = 0.0, w: float = 1.0) -> int:
         """금액 한도와 '손절 시 손실 한도'를 둘 다 지키는 수량.
         stop_exec 는 손절 주문이 실제로 나갈 가격, 수수료·세금까지 손실에 넣는다."""
+        w = w * self.size_mult()
         if self.capital:
             pos_pct = min(self.c.get("max_position_pct", 40) * w, self.c.get("max_position_pct_cap", 65))
             risk_pct = min(self.c.get("risk_per_trade_pct", 1.0) * w, self.c.get("risk_per_trade_pct_cap", 1.8))
@@ -98,4 +122,5 @@ class Risk:
 
     def record_exit(self, pnl: float):
         self.realized += pnl
+        self.peak = max(self.peak, self.realized)
         self.losses_in_row = self.losses_in_row + 1 if pnl < 0 else 0

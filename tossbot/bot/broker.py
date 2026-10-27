@@ -345,7 +345,8 @@ class BaseBroker:
             p.extra["logged_sl"] = new_sl
 
     def record_partial(self, p: Position, qty: int, price: float, label: str = "나눠 익절"):
-        part = Position(p.symbol, p.name, qty, p.entry, p.tp, p.sl, p.reason, p.opened_at, state="closed")
+        part = Position(p.symbol, p.name, qty, p.entry, p.tp, p.sl, p.reason, p.opened_at, state="closed",
+                        extra={k: p.extra[k] for k in ("setup", "grade") if k in p.extra})
         part.exit_price, part.exit_reason = price, label
         part.pnl = self.calc_pnl(part, price)
         self.closed.append(part)

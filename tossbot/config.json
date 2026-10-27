@@ -182,7 +182,10 @@
         ]
       ],
       "max_position_pct_cap": 65,
-      "risk_per_trade_pct_cap": 1.8
+      "risk_per_trade_pct_cap": 1.8,
+      "protect_after_pct": 2.0,
+      "protect_size": 0.5,
+      "protect_giveback_pct": 50
     },
     "US": {
       "daily_capital": 350,
@@ -219,7 +222,10 @@
         ]
       ],
       "max_position_pct_cap": 65,
-      "risk_per_trade_pct_cap": 1.8
+      "risk_per_trade_pct_cap": 1.8,
+      "protect_after_pct": 2.0,
+      "protect_size": 0.5,
+      "protect_giveback_pct": 50
     }
   },
   "fees": {
@@ -302,5 +308,8 @@
     "max_gap_pct": 15,
     "max_check": 100,
     "max_add": 25
+  },
+  "market_filter": {
+    "weak_pct": -0.7
   }
 }
