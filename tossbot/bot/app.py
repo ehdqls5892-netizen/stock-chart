@@ -184,13 +184,14 @@ def holdings() -> list:
                 last = getattr(st, "last", None) or None
                 out.append({"market": mk, "symbol": p.symbol, "name": p.name, "qty": p.qty, "entry": p.entry, "sl": p.sl,
                             "last": last, "pct": (last / p.entry - 1) * 100 if last else None,
-                            "locked": bool(p.extra.get("locked")), "state": p.state})
+                            "locked": bool(p.extra.get("locked")), "state": p.state,
+                            "days": len(p.extra.get("days_held", []))})
         else:
             for d in _file_positions(mk):
                 ex = d.get("extra") or {}
                 out.append({"market": mk, "symbol": d["symbol"], "name": d.get("name") or d["symbol"], "qty": d.get("qty"),
                             "entry": d.get("entry"), "sl": d.get("sl"), "last": None, "pct": None,
-                            "locked": bool(ex.get("locked")), "state": "open"})
+                            "locked": bool(ex.get("locked")), "state": "open", "days": len(ex.get("days_held", []))})
     miss = [h for h in out if not h["last"]]
     if miss:                                  # 장 밖이거나 아직 체결이 없으면 토스 현재가(마지막 가격)로
         px = quotes([h["symbol"] for h in miss])
@@ -203,7 +204,100 @@ def holdings() -> list:
         h["pnl"] = (last - e) * q if last and e else None
         h["value"] = last * q if last else None
         h["fx"] = fx if h["market"] == "US" else 1.0
+    try:
+        maxd = int(_cfg().get("carry", {}).get("max_days", 10))
+    except Exception:
+        maxd = 10
+    for h in out:
+        try:
+            ctx = getattr(STATE.get("bots", {}).get(h["market"]), "ctx", None) or {}
+            h["grade"], h["why"] = rate_hold(h, daily_bars(h["symbol"]), ctx, maxd)
+        except Exception:
+            h["grade"], h["why"] = None, []
     return out
+
+
+_DAILY: dict = {}
+
+
+def daily_bars(sym: str) -> list:
+    """토스 일봉 최근 25개 [(시각, 시가, 고가, 저가, 종가)] 오래된 것부터. 5분 동안 재사용."""
+    import time
+    hit = _DAILY.get(sym)
+    if hit and time.time() - hit[0] < 300:
+        return hit[1]
+    out = []
+    try:
+        M.load_env()
+        if os.getenv("TOSS_CLIENT_ID"):
+            from .util import f
+            for c in M.shared_api().candles(sym, "1d", 25) or []:
+                cl = f(c.get("closePrice"))
+                if cl:
+                    out.append((str(c.get("timestamp") or ""), f(c.get("openPrice")) or cl, f(c.get("highPrice")) or cl,
+                                f(c.get("lowPrice")) or cl, cl))
+            out.sort(key=lambda x: x[0])
+    except Exception:
+        out = []
+    _DAILY[sym] = (time.time(), out)
+    return out
+
+
+def rate_hold(h: dict, bars: list, ctx: dict | None = None, max_days: int = 10) -> tuple:
+    """잠그고(밤 넘겨) 들고 갈 만한지: ('유지'|'보통'|'나쁨', [근거…]). 판단 재료일 뿐 자동으로 사고팔지 않음."""
+    ctx = ctx or {}
+    sc, why = 0, []
+    def add(v, txt):
+        nonlocal sc
+        sc += v
+        why.append(("＋" if v > 0 else "－") + txt)
+    pct, last, sl, e, sym = h.get("pct"), h.get("last"), h.get("sl"), h.get("entry"), h.get("symbol")
+    if pct is not None:
+        if pct >= 5:
+            add(2, f"수익 {pct:+.1f}% 여유")
+        elif pct >= 1:
+            add(1, f"수익 {pct:+.1f}%")
+        elif pct < 0:
+            add(-2, f"손실 {pct:+.1f}% (밤사이 갭하락이면 더 커짐)")
+    if sl and e and sl >= e:
+        add(1, "손절선이 산 값 위 (이익 일부 확보)")
+    elif sl and last and (last - sl) / last > 0.06:
+        add(-1, f"손절선까지 {(last - sl) / last * 100:.0f}% 멀어 크게 밀릴 수 있음")
+    if len(bars) >= 20:
+        cl = [b[4] for b in bars]
+        c, ma5, ma20 = cl[-1], sum(cl[-5:]) / 5, sum(cl[-20:]) / 20
+        if c > ma5 > ma20:
+            add(1, "일봉 상승 추세 (5일선>20일선 위)")
+        elif c < ma20:
+            add(-1, "일봉 20일선 아래 (추세 약함)")
+        if len(cl) >= 21 and max(cl[-21:-1]) and c > max(cl[-21:-1]):
+            add(1, "20일 신고가")
+    if len(bars) >= 2:
+        _, o, hi, lo, c = bars[-1]
+        prev = bars[-2][4]
+        day = (c / prev - 1) * 100 if prev else 0
+        rng = hi - lo
+        if day >= 2 and rng and (c - lo) / rng >= 0.7:
+            add(1, f"최근 하루 {day:+.1f}% 고가 근처 마감 (강함)")
+        elif day <= -2 or (rng and (c - lo) / rng <= 0.25 and day < 1):
+            add(-1, f"최근 하루 {day:+.1f}% 저가 근처 마감 (약함)")
+    if sym in (ctx.get("earn_bad") or ()):
+        add(-2, "실적 실망")
+    elif sym in (ctx.get("earn_block") or ()) and sym not in (ctx.get("earn_good") or {}):
+        add(-2, "실적 발표 임박 (밤사이 큰 갭 위험)")
+    if sym in (ctx.get("news_bad") or {}):
+        add(-2, "악재 뉴스")
+    elif sym in (ctx.get("news_good") or {}) or sym in (ctx.get("earn_good") or {}):
+        add(1, "호재 뉴스·실적")
+    if ((ctx.get("daily") or {}).get(sym) or {}).get("label") == "주의":
+        add(-1, "데스크 일봉 판단 '주의'")
+    if h.get("days") and h["days"] >= max_days:
+        add(-1, f"보유 {h['days']}일째 (최대 {max_days}일)")
+    grade = "유지" if sc >= 3 else "보통" if sc >= 0 else "나쁨"
+    if grade == "유지" and any(k in w for w in why for k in ("실적", "악재")):
+        grade = "보통"                     # 실적 발표·악재가 걸리면 아무리 좋아도 '유지' 는 안 줌 (밤사이 갭 위험)
+    why.sort(key=lambda x: x[0] != ("＋" if sc >= 0 else "－"))   # 등급을 만든 쪽 근거 먼저
+    return grade, why
 
 
 def quotes(syms: list) -> dict:

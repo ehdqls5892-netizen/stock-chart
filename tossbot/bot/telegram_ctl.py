@@ -78,7 +78,8 @@ class TelegramControl:
         for h in hs:
             mk = h["market"]
             fx = h.get("fx")
-            lines.append(f"{'🔒' if h['locked'] else '▫️'} {FL.get(mk, '')} {h['name']} {h['qty']}주" + (" · 파는 중" if h.get("state") == "closing" else ""))
+            g = {"유지": " · 🟢유지", "보통": " · 🟡보통", "나쁨": " · 🔴나쁨"}.get(h.get("grade") or "", "")
+            lines.append(f"{'🔒' if h['locked'] else '▫️'} {FL.get(mk, '')} {h['name']} {h['qty']}주{g}" + (" · 파는 중" if h.get("state") == "closing" else ""))
             if h.get("pnl") is not None:
                 pl = sgn(h["pnl"], mk) + (f" ≈ {krw(h['pnl'] * fx, True)}" if mk == "US" and fx else "")
                 lines.append(f"   {'📈' if h['pnl'] > 0 else '📉' if h['pnl'] < 0 else '➖'} 현재 {won(h['last'], mk)} ({h['pct']:+.2f}%) · 평가손익 {pl}")
@@ -90,6 +91,8 @@ class TelegramControl:
                 else:
                     tot["nofx"] = True
             lines.append(f"   산 값 {won(h.get('entry'), mk)} · 손절선 {won(h.get('sl'), mk)}")
+            if h.get("why"):
+                lines.append("   " + " ".join(h["why"][:3]))
             if h.get("state") != "open":
                 continue
             key = f"{mk}|{h['symbol']}"
@@ -109,6 +112,7 @@ class TelegramControl:
                 lines.append(f"   평가금액 ≈ {krw(tot['val'])}" + (f" · 환율 {fxv:,.0f}원/$ 기준" if fxv else ""))
         lines.append("")
         lines.append("🔒 = 장 마감에 안 팔고 들고 감 · 동시 보유 4종목 한도에서 빠짐 · 손절선 닿으면 자동 매도는 그대로")
+        lines.append("🟢유지=잠가서 들고 갈 만함 · 🟡보통=판단 반반 · 🔴나쁨=잠금 비추천(오늘 정리가 나음) — 판단 재료일 뿐 자동 매매는 안 바뀜")
         lines.append("🔒 잠긴 종목도 💰 팔기를 누르면 바로 팔아요 (해제 안 해도 됨) · 장 밖엔 마지막 가격 기준")
         bottom = [[{"text": "🔒 전부 잠금", "callback_data": "LA"}, {"text": "🔄 새로고침", "callback_data": "R"}],
                   [{"text": "⏹ 로봇 끄기(보유 유지)", "callback_data": "OFF"}, {"text": "💰 전부 팔고 끄기", "callback_data": "SA"}]]
