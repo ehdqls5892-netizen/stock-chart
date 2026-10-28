@@ -136,6 +136,13 @@ class BaseBroker:
             tr = round_tick(self.m, p.peak - gap, "down")
             if tr > new_sl:
                 new_sl, why = tr, f"추적 손절: 고점 {money(self.m, p.peak)}에서 {gap / p.peak * 100:.1f}% 아래"
+        # 이익 잠금(래칫): 많이 오를수록 '최고 이익 중 지키는 비율'을 올림 — 예: 최고 +10% → 그중 55%(+5.5%)는 무조건 지킴
+        gain = (p.peak / p.entry - 1) * 100
+        lock_r = max([r for g, r in t.get("ratchet", []) if gain >= g] or [0])
+        if lock_r:
+            lv = round_tick(self.m, p.entry + (p.peak - p.entry) * lock_r, "down")
+            if lv > new_sl:
+                new_sl, why = lv, f"이익 잠금: 최고 +{gain:.1f}% 중 {lock_r * 100:.0f}% 지키기"
         part = None
         plist = t.get("partials") or ([[t["partial_at_R"], t.get("partial_ratio", 0.5), "절반 익절"]]
                                       if t.get("partial_at_R") else [])

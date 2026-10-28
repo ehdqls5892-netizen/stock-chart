@@ -29,7 +29,7 @@ assert p.sl == 9880, p.sl
 print("1R:", logs[-1])
 # 1.5R → 본전(수수료 포함) 위
 b.on_price("T", 10450, None)
-assert 10000 < p.sl <= 10030, p.sl
+assert 10000 < p.sl <= 10140, p.sl          # 본전 위 + 이익 잠금(최고 +4.5% 중 30%)
 # 2R → 남은 것의 절반 2차 익절
 b.on_price("T", 10600, None)
 assert p.qty == 3 and b.closed[-1].exit_reason == "2차 익절"
@@ -90,3 +90,11 @@ q = pos(2, 9700)
 b.on_price("T", 10300, None)
 assert q.qty == 1
 print("\n✅ 나눠 익절·손절 판단 시험 통과")
+
+# 10) 이익 잠금(래칫): 최고 +13% → 그중 55% 이상은 지킴 (스윙이라 추적 폭이 넓어도)
+r = Position("R", "래칫주", 10, 10000, 14000, 10030, "시험", "x", state="open", peak=11300,
+             extra={"R": 300, "atr": 5, "swing": True, "parts": 2})
+ns, _, why = b.manage(r, 11300)
+print("최고 +13% 일 때 손절선", ns, why)
+assert ns >= 10715, ns          # 10000 + 1300×0.55
+print("✅ 이익 잠금 시험 통과")

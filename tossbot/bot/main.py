@@ -927,6 +927,16 @@ class Bot:
                             self.broker.flatten(sym, f"장 마감 전 정리 ({why})", last)
                         else:
                             self.broker.flatten(sym, "장 마감 전 정리", last)
+                # 거래가 없어도(상한가에 묶임 등) 15초마다 보유 종목의 손절선·이익 잠금을 다시 계산
+                if time.time() - getattr(self, "_mg_t", 0) > 15:
+                    self._mg_t = time.time()
+                    for sym, p in list(self.broker.pos.items()):
+                        stx = self.syms.get(sym)
+                        if p.state == "open" and stx and stx.last:
+                            try:
+                                self.broker.on_price(sym, stx.last, n)
+                            except Exception as e:
+                                self.log(f"보유 점검 오류 {sym}: {e}")
                 self.broker.poll(n, {k: v.last for k, v in self.syms.items()})
                 if time.time() - last_status > 300:
                     self.status()
