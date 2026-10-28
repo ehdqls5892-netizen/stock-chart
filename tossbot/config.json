@@ -306,7 +306,8 @@
     "strong_hold": false,
     "strong_day_pct": 3.0,
     "strong_near_high_pct": 2.0,
-    "strong_max_loss_pct": 1.5
+    "strong_max_loss_pct": 1.5,
+    "pre_alert_min": 15
   },
   "selftest_symbol": {
     "KR": "010140",

@@ -710,6 +710,70 @@ class Bot:
             out["bad"] = "일봉 차트가 '주의'"
         return out
 
+    def pre_close_alert(self, flatten_t):
+        """정리 예정 종목 설명: 왜 파는지 + 들고 가도 될지 판단 재료 + 로봇 의견."""
+        fmt = lambda v: money(self.m, v)
+        mk = self.market_move()
+        for sym, p in list(self.broker.pos.items()):
+            if p.state != "open" or p.extra.get("locked"):
+                continue
+            st = self.syms.get(sym)
+            last = st.last if st else None
+            if not last:
+                continue
+            try:
+                sb = session_bars(st, self.open_t)
+            except RuntimeError:
+                sb = []
+            vw = vwap(sb) if sb else None
+            hi = max((b.h for b in sb), default=last)
+            day = (last / st.prev_close - 1) * 100 if st.prev_close else None
+            strong = bool(day is not None and day >= 3 and last >= hi * 0.98 and (not vw or last >= vw))
+            why = self.broker.carry_check(p, last, vw, strong)
+            if why is None and sym in self.ctx.get("earn_block", ()) and sym not in self.ctx.get("earn_good", {}):
+                why = "실적 발표가 오늘·내일이라 밤사이 위험"
+            prof = (last / p.entry - 1) * 100
+            if why is None:
+                continue                                          # 들고 가는 종목은 알림 안 함(장 마감 요약에 나옴)
+            good, bad = [], []
+            if day is not None:
+                if day >= 3:
+                    good.append(f"오늘 {day:+.1f}% 강세")
+                elif day < 0:
+                    bad.append(f"오늘 {day:+.1f}% 약세")
+            if vw:
+                (good if last >= vw else bad).append("오늘 평균 단가 " + ("위" if last >= vw else "아래"))
+            (good if last >= hi * 0.98 else bad).append("고점 근처에서 마감 중" if last >= hi * 0.98 else f"오늘 고점({fmt(hi)})에서 {(last / hi - 1) * 100:.1f}% 밀림")
+            d = st.daily or {}
+            if d.get("ma20"):
+                (good if d["close"] >= d["ma20"] else bad).append("일봉 20일선 " + ("위(상승 추세)" if d["close"] >= d["ma20"] else "아래(하락 추세)"))
+            lab = (self.ctx.get("daily", {}).get(sym) or {}).get("label")
+            if lab:
+                if lab == "관심":
+                    good.append("일봉 차트 '관심'")
+                elif lab == "주의":
+                    bad.append("일봉 차트 '주의'")
+            if sym in (self.ctx.get("news_good") or {}):
+                good.append("오늘 호재 뉴스")
+            if sym in (self.ctx.get("news_bad") or {}):
+                bad.append("오늘 악재 뉴스")
+            if sym in self.ctx.get("earn_block", ()):
+                bad.append("실적 발표 임박")
+            if mk is not None:
+                (bad if mk < -0.3 else good).append(f"시장 최근 15분 {mk:+.1f}%")
+            score = len(good) - len(bad)
+            opinion = ("들고 가도 괜찮은 편 (강하게 마감 중)" if score >= 3 else
+                       "정리 추천 (약하게 마감 중)" if score <= -1 else "애매해요 (반반)")
+            msg = (f"⏰ 장 마감 정리 예정 ({flatten_t.strftime('%H:%M')}) — {p.name} {p.qty}주\n"
+                   f"산 값 {fmt(p.entry)} → 지금 {fmt(last)} ({prof:+.1f}%) · 손절선 {fmt(p.sl)}\n"
+                   f"파는 이유: {why}\n"
+                   f"👍 " + (", ".join(good) or "없음") + "\n👎 " + (", ".join(bad) or "없음") + "\n"
+                   f"로봇 의견: {opinion}\n"
+                   f"→ 들고 가려면 정리 전에 「잠금 {p.name}」이라고 보내세요 (안 보내면 자동으로 팔아요). "
+                   f"잠그면 밤사이 갭하락 시 손절선보다 낮게 팔릴 수 있어요.")
+            self.log(msg)
+            self.notify(msg)
+
     def same_group(self, sym) -> str | None:
         """이 종목과 같이 움직이는(오늘 1분 수익률 상관 0.7+) 보유 종목이 이미 max_same 개 이상이면 그 이름들."""
         c = self.cfg.get("diversify", {})
@@ -948,6 +1012,14 @@ class Bot:
                             self.broker.add(p, q, st.last, f"확신도 {sig.get('grade', '')} · {sig['reason']}")
                             if cash is not None:
                                 cash -= st.last * q
+                # 장 마감 정리 15분 전: 정리될 종목마다 이유·판단 재료를 알려 주고 '잠금' 여부를 고를 수 있게
+                pre_min = self.cfg.get("carry", {}).get("pre_alert_min", 15)
+                if pre_min and flatten_t - dt.timedelta(minutes=pre_min) <= n < flatten_t and getattr(self, "_pre_alert", "") != today:
+                    self._pre_alert = today
+                    try:
+                        self.pre_close_alert(flatten_t)
+                    except Exception as e:
+                        self.log(f"장 마감 전 알림 오류: {e}")
                 # 장 마감 전 정리
                 if n >= flatten_t:
                     for sym, p in list(self.broker.pos.items()):
