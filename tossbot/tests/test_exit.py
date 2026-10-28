@@ -96,5 +96,5 @@ r = Position("R", "래칫주", 10, 10000, 14000, 10030, "시험", "x", state="op
              extra={"R": 300, "atr": 5, "swing": True, "parts": 2})
 ns, _, why = b.manage(r, 11300)
 print("최고 +13% 일 때 손절선", ns, why)
-assert ns >= 10715, ns          # 10000 + 1300×0.55
+assert ns >= 10700, ns          # 10000 + 1300×0.55 (호가 단위로 내림)
 print("✅ 이익 잠금 시험 통과")
