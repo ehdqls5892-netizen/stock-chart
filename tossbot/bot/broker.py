@@ -290,7 +290,7 @@ class BaseBroker:
         추가 후 평균 단가가 손절선보다 높아지면 '손절 시 손실'이 max_loss 이하가 되도록."""
         a = self.cfg.get("pyramid", {})
         base = p.extra.get("q0") or p.qty
-        q = min(int(base * a.get("add_ratio", 0.5)), int(budget // price))
+        q = min(max(int(base * a.get("add_ratio", 0.5)), 1), int(budget // price))   # 처음에 1주만 샀어도 최소 1주는 추가
         while q > 0:
             avg = (p.entry * p.qty + price * q) / (p.qty + q)
             if (avg - p.sl) * (p.qty + q) <= max_loss:

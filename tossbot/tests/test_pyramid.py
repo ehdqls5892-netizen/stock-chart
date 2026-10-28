@@ -62,3 +62,7 @@ nd, _, _ = b.manage(d3, 11000)
 print("고점 11,000 에서 추적 손절선 — 스윙", ns, "/ 단타", nd)
 assert ns < nd
 print("\n✅ 추가 매수·스윙 시험 통과")
+# 7) 처음 1주만 산 종목도 추가 매수 1주는 가능
+one = Position("ONE", "1주종목", 1, 10000, 11500, 10020, "시험", "x", state="open", peak=10400, extra={"R": 300, "q0": 1})
+assert b.add_qty(one, 10400, max_loss=5000, budget=1_000_000) == 1
+print("✅ 1주 종목 추가 매수 확인")
