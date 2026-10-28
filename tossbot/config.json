@@ -302,7 +302,11 @@
     "hold_if_intact": true,
     "hold_max_loss_pct": 2.0,
     "hold_min_profit_pct": 0.3,
-    "small_carry_stop_pct": 1.0
+    "small_carry_stop_pct": 1.0,
+    "strong_hold": false,
+    "strong_day_pct": 3.0,
+    "strong_near_high_pct": 2.0,
+    "strong_max_loss_pct": 1.5
   },
   "selftest_symbol": {
     "KR": "010140",

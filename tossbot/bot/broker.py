@@ -217,8 +217,8 @@ class BaseBroker:
         return "wait", msg
 
     # ───── 이익 난 종목 다음 날까지 들고 가기 ─────
-    def carry_check(self, p: Position, last: float | None, vw: float | None) -> str | None:
-        """들고 가도 되면 None, 안 되면 이유."""
+    def carry_check(self, p: Position, last: float | None, vw: float | None, strong: bool = False) -> str | None:
+        """들고 가도 되면 None, 안 되면 이유. strong=그날 강하게 마감하는 종목(많이 오름·고점 근처·평균 단가 위)."""
         c = self.cfg.get("carry", {})
         if not c.get("enabled"):
             return "들고 가기 꺼짐"
@@ -237,6 +237,9 @@ class BaseBroker:
             intact = (c.get("hold_if_intact", True) and p.sl and last >= p.sl * 1.01
                       and prof >= -c.get("hold_max_loss_pct", 2.0) and (not vw or last >= vw * 0.99)
                       and prof >= c.get("hold_min_profit_pct", -99))   # 손실 중인 종목은 밤을 넘기지 않음(갭하락 위험)
+            if not intact and strong and c.get("strong_hold") and p.sl and last >= p.sl * 1.01 \
+                    and prof >= -c.get("strong_max_loss_pct", 1.5):
+                intact = True                                  # 오늘 강하게 끝나는 종목은 본전 근처여도 들고 감
             if not intact:
                 return (f"수익 {prof:+.1f}% < 기준 {need}% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요"
                         if c.get("hold_if_intact", True) else f"수익 {prof:+.1f}% < 기준 {need}%")

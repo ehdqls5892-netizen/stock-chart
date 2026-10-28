@@ -304,6 +304,15 @@ class Bot:
 
         try:
             cal = self.api.calendar(self.m) or {}
+            if not getattr(self, "_cal_logged", False):          # 시간외(NXT·프리/애프터) 지원 여부 확인용 한 줄
+                self._cal_logged = True
+                try:
+                    tdy = cal.get("today") or {}
+                    box = tdy.get("integrated") if self.m == "KR" else tdy
+                    self.log("장 일정 구성(시간외 확인용): " + json.dumps({k: (list(v) if isinstance(v, dict) else v)
+                                                                 for k, v in (box or {}).items()}, ensure_ascii=False)[:400])
+                except Exception:
+                    pass
             pick = None
             # 미장은 토스 일정이 한국 날짜 기준이라, 한국 자정 이후엔 지금 열린 장이 previousBusinessDay 에 있다
             # 마감 정리 시각(예: 15:15·15:45)이 이미 지난 장은 건너뜀 → 하루를 끝낸 뒤 같은 장을 다시 시작하지 않게
@@ -948,7 +957,18 @@ class Bot:
                         last = st.last if st else None
                         if p.state == "open":
                             vw = vwap(session_bars(st, self.open_t)) if st else None
-                            why = self.broker.carry_check(p, last, vw)
+                            strong = False
+                            try:
+                                sb = session_bars(st, self.open_t) if st else []
+                                if sb and st.prev_close and last:
+                                    hi = max(b.h for b in sb)
+                                    c = self.cfg.get("carry", {})
+                                    strong = ((last / st.prev_close - 1) * 100 >= c.get("strong_day_pct", 3.0)
+                                              and last >= hi * (1 - c.get("strong_near_high_pct", 2.0) / 100)
+                                              and (not vw or last >= vw))
+                            except RuntimeError:
+                                pass
+                            why = self.broker.carry_check(p, last, vw, strong)
                             if why is None and sym in self.ctx.get("earn_block", ()) and sym not in self.ctx.get("earn_good", {}):
                                 why = "실적 발표가 오늘·내일이라 밤사이 위험 (결과에 따라 크게 튈 수 있음)"
                             if why is None:
