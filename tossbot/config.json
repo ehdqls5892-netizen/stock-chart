@@ -371,5 +371,14 @@
     "days": 30,
     "min_trades": 8,
     "min_pf": 0.7
+  },
+  "average_down": {
+    "enabled": false,
+    "drop_R": 0.5,
+    "max_drop_R": 0.8,
+    "min_market": -0.2,
+    "need_uptrend": true,
+    "ratio": 0.5,
+    "loss_mult": 1.6
   }
 }

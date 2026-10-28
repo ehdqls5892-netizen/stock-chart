@@ -498,7 +498,7 @@ class Bot:
 
     def load_daily(self, syms):
         """일봉 추세 요약(전날까지만)을 종목별로 채운다. 하루 한 번, 이미 있으면 건너뜀."""
-        if not self.cfg["strategy"].get("filters", {}).get("daily_trend"):
+        if not (self.cfg["strategy"].get("filters", {}).get("daily_trend") or self.cfg.get("average_down", {}).get("enabled")):
             return
         today = now(self.m).strftime("%y%m%d")
         for sym in syms:
@@ -883,6 +883,38 @@ class Bot:
                                 if cash is not None:
                                     cash -= p.entry * p.qty
                                 break  # 한 번에 한 종목씩
+                # 물타기(시험용, 기본 꺼짐): 차트 추세가 좋고 시장이 안정적인데 살짝 밀렸다가 반등하는 봉이 나오면 1번만 소량 추가
+                ad = self.cfg.get("average_down", {})
+                if ad.get("enabled") and self.open_t <= n < no_entry_t and not self.stop_req and not self.risk.halted:
+                    mk = self.market_move()
+                    for sym, p in list(self.broker.pos.items()):
+                        st = self.syms.get(sym)
+                        if (not st or not st.last or p.state != "open" or p.extra.get("avgdown") or p.extra.get("adds")
+                                or p.extra.get("etf") or p.sl >= p.entry):
+                            continue
+                        R = p.extra.get("R") or (p.entry - p.sl)
+                        if not (p.entry - R * ad.get("max_drop_R", 0.8) <= st.last <= p.entry - R * ad.get("drop_R", 0.5)):
+                            continue                                  # 산 값보다 0.5~0.8R 밀린 구간에서만
+                        if mk is not None and mk < ad.get("min_market", -0.2):
+                            continue                                  # 시장 전체가 약하면 안 함
+                        d = st.daily or {}
+                        if ad.get("need_uptrend", True) and not (d.get("ma20") and d.get("close", 0) >= d["ma20"]):
+                            continue                                  # 일봉 추세가 좋은 종목만
+                        bars = session_bars(st, self.open_t)
+                        cur = n.replace(second=0, microsecond=0)
+                        done = [b for b in bars if b.t < cur]
+                        if len(done) < 2 or not (done[-1].c > done[-1].o and done[-1].c > done[-2].c):
+                            continue                                  # 반등하는 양봉이 나와야
+                        q = max(1, int((p.extra.get("q0") or p.qty) * ad.get("ratio", 0.5)))
+                        cap = self.risk.capital or 0
+                        max_loss = cap * self.cfg["risk"][self.m].get("risk_per_trade_pct", 1.0) / 100 * ad.get("loss_mult", 1.6)
+                        while q > 0 and ((p.entry * p.qty + st.last * q) / (p.qty + q) - p.sl) * (p.qty + q) > max_loss:
+                            q -= 1
+                        budget = self.risk.available(self.broker.invested()) or 0
+                        q = min(q, int(budget // st.last))
+                        if q >= 1:
+                            p.extra["avgdown"] = 1
+                            self.broker.add(p, q, st.last, f"물타기(산 값 {(st.last / p.entry - 1) * 100:+.1f}%, 추세 좋음·시장 안정·반등 봉)")
                 # 추가 매수(불타기): 잃지 않는 상태 + 같은 종목에 새 강한 신호
                 if self.open_t <= n < no_entry_t and not self.stop_req and not self.risk.kill_switch() and not self.risk.halted:
                     for sym, p in list(self.broker.pos.items()):
