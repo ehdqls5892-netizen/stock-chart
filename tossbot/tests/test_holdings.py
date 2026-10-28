@@ -18,6 +18,8 @@ for sym, nm in (("CDNS", "케이던스"), ("COHR", "코히런트"), ("PLTR", "�
 bot = SimpleNamespace(broker=b, syms={"CDNS": SimpleNamespace(last=104)}, sell_reqs=[], loop_on=False)
 A.STATE["bots"] = {"US": bot}
 A.STATE["mode"] = "paper"
+A.quotes = lambda syms: {"COHR": 110.0, "A1": 52000.0}          # 시세 조회 대신
+A.fx_usdkrw = lambda: 1400.0
 
 hs = A.holdings()
 assert len(hs) == 3 and abs(hs[0]["pct"] - 4) < 1e-9, hs
@@ -57,6 +59,8 @@ tc.handle("📦 보유종목")
 text = sent[-1][1]["text"]
 print(text)
 assert "케이던스" in text and "이수페타시스" in text and "🔒" in text
+assert "평가손익 +$4.00 ≈ +5,600원" in text and "+$10.00 ≈ +14,000원" in text and "+6,000원" in text, text
+assert "합계 평가손익 ≈ +25,600원" in text, text
 kb = sent[-1][1]["reply_markup"]["inline_keyboard"]
 assert any(btn["callback_data"] == "S|US|COHR" for row in kb for btn in row)
 assert all(len(btn["callback_data"].encode()) <= 64 for row in kb for btn in row)

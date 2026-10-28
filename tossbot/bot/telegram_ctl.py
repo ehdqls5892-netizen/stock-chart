@@ -29,6 +29,16 @@ def won(v, mk):
     return f"${v:,.2f}" if mk == "US" else f"{v:,.0f}원"
 
 
+def sgn(v, mk):
+    s = "+" if v > 0 else "-" if v < 0 else ""
+    return f"{s}${abs(v):,.2f}" if mk == "US" else f"{s}{abs(v):,.0f}원"
+
+
+def krw(v, signed=False):
+    s = ("+" if v > 0 else "-" if v < 0 else "") if signed else ("-" if v < 0 else "")
+    return f"{s}{abs(round(v / 100) * 100):,.0f}원"
+
+
 class TelegramControl:
     def __init__(self, start_fn, stop_fn, status_fn, capital_fn=None):
         self.token, self.chat = os.getenv("TG_TOKEN"), os.getenv("TG_CHAT")
@@ -62,13 +72,24 @@ class TelegramControl:
         hs = self.holdings_fn() if getattr(self, "holdings_fn", None) else []
         lines = ([note, ""] if note else []) + ["📦 보유종목 (로봇이 관리하는 것)"]
         rows = []
+        tot = {"KR": 0.0, "US": 0.0, "krw": 0.0, "val": 0.0, "n": 0, "nofx": False}
         if not hs:
             lines.append("보유 없음")
         for h in hs:
             mk = h["market"]
-            pct = f" {h['pct']:+.2f}%" if h.get("pct") is not None else ""
-            lines.append(f"{'🔒' if h['locked'] else '▫️'} {FL.get(mk, '')} {h['name']} {h['qty']}주{pct} · 산 값 {won(h.get('entry'), mk)}"
-                         f" · 손절선 {won(h.get('sl'), mk)}" + (" · 파는 중" if h.get("state") == "closing" else ""))
+            fx = h.get("fx")
+            lines.append(f"{'🔒' if h['locked'] else '▫️'} {FL.get(mk, '')} {h['name']} {h['qty']}주" + (" · 파는 중" if h.get("state") == "closing" else ""))
+            if h.get("pnl") is not None:
+                pl = sgn(h["pnl"], mk) + (f" ≈ {krw(h['pnl'] * fx, True)}" if mk == "US" and fx else "")
+                lines.append(f"   {'📈' if h['pnl'] > 0 else '📉' if h['pnl'] < 0 else '➖'} 현재 {won(h['last'], mk)} ({h['pct']:+.2f}%) · 평가손익 {pl}")
+                tot["n"] += 1
+                tot[mk] += h["pnl"]
+                if fx:
+                    tot["krw"] += h["pnl"] * fx
+                    tot["val"] += h["value"] * fx
+                else:
+                    tot["nofx"] = True
+            lines.append(f"   산 값 {won(h.get('entry'), mk)} · 손절선 {won(h.get('sl'), mk)}")
             if h.get("state") != "open":
                 continue
             key = f"{mk}|{h['symbol']}"
@@ -76,10 +97,19 @@ class TelegramControl:
             rows.append([{"text": f"🔓 해제 {nm}" if h["locked"] else f"🔒 잠금 {nm}",
                           "callback_data": ("U|" if h["locked"] else "L|") + key},
                          {"text": f"💰 팔기 {nm}", "callback_data": "S|" + key}])
+        if tot["n"]:
+            parts = [f"🇰🇷 {sgn(tot['KR'], 'KR')}"] if any(h["market"] == "KR" for h in hs) else []
+            parts += [f"🇺🇸 {sgn(tot['US'], 'US')}"] if any(h["market"] == "US" for h in hs) else []
+            lines.append("")
+            if tot["nofx"]:
+                lines.append("💰 합계 평가손익: " + " · ".join(parts))
+            else:
+                fxv = next((h["fx"] for h in hs if h["market"] == "US" and h.get("fx")), None)
+                lines.append(f"💰 합계 평가손익 ≈ {krw(tot['krw'], True)} (" + " · ".join(parts) + ")")
+                lines.append(f"   평가금액 ≈ {krw(tot['val'])}" + (f" · 환율 {fxv:,.0f}원/$ 기준" if fxv else ""))
         lines.append("")
         lines.append("🔒 = 장 마감에 안 팔고 들고 감 · 동시 보유 4종목 한도에서 빠짐 · 손절선 닿으면 자동 매도는 그대로")
-        if hs and any(h.get("pct") is None for h in hs):
-            lines.append("(수익률이 빈 종목은 장 밖이거나 아직 가격이 안 들어온 것)")
+        lines.append("🔒 잠긴 종목도 💰 팔기를 누르면 바로 팔아요 (해제 안 해도 됨) · 장 밖엔 마지막 가격 기준")
         bottom = [[{"text": "🔒 전부 잠금", "callback_data": "LA"}, {"text": "🔄 새로고침", "callback_data": "R"}],
                   [{"text": "⏹ 로봇 끄기(보유 유지)", "callback_data": "OFF"}, {"text": "💰 전부 팔고 끄기", "callback_data": "SA"}]]
         return "\n".join(lines), {"inline_keyboard": rows + bottom}

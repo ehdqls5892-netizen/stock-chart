@@ -191,7 +191,53 @@ def holdings() -> list:
                 out.append({"market": mk, "symbol": d["symbol"], "name": d.get("name") or d["symbol"], "qty": d.get("qty"),
                             "entry": d.get("entry"), "sl": d.get("sl"), "last": None, "pct": None,
                             "locked": bool(ex.get("locked")), "state": "open"})
+    miss = [h for h in out if not h["last"]]
+    if miss:                                  # 장 밖이거나 아직 체결이 없으면 토스 현재가(마지막 가격)로
+        px = quotes([h["symbol"] for h in miss])
+        for h in miss:
+            h["last"] = px.get(h["symbol"])
+    fx = fx_usdkrw() if any(h["market"] == "US" for h in out) else None
+    for h in out:
+        last, e, q = h["last"], h.get("entry"), h.get("qty") or 0
+        h["pct"] = (last / e - 1) * 100 if last and e else None
+        h["pnl"] = (last - e) * q if last and e else None
+        h["value"] = last * q if last else None
+        h["fx"] = fx if h["market"] == "US" else 1.0
     return out
+
+
+def quotes(syms: list) -> dict:
+    """토스 현재가 (장 밖이면 마지막 가격). 키가 없거나 실패하면 빈 값."""
+    if not syms:
+        return {}
+    try:
+        M.load_env()
+        if not os.getenv("TOSS_CLIENT_ID"):
+            return {}
+        from .util import f
+        return {x.get("symbol"): f(x.get("lastPrice")) for x in (M.shared_api().prices(list(syms)) or [])}
+    except Exception:
+        return {}
+
+
+_FX = {"v": None, "t": 0.0}
+
+
+def fx_usdkrw():
+    """원/달러 환율 (10분마다 새로, 실패하면 직전 값). 표시용 대략치."""
+    import time
+    if _FX["v"] and time.time() - _FX["t"] < 600:
+        return _FX["v"]
+    try:
+        import requests
+        r = requests.get("https://query1.finance.yahoo.com/v8/finance/chart/KRW=X", params={"range": "1d", "interval": "1d"},
+                         headers={"User-Agent": "Mozilla/5.0"}, timeout=6).json()
+        v = float(r["chart"]["result"][0]["meta"]["regularMarketPrice"])
+        if 800 < v < 3000:
+            _FX.update(v=v, t=time.time())
+    except Exception:
+        pass
+    return _FX["v"]
 
 
 def set_lock(mk: str, sym: str, on: bool) -> str:
