@@ -150,6 +150,105 @@ def lock_cmd(text: str) -> str:
     return "\n".join(out)
 
 
+# ───────── 보유종목 칸 (텔레그램): 종목별 잠금·팔기 ─────────
+def _state_path(mk: str) -> Path:
+    mode = STATE.get("mode") or M.load_settings().get("resume") or "live"
+    return M.ROOT / "logs" / ("paper" if mode == "paper" else "live") / mk / "state.json"
+
+
+def _broker(mk: str):
+    b = STATE.get("bots", {}).get(mk)
+    return getattr(b, "broker", None) if b is not None else None
+
+
+def _file_positions(mk: str) -> list:
+    """로봇이 장 밖(장 시작 기다림·꺼짐)이라 메모리에 없을 때: 저장된 보유 기록에서 읽음."""
+    try:
+        st = json.loads(_state_path(mk).read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    return [d for d in st.get("positions", []) if d.get("state") == "open"]
+
+
+def holdings() -> list:
+    """로봇이 관리하는 보유 종목 (국장·미장 함께)."""
+    out = []
+    for mk in ("KR", "US"):
+        br = _broker(mk)
+        b = STATE.get("bots", {}).get(mk)
+        if br is not None:
+            for p in br.pos.values():
+                if p.state not in ("open", "closing"):
+                    continue
+                st = (getattr(b, "syms", None) or {}).get(p.symbol)
+                last = getattr(st, "last", None) or None
+                out.append({"market": mk, "symbol": p.symbol, "name": p.name, "qty": p.qty, "entry": p.entry, "sl": p.sl,
+                            "last": last, "pct": (last / p.entry - 1) * 100 if last else None,
+                            "locked": bool(p.extra.get("locked")), "state": p.state})
+        else:
+            for d in _file_positions(mk):
+                ex = d.get("extra") or {}
+                out.append({"market": mk, "symbol": d["symbol"], "name": d.get("name") or d["symbol"], "qty": d.get("qty"),
+                            "entry": d.get("entry"), "sl": d.get("sl"), "last": None, "pct": None,
+                            "locked": bool(ex.get("locked")), "state": "open"})
+    return out
+
+
+def set_lock(mk: str, sym: str, on: bool) -> str:
+    br = _broker(mk)
+    if br is not None:
+        p = br.pos.get(sym)
+        if not p or p.state != "open":
+            return "그 종목은 지금 보유 중이 아니에요 (이미 팔렸을 수 있어요)."
+        if on:
+            p.extra["locked"] = True
+        else:
+            p.extra.pop("locked", None)
+        br.save_state()
+        name = p.name
+    else:
+        fp = _state_path(mk)
+        try:
+            st = json.loads(fp.read_text(encoding="utf-8"))
+        except Exception:
+            return "보유 기록을 읽지 못했어요."
+        hit = [d for d in st.get("positions", []) if d.get("symbol") == sym and d.get("state") == "open"]
+        if not hit:
+            return "그 종목은 지금 보유 중이 아니에요."
+        for d in hit:
+            ex = d.setdefault("extra", {})
+            if on:
+                ex["locked"] = True
+            else:
+                ex.pop("locked", None)
+        fp.write_text(json.dumps(st, ensure_ascii=False, indent=1), encoding="utf-8")
+        name = hit[0].get("name") or sym
+    return (f"🔒 {name} 잠금 — 장 마감에 안 팔고 들고 가요 · 동시 보유 한도에서 빠짐 · 손절선 따라 자동 매도는 그대로"
+            if on else f"🔓 {name} 잠금 해제 — 다시 보통 규칙(나눠 익절·장 마감 정리)을 따라요")
+
+
+def sell_one(mk: str, sym: str) -> str:
+    """한 종목만 시장가로 팔기 (로봇은 계속 돎). 실제 주문은 로봇 루프가 처리."""
+    b = STATE.get("bots", {}).get(mk)
+    br = _broker(mk)
+    if b is None or br is None or not getattr(b, "loop_on", False):
+        return ("지금은 이 시장 장이 열려 있지 않아서(로봇이 장 밖) 팔 수 없어요. "
+                "장 중에 다시 누르거나 토스 앱에서 직접 파세요. 서버 손절 주문은 그대로 걸려 있어요.")
+    p = br.pos.get(sym)
+    if not p or p.state != "open":
+        return "그 종목은 지금 보유 중이 아니에요 (이미 팔리는 중이거나 팔렸을 수 있어요)."
+    if sym not in b.sell_reqs:
+        b.sell_reqs.append(sym)
+    return f"💰 {p.name} {p.qty}주 시장가 매도 주문을 넣어요. 체결되면 알려 드릴게요."
+
+
+def lock_all() -> str:
+    hs = [h for h in holdings() if not h["locked"] and h["state"] == "open"]
+    if not hs:
+        return "잠글 종목이 없어요 (이미 다 잠겨 있거나 보유가 없어요)."
+    return "\n".join(set_lock(h["market"], h["symbol"], True) for h in hs)
+
+
 def resume_dd() -> str:
     """계좌 낙폭 한도 멈춤 풀기: 지금부터 낙폭을 새로 계산."""
     import datetime as dt
@@ -371,6 +470,7 @@ def main():
     tc = TelegramControl(start, stop, status, set_capital)
     tc.resume_fn = resume_dd
     tc.lock_fn = lock_cmd
+    tc.holdings_fn, tc.set_lock_fn, tc.sell_one_fn, tc.lock_all_fn = holdings, set_lock, sell_one, lock_all
     if tc.enabled:
         tc.start()
         threading.Thread(target=_briefing_loop, args=(lambda t: tc.send(t),), daemon=True).start()

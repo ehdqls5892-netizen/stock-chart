@@ -123,6 +123,8 @@ class Bot:
         self._bg_stop = True
         self.stream = None
         self.stop_req: str | None = None   # None / "keep"(보유 유지하고 끝) / "sell"(전부 팔고 끝)
+        self.sell_reqs: list[str] = []     # 텔레그램 보유종목 칸에서 '팔기' 누른 종목
+        self.loop_on = False               # 장중 루프가 돌고 있을 때만 True (이때만 한 종목 팔기 가능)
         self.phase = "준비 중"
         self.open_t: dt.datetime | None = None
         self.close_t: dt.datetime | None = None
@@ -882,8 +884,14 @@ class Bot:
                 self.beat = time.time()                      # 멈춤 감시용 (app 의 감시 스레드가 봄)
                 today = n.date().isoformat()
                 self.phase = ("장중 매매" if n < no_entry_t else "새 진입 없이 보유분 관리" if n < flatten_t else "마감 정리")
+                self.loop_on = True
                 if self.stop_req and self.handle_stop(today):
                     break
+                while self.sell_reqs:
+                    sym = self.sell_reqs.pop(0)
+                    st = self.syms.get(sym)
+                    if sym in self.broker.pos and self.broker.pos[sym].state == "open":
+                        self.broker.flatten(sym, "직접 매도 (텔레그램 보유종목)", st.last if st else None)
                 undecided = [p for p in self.broker.pos.values() if p.extra.get("carry_done") != today]
                 if n >= self.close_t or (n >= flatten_t and not undecided):
                     break
@@ -1083,6 +1091,7 @@ class Bot:
             if self.broker.open_count():
                 self.log(f"⚠️ 아직 보유 중 {self.broker.open_count()}건 — 실전이면 토스 서버의 익절·손절 조건주문은 그대로 살아 있어요.")
         finally:
+            self.loop_on = False
             if self.stream:
                 self._bg_stop = True
                 self.stream.stop()
@@ -1129,7 +1138,7 @@ class Bot:
                 pos.append({"symbol": p.symbol, "name": p.name, "qty": p.qty, "entry": p.entry, "last": last,
                             "pct": (last / p.entry - 1) * 100 if last else None, "sl": p.sl,
                             "sl_pct": (p.sl / p.entry - 1) * 100, "state": p.state,
-                            "carry": bool(p.extra.get("carry")), "days": len(p.extra.get("days_held", [])),
+                            "carry": bool(p.extra.get("carry")), "locked": bool(p.extra.get("locked")), "days": len(p.extra.get("days_held", [])),
                             "partial": p.partial_done})
         closed = [{"name": p.name, "qty": p.qty, "entry": p.entry, "exit": p.exit_price, "pnl": p.pnl,
                    "pct": (p.exit_price / p.entry - 1) * 100 if p.exit_price else None, "why": p.exit_reason}

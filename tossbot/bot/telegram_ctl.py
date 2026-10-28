@@ -2,7 +2,9 @@
 
 .env 에 TG_TOKEN, TG_CHAT 이 있으면 켜져요. TG_CHAT 이 아닌 사람이 보낸 메시지는 무시해요.
 봇 채팅방에 아래 버튼이 생겨요:
-  📊 상태 | 💵 투자금 | ▶️ 연습 시작 | 🔴 실전 시작 | ⏹ 종료(보유 유지) | 💰 종료(전부 팔기)
+  📊 상태 | 💵 투자금 | ▶️ 연습 시작 | 🔴 실전 시작 | 📦 보유종목 | 📈 성적 | 📜 기록
+📦 보유종목: 국장·미장 보유를 한 번에 보고, 종목마다 🔒 잠금/🔓 해제 · 💰 팔기.
+  맨 아래에 🔒 전부 잠금 · ⏹ 로봇 끄기(보유 유지) · 💰 전부 팔고 끄기.
 '업데이트' 라고 보내면 GitHub 새 버전을 바로 받아 시험 후 적용해요(서버).
 실전 시작·전부 팔기는 한 번 더 확인 버튼을 눌러야 실행돼요.
 """
@@ -16,7 +18,7 @@ import requests
 
 KB = {"keyboard": [[{"text": "📊 상태"}, {"text": "💵 투자금"}],
                    [{"text": "▶️ 연습 시작"}, {"text": "🔴 실전 시작"}],
-                   [{"text": "⏹ 종료(보유 유지)"}, {"text": "💰 종료(전부 팔기)"}],
+                   [{"text": "📦 보유종목"}],
                    [{"text": "📈 성적"}, {"text": "📜 기록"}]],
       "resize_keyboard": True, "is_persistent": True}
 
@@ -47,6 +49,86 @@ class TelegramControl:
         except Exception:
             pass
 
+    def _api(self, method, body):
+        try:
+            return requests.post(f"https://api.telegram.org/bot{self.token}/{method}", json=body, timeout=10).json()
+        except Exception:
+            return {}
+
+    # ───────── 📦 보유종목 칸 ─────────
+    def holdings_view(self, note: str = ""):
+        """(본문, 버튼) — 종목마다 [🔒 잠금 / 🔓 해제] [💰 팔기]"""
+        FL = {"KR": "🇰🇷", "US": "🇺🇸"}
+        hs = self.holdings_fn() if getattr(self, "holdings_fn", None) else []
+        lines = ([note, ""] if note else []) + ["📦 보유종목 (로봇이 관리하는 것)"]
+        rows = []
+        if not hs:
+            lines.append("보유 없음")
+        for h in hs:
+            mk = h["market"]
+            pct = f" {h['pct']:+.2f}%" if h.get("pct") is not None else ""
+            lines.append(f"{'🔒' if h['locked'] else '▫️'} {FL.get(mk, '')} {h['name']} {h['qty']}주{pct} · 산 값 {won(h.get('entry'), mk)}"
+                         f" · 손절선 {won(h.get('sl'), mk)}" + (" · 파는 중" if h.get("state") == "closing" else ""))
+            if h.get("state") != "open":
+                continue
+            key = f"{mk}|{h['symbol']}"
+            nm = h["name"][:10]
+            rows.append([{"text": f"🔓 해제 {nm}" if h["locked"] else f"🔒 잠금 {nm}",
+                          "callback_data": ("U|" if h["locked"] else "L|") + key},
+                         {"text": f"💰 팔기 {nm}", "callback_data": "S|" + key}])
+        lines.append("")
+        lines.append("🔒 = 장 마감에 안 팔고 들고 감 · 동시 보유 4종목 한도에서 빠짐 · 손절선 닿으면 자동 매도는 그대로")
+        if hs and any(h.get("pct") is None for h in hs):
+            lines.append("(수익률이 빈 종목은 장 밖이거나 아직 가격이 안 들어온 것)")
+        bottom = [[{"text": "🔒 전부 잠금", "callback_data": "LA"}, {"text": "🔄 새로고침", "callback_data": "R"}],
+                  [{"text": "⏹ 로봇 끄기(보유 유지)", "callback_data": "OFF"}, {"text": "💰 전부 팔고 끄기", "callback_data": "SA"}]]
+        return "\n".join(lines), {"inline_keyboard": rows + bottom}
+
+    def send_holdings(self, note: str = ""):
+        text, mk = self.holdings_view(note)
+        self._api("sendMessage", {"chat_id": self.chat, "text": text[:3900], "reply_markup": mk})
+
+    def _edit(self, mid, text, markup):
+        self._api("editMessageText", {"chat_id": self.chat, "message_id": mid, "text": text[:3900], "reply_markup": markup})
+
+    def _confirm(self, mid, text, yes_data):
+        self._edit(mid, text, {"inline_keyboard": [[{"text": "✅ 실행", "callback_data": f"{yes_data}|{int(time.time())}"},
+                                                    {"text": "취소", "callback_data": "R"}]]})
+
+    def on_callback(self, data: str, mid):
+        """보유종목 칸 버튼 처리. 팔기·끄기는 한 번 더 '✅ 실행' 을 눌러야(2분 안) 실행."""
+        parts = (data or "").split("|")
+        op = parts[0]
+        note = ""
+        def fresh(ts):
+            try:
+                return time.time() - int(ts) < 120
+            except (TypeError, ValueError):
+                return False
+        names = {h["market"] + "|" + h["symbol"]: h for h in (self.holdings_fn() if getattr(self, "holdings_fn", None) else [])}
+        if op in ("L", "U") and len(parts) >= 3:
+            note = self.set_lock_fn(parts[1], parts[2], op == "L")
+        elif op == "S" and len(parts) >= 3:
+            h = names.get(parts[1] + "|" + parts[2])
+            if not h:
+                note = "그 종목은 지금 보유 중이 아니에요."
+            else:
+                return self._confirm(mid, f"💰 {h['name']} {h['qty']}주를 지금 시장가로 팔까요? (로봇은 계속 돌아요)", f"SY|{parts[1]}|{parts[2]}")
+        elif op == "SY" and len(parts) >= 4:
+            note = self.sell_one_fn(parts[1], parts[2]) if fresh(parts[3]) else "확인 시간이 지났어요. 다시 눌러 주세요."
+        elif op == "LA":
+            note = self.lock_all_fn()
+        elif op == "SA":
+            return self._confirm(mid, "💰 보유 종목을 전부 시장가로 팔고 로봇을 꺼요. (잠긴 종목도 팔아요)", "SAY")
+        elif op == "SAY" and len(parts) >= 2:
+            note = ("💰 " + self.stop_fn("sell")) if fresh(parts[1]) else "확인 시간이 지났어요. 다시 눌러 주세요."
+        elif op == "OFF":
+            return self._confirm(mid, "⏹ 로봇을 꺼요. 보유 종목은 토스 서버 손절 주문을 걸어 둔 채로 그대로 둬요.", "OFFY")
+        elif op == "OFFY" and len(parts) >= 2:
+            note = ("⏹ " + self.stop_fn("keep")) if fresh(parts[1]) else "확인 시간이 지났어요. 다시 눌러 주세요."
+        text, mk = self.holdings_view(note)
+        self._edit(mid, text, mk)
+
     def status_text(self) -> str:
         s = self.status_fn()
         FL, NM = {"KR": "🇰🇷", "US": "🇺🇸"}, {"KR": "국장", "US": "미장"}
@@ -63,7 +145,7 @@ class TelegramControl:
                 mk = p.get("market", "KR")
                 pct = f"{p['pct']:+.2f}%" if p.get("pct") is not None else "–"
                 lines.append(f"- {FL.get(mk, '')} {p['name']} {p['qty']}주 {pct} · 손절선 {won(p.get('sl'), mk)}"
-                             + (" · 들고 가는 중" if p.get("carry") else ""))
+                             + (" · 🔒 잠금" if p.get("locked") else " · 들고 가는 중" if p.get("carry") else ""))
         else:
             lines.append("보유 없음")
         cl = s.get("closed") or []
@@ -121,6 +203,8 @@ class TelegramControl:
             pat = re.compile(r"매수|매도|체결|익절|손절|뉴스|후보 추가|안 사요|멈춰|프리마켓|시장 전체|🔗|⛔|오류")
             pick = [x for x in lines if (key in x if key else pat.search(x))][-25:]
             return self.send("📜 최근 기록" + (f" ({key})" if key else "") + "\n" + ("\n".join(pick) if pick else "해당 기록이 없어요 (로봇이 다시 켜지면 그 이전 기록은 화면에서 사라져요)"))
+        if "보유종목" in t or t in ("보유", "/hold"):
+            return self.send_holdings()
         if t.startswith("잠금") or t.startswith("🔒"):
             return self.send(self.lock_fn(t) if getattr(self, "lock_fn", None) else "이 기능을 쓸 수 없어요")
         if t == "재개":
@@ -180,6 +264,13 @@ class TelegramControl:
                 r = requests.get(url, params=p, timeout=40).json()
                 for u in r.get("result", []):
                     self.offset = u["update_id"] + 1
+                    cq = u.get("callback_query")
+                    if cq:
+                        m = cq.get("message") or {}
+                        self._api("answerCallbackQuery", {"callback_query_id": cq.get("id")})
+                        if str((m.get("chat") or {}).get("id")) == str(self.chat):
+                            self.on_callback(cq.get("data", ""), m.get("message_id"))
+                        continue
                     msg = u.get("message") or {}
                     if str((msg.get("chat") or {}).get("id")) != str(self.chat):
                         continue  # 내 채팅방이 아닌 곳의 메시지는 무시
