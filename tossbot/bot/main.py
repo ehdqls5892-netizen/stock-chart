@@ -955,6 +955,11 @@ class Bot:
                             continue
                         st = self.syms.get(sym)
                         last = st.last if st else None
+                        if p.state == "open" and p.extra.get("locked"):
+                            self.broker.carry(p, last or p.entry)        # 잠금: 장 마감 정리 안 함(손절 주문은 유지·연장)
+                            p.extra["carry_done"] = today
+                            self.broker.save_state()
+                            continue
                         if p.state == "open":
                             vw = vwap(session_bars(st, self.open_t)) if st else None
                             strong = False

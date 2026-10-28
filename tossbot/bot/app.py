@@ -117,6 +117,39 @@ def _watchdog():
                 os._exit(1)
 
 
+def lock_cmd(text: str) -> str:
+    """'잠금 이름' / '잠금 해제 이름' / '잠금'(목록). 잠금 = 장 마감에 정리하지 않고 들고 감, 동시 보유 한도에 안 셈."""
+    t = text.replace("🔒", "").strip()
+    unlock = "해제" in t
+    key = t.replace("잠금", "").replace("해제", "").strip()
+    found, locked = [], []
+    for mk, b in list(STATE.get("bots", {}).items()):
+        br = getattr(b, "broker", None)
+        if not br:
+            continue
+        for p in list(br.pos.values()):
+            if p.extra.get("locked"):
+                locked.append(f"{p.name} {p.qty}주(손절 {M.money(mk, p.sl)})")
+            if key and (key in p.name or key.upper() == p.symbol.upper()):
+                found.append((mk, br, p))
+    if not key:
+        return "🔒 잠금 중: " + (", ".join(locked) if locked else "없음") + \
+               "\n잠그기: '잠금 종목이름' · 풀기: '잠금 해제 종목이름'"
+    if not found:
+        return f"'{key}' 은 로봇이 관리하는 보유 종목에 없어요. (로봇이 산 종목만 잠글 수 있어요)"
+    out = []
+    for mk, br, p in found:
+        if unlock:
+            p.extra.pop("locked", None)
+            out.append(f"🔓 {p.name} 잠금 해제 — 다시 동시 보유 한도에 포함되고, 장 마감 정리 규칙을 따라요")
+        else:
+            p.extra["locked"] = True
+            out.append(f"🔒 {p.name} {p.qty}주 잠금 — 장 마감에 정리하지 않고 들고 가요. 동시 보유 한도·오늘 투자금에서 빠져요. "
+                       f"손절 주문({M.money(mk, p.sl)})은 그대로 지켜요")
+        br.save_state()
+    return "\n".join(out)
+
+
 def resume_dd() -> str:
     """계좌 낙폭 한도 멈춤 풀기: 지금부터 낙폭을 새로 계산."""
     import datetime as dt
@@ -337,6 +370,7 @@ def main():
     from .telegram_ctl import TelegramControl
     tc = TelegramControl(start, stop, status, set_capital)
     tc.resume_fn = resume_dd
+    tc.lock_fn = lock_cmd
     if tc.enabled:
         tc.start()
         threading.Thread(target=_briefing_loop, args=(lambda t: tc.send(t),), daemon=True).start()

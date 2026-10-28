@@ -69,12 +69,14 @@ class BaseBroker:
         return sell - buy - cost
 
     def open_count(self, day_only: bool = False) -> int:
+        """동시 보유 수 — 잠금한 종목은 세지 않음(4종목 한도와 별개)."""
         return sum(1 for p in self.pos.values() if p.state in ("pending", "open", "closing")
-                   and not (day_only and p.extra.get("carry")))
+                   and not (day_only and p.extra.get("carry")) and not p.extra.get("locked"))
 
     def invested(self) -> float:
-        """들고 있는(사는 중 포함) 종목에 들어간 돈."""
-        return sum(p.entry * p.qty for p in self.pos.values() if p.state in ("pending", "open", "closing"))
+        """들고 있는(사는 중 포함) 종목에 들어간 돈 — 잠금한 종목은 오늘 투자금 계산에서 뺌."""
+        return sum(p.entry * p.qty for p in self.pos.values()
+                   if p.state in ("pending", "open", "closing") and not p.extra.get("locked"))
 
     def carried(self) -> list:
         return [p for p in self.pos.values() if p.extra.get("carry")]
@@ -147,7 +149,7 @@ class BaseBroker:
         plist = t.get("partials") or ([[t["partial_at_R"], t.get("partial_ratio", 0.5), "절반 익절"]]
                                       if t.get("partial_at_R") else [])
         i = int(p.extra.get("parts", 1 if p.partial_done else 0))
-        if i < len(plist) and p.qty >= 2:
+        if i < len(plist) and p.qty >= 2 and not p.extra.get("locked"):   # 잠금 종목은 나눠 팔지 않음
             at, ratio, label = (list(plist[i]) + ["익절"])[:3]
             if last >= p.entry + R * at:
                 part = (ratio, label)
