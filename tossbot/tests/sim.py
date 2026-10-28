@@ -145,6 +145,12 @@ class FakeAPI:
     def buying_power(self, c):
         return {"cashBuyingPower": "1000000"}
 
+    def holdings(self):
+        q = {}
+        for o in self.orders.values():
+            q[o["sym"]] = q.get(o["sym"], 0) + (o["q"] if o["side"] == "BUY" else -o["q"])
+        return {"items": [{"symbol": k, "quantity": str(v)} for k, v in q.items() if v > 0]}
+
     def sellable(self, sym):
         return {"sellableQuantity": str(sum(o["q"] for o in self.orders.values() if o["sym"] == sym and o["side"] == "BUY"))}
 

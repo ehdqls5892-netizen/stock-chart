@@ -514,6 +514,45 @@ class LiveBroker(BaseBroker):
                 self._arm_exit(p)
         self.save_state()
 
+    def reconcile(self):
+        """1분마다 실제 계좌 보유와 맞춰 보기: 토스 앱에서 직접 판(또는 일부 판) 종목을 반영하고 손절 주문을 정리."""
+        opened = [p for p in self.pos.values() if p.state == "open" and not p.extra.get("partial_oid") and not p.extra.get("add_oid")]
+        if not opened:
+            return
+        try:
+            hold = {h["symbol"]: int(f(h.get("quantity"), 0) or 0) for h in (self.api.holdings() or {}).get("items", [])}
+        except TossError:
+            return
+        for p in opened:
+            q = hold.get(p.symbol, 0)
+            if q >= p.qty:
+                continue
+            if q <= 0:
+                try:                                   # 로봇 손절 주문이 방금 체결된 거면 poll 이 손익까지 기록하게 둠
+                    if p.cond_id and (self.api.get_conditional(p.cond_id) or {}).get("status") in ("COMPLETED", "ORDERED"):
+                        continue
+                except (TossError, AttributeError):
+                    pass
+                if p.cond_id:
+                    try:
+                        self.api.cancel_conditional(p.cond_id)
+                    except TossError:
+                        pass
+                self.pos.pop(p.symbol, None)
+                msg = f"👋 {p.name} 은 계좌에 없어요(직접 파셨거나 다른 곳에서 정리) → 로봇 관리 목록에서 빼고 손절 주문도 취소했어요"
+            else:
+                old = p.qty
+                p.qty = q
+                try:
+                    self._modify(p, q, p.sl)
+                except TossError as e:
+                    self.log(f"[실전] {p.name} 손절 주문 수량 맞추기 실패: {e}")
+                msg = f"✂️ {p.name} 보유가 {old}주 → {q}주로 줄었어요(직접 일부 판매) → 남은 {q}주만 관리하고 손절 주문 수량도 맞췄어요"
+            self.log(msg)
+            self.notify(msg)
+            self._journal("manual", p)
+        self.save_state()
+
     def enter(self, sym, name, price, qty, tp, sl, reason, r=None, atr=None) -> Position | None:
         r_risk = r
         # 매도 1호가(없으면 현재가+1호가)에 지정가 → 사실상 즉시 체결, 너무 비싸게는 안 삼
