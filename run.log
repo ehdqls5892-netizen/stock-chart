@@ -1,0 +1,7 @@
+08:18:46 KRX 확인 실패 20261030 KeyError("None of [Index(['시가', '고가', '저가', '종가'], dtype='object')] are in the [columns]")
+08:18:46 KRX 확인 실패 20261029 KeyError("None of [Index(['시가', '고가', '저가', '종가'], dtype='object')] are in the [columns]")
+08:18:47 KRX 확인 실패 20261028 KeyError("None of [Index(['시가', '고가', '저가', '종가'], dtype='object')] are in the [columns]")
+08:18:47 KRX 방식 실패 → 야후 방식으로: RuntimeError('KRX 응답 없음')
+08:18:50 야후로 받기 · 한국 목록 2587
+08:22:03 야후 한국 시세 2539
+08:23:02 kr: 2539종목 저장 · asOf 2026-10-30
