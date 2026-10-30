@@ -1,0 +1,850 @@
+{
+ "market": "us",
+ "generatedAt": "2026-10-30T23:03+00:00",
+ "days": [
+  "2026-10-19",
+  "2026-10-20",
+  "2026-10-21",
+  "2026-10-22",
+  "2026-10-23",
+  "2026-10-26",
+  "2026-10-27",
+  "2026-10-28",
+  "2026-10-29",
+  "2026-10-30"
+ ],
+ "capital": 1000,
+ "symbols": 150,
+ "summary": "매매 51건(10일) · 승률 55% · 합계 $-28.32 (하루 평균 $-2.83)\n평균 이익 $2.61 / 평균 손실 $4.41 → 손익비 0.6 · 1회 기대값 $-0.56\n최대 낙폭 $54.44 (투자금의 5.4%) · 샤프 -2.76 (마이너스 → 고칠 필요)\n방식별: ⚠️평균단가 반등 21건 62% $-3.72 · ❌고점 돌파 1건 0% $-5.21 · ❌시초 돌파 29건 52% $-19.39",
+ "verdict": "🟡 아직 유지 추천 (이익합/손실합 0.72, 기준 1.3 · 최대 낙폭 기준 투자금 8% 이내)",
+ "byDay": {
+  "2026-10-19": -3.4831999999999756,
+  "2026-10-20": -9.892749999999994,
+  "2026-10-21": -8.921729999999922,
+  "2026-10-22": -21.59801000000005,
+  "2026-10-23": -10.539619999999966,
+  "2026-10-26": 3.8058599999999863,
+  "2026-10-27": 12.800409999999996,
+  "2026-10-28": 27.486939999999986,
+  "2026-10-29": 8.438219999999976,
+  "2026-10-30": -26.414490000000022
+ },
+ "trades": [
+  {
+   "_day": "2026-10-19",
+   "kind": "exit",
+   "name": "Supermicro",
+   "symbol": "SMCI",
+   "qty": 2,
+   "entry": 33.13,
+   "exit_price": 32.28,
+   "pnl": -1.8308200000000028,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 33.05 돌파 · VWAP 위 · 거래량 2.9배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-19",
+   "kind": "exit",
+   "name": "Nvidia",
+   "symbol": "NVDA",
+   "qty": 2,
+   "entry": 218.29,
+   "exit_price": 217.9,
+   "pnl": -1.6523799999999729,
+   "reason": "확신도 A(비중 1.35배) · 시초 15분 고점 218.034 돌파 · VWAP 위 · 거래량 30.3배",
+   "exit_reason": "장 마감 전 정리 (수익 -0.2% < 기준 3.0% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요)",
+   "extra": {
+    "setup": "orb",
+    "grade": "A"
+   }
+  },
+  {
+   "_day": "2026-10-20",
+   "kind": "exit",
+   "name": "아이온큐",
+   "symbol": "IONQ",
+   "qty": 8,
+   "entry": 30.99,
+   "exit_price": 30.36,
+   "pnl": -5.530799999999992,
+   "reason": "확신도 C(비중 0.75배) · VWAP 30.8712 눌림 후 반등 · 오늘 고점 32.44 · 거래량 1.4배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-20",
+   "kind": "exit",
+   "name": "Microchip Technology",
+   "symbol": "MCHP",
+   "qty": 3,
+   "entry": 74.64,
+   "exit_price": 73.46,
+   "pnl": -3.9843000000000206,
+   "reason": "확신도 C(비중 0.75배) · VWAP 74.5018 눌림 후 반등 · 오늘 고점 76.08 · 거래량 2.4배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-20",
+   "kind": "exit",
+   "name": "Boston Scientific",
+   "symbol": "BSX",
+   "qty": 1,
+   "entry": 44.78,
+   "exit_price": 46.03,
+   "pnl": 1.15919,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 44.36 돌파 · VWAP 위 · 거래량 4.6배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-20",
+   "kind": "exit",
+   "name": "Oracle Corporation",
+   "symbol": "ORCL",
+   "qty": 1,
+   "entry": 129.75,
+   "exit_price": 133.04,
+   "pnl": 3.027209999999992,
+   "reason": "확신도 A(비중 1.35배) · 시초 15분 고점 129.49 돌파 · VWAP 위 · 거래량 42.0배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "orb",
+    "grade": "A"
+   }
+  },
+  {
+   "_day": "2026-10-20",
+   "kind": "exit",
+   "name": "Coinbase",
+   "symbol": "COIN",
+   "qty": 1,
+   "entry": 171.44,
+   "exit_price": 175.77,
+   "pnl": 3.9827900000000125,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 169.08 돌파 · VWAP 위 · 거래량 2.8배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-20",
+   "kind": "exit",
+   "name": "Netflix",
+   "symbol": "NFLX",
+   "qty": 3,
+   "entry": 70.31,
+   "exit_price": 68.52,
+   "pnl": -5.786490000000004,
+   "reason": "확신도 C(비중 0.75배) · 시초 15분 고점 70.1 돌파 · VWAP 위 · 거래량 2.4배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-20",
+   "kind": "exit",
+   "name": "Coinbase",
+   "symbol": "COIN",
+   "qty": 1,
+   "entry": 171.44,
+   "exit_price": 169.57,
+   "pnl": -2.2110100000000044,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 169.08 돌파 · VWAP 위 · 거래량 2.8배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-20",
+   "kind": "exit",
+   "name": "Intel",
+   "symbol": "INTC",
+   "qty": 2,
+   "entry": 92.38,
+   "exit_price": 92.29,
+   "pnl": -0.5493399999999784,
+   "reason": "확신도 C(비중 0.75배) · VWAP 91.8214 눌림 후 반등 · 오늘 고점 93.73 · 거래량 1.4배",
+   "exit_reason": "장 마감 전 정리 (수익 -0.1% < 기준 3.0% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요)",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-21",
+   "kind": "exit",
+   "name": "Boston Scientific",
+   "symbol": "BSX",
+   "qty": 1,
+   "entry": 44.78,
+   "exit_price": 45.03,
+   "pnl": 0.16019,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 44.36 돌파 · VWAP 위 · 거래량 4.6배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-21",
+   "kind": "exit",
+   "name": "Oracle Corporation",
+   "symbol": "ORCL",
+   "qty": 2,
+   "entry": 129.75,
+   "exit_price": 128.29,
+   "pnl": -3.436080000000016,
+   "reason": "확신도 A(비중 1.35배) · 시초 15분 고점 129.49 돌파 · VWAP 위 · 거래량 42.0배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "A"
+   }
+  },
+  {
+   "_day": "2026-10-21",
+   "kind": "exit",
+   "name": "Charles Schwab Corporation",
+   "symbol": "SCHW",
+   "qty": 3,
+   "entry": 91.74,
+   "exit_price": 91.58,
+   "pnl": -1.0299599999999614,
+   "reason": "확신도 C(비중 0.75배) · 시초 15분 고점 91.63 돌파 · VWAP 위 · 거래량 2.2배",
+   "exit_reason": "장 마감 전 정리 (수익 -0.2% < 기준 3.0% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요)",
+   "extra": {
+    "setup": "orb",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-21",
+   "kind": "exit",
+   "name": "PepsiCo",
+   "symbol": "PEP",
+   "qty": 2,
+   "entry": 134.57,
+   "exit_price": 134.43,
+   "pnl": -0.8179999999999727,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 134.38 돌파 · VWAP 위 · 거래량 2.4배",
+   "exit_reason": "장 마감 전 정리 (수익 -0.1% < 기준 3.0% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요)",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-21",
+   "kind": "exit",
+   "name": "Oracle Corporation",
+   "symbol": "ORCL",
+   "qty": 2,
+   "entry": 130.29,
+   "exit_price": 128.65,
+   "pnl": -3.7978799999999726,
+   "reason": "확신도 C(비중 0.75배) · VWAP 130.185 눌림 후 반등 · 오늘 고점 133.52 · 거래량 2.1배",
+   "exit_reason": "장 마감 전 정리 (수익 -1.3% < 기준 3.0% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요)",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-22",
+   "kind": "exit",
+   "name": "Intel",
+   "symbol": "INTC",
+   "qty": 2,
+   "entry": 92.42,
+   "exit_price": 87.82,
+   "pnl": -9.560480000000018,
+   "reason": "확신도 C(비중 0.75배) · VWAP 92.2603 눌림 후 반등 · 오늘 고점 94.394 · 거래량 1.3배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-22",
+   "kind": "exit",
+   "name": "Merck & Co.",
+   "symbol": "MRK",
+   "qty": 3,
+   "entry": 153.04,
+   "exit_price": 148.7,
+   "pnl": -13.925220000000039,
+   "reason": "확신도 A(비중 1.35배) · 시초 15분 고점 152.02 돌파 · VWAP 위 · 거래량 55.5배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "A"
+   }
+  },
+  {
+   "_day": "2026-10-22",
+   "kind": "exit",
+   "name": "NextEra Energy",
+   "symbol": "NEE",
+   "qty": 1,
+   "entry": 80.13,
+   "exit_price": 82.18,
+   "pnl": 1.8876900000000114,
+   "reason": "확신도 C(비중 0.75배) · 시초 15분 고점 80.01 돌파 · VWAP 위 · 거래량 2.2배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "orb",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-23",
+   "kind": "exit",
+   "name": "Verizon",
+   "symbol": "VZ",
+   "qty": 4,
+   "entry": 44.81,
+   "exit_price": 43.58,
+   "pnl": -5.273560000000016,
+   "reason": "확신도 C(비중 0.75배) · 시초 15분 고점 44.44 돌파 · VWAP 위 · 거래량 2.3배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-23",
+   "kind": "exit",
+   "name": "PepsiCo",
+   "symbol": "PEP",
+   "qty": 2,
+   "entry": 136.57,
+   "exit_price": 137.74,
+   "pnl": 1.7913800000000317,
+   "reason": "확신도 C(비중 0.75배) · 시초 15분 고점 136.31 돌파 · VWAP 위 · 거래량 2.3배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-23",
+   "kind": "exit",
+   "name": "Walmart",
+   "symbol": "WMT",
+   "qty": 2,
+   "entry": 120.33,
+   "exit_price": 119.42,
+   "pnl": -2.299499999999993,
+   "reason": "확신도 C(비중 0.75배) · 시초 15분 고점 119.42 돌파 · VWAP 위 · 거래량 2.0배",
+   "exit_reason": "장 마감 전 정리 (수익 -0.7% < 기준 3.0% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요)",
+   "extra": {
+    "setup": "orb",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-23",
+   "kind": "exit",
+   "name": "Corning Inc.",
+   "symbol": "GLW",
+   "qty": 2,
+   "entry": 125.03,
+   "exit_price": 123.91,
+   "pnl": -2.737880000000009,
+   "reason": "확신도 C(비중 0.75배) · 시초 15분 고점 124.5 돌파 · VWAP 위 · 거래량 2.1배",
+   "exit_reason": "장 마감 전 정리 (수익 -0.9% < 기준 3.0% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요)",
+   "extra": {
+    "setup": "orb",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-23",
+   "kind": "exit",
+   "name": "Vistra Corp.",
+   "symbol": "VST",
+   "qty": 2,
+   "entry": 140.38,
+   "exit_price": 139.65,
+   "pnl": -2.0200599999999795,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 140.205 돌파 · VWAP 위 · 거래량 2.4배",
+   "exit_reason": "장 마감 전 정리 (수익 -0.5% < 기준 3.0% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요)",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-26",
+   "kind": "exit",
+   "name": "Hewlett Packard Enterprise",
+   "symbol": "HPE",
+   "qty": 1,
+   "entry": 57.74,
+   "exit_price": 59.18,
+   "pnl": 1.3230799999999978,
+   "reason": "확신도 C(비중 0.75배) · 시초 15분 고점 57.6 돌파 · VWAP 위 · 거래량 2.3배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "orb",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-26",
+   "kind": "exit",
+   "name": "로켓랩",
+   "symbol": "RKLB",
+   "qty": 2,
+   "entry": 53.63,
+   "exit_price": 54.98,
+   "pnl": 2.4827799999999884,
+   "reason": "확신도 C(비중 0.75배) · VWAP 53.1273 눌림 후 반등 · 오늘 고점 54.33 · 거래량 1.9배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-27",
+   "kind": "exit",
+   "name": "Amphenol",
+   "symbol": "APH",
+   "qty": 1,
+   "entry": 75.35,
+   "exit_price": 77.24,
+   "pnl": 1.7374100000000006,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 74.75 돌파 · VWAP 위 · 거래량 3.0배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-27",
+   "kind": "exit",
+   "name": "로켓랩",
+   "symbol": "RKLB",
+   "qty": 2,
+   "entry": 53.63,
+   "exit_price": 56.42,
+   "pnl": 5.359899999999998,
+   "reason": "확신도 C(비중 0.75배) · VWAP 53.1273 눌림 후 반등 · 오늘 고점 54.33 · 거래량 1.9배",
+   "exit_reason": "2차 익절",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-27",
+   "kind": "exit",
+   "name": "Hewlett Packard Enterprise",
+   "symbol": "HPE",
+   "qty": 2,
+   "entry": 57.74,
+   "exit_price": 60.71,
+   "pnl": 5.703099999999997,
+   "reason": "확신도 C(비중 0.75배) · 시초 15분 고점 57.6 돌파 · VWAP 위 · 거래량 2.3배",
+   "exit_reason": "2차 익절",
+   "extra": {
+    "setup": "orb",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-28",
+   "kind": "exit",
+   "name": "Amphenol",
+   "symbol": "APH",
+   "qty": 2,
+   "entry": 75.35,
+   "exit_price": 82.86,
+   "pnl": 14.70358000000001,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 74.75 돌파 · VWAP 위 · 거래량 3.0배",
+   "exit_reason": "2차 익절",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-28",
+   "kind": "exit",
+   "name": "Amphenol",
+   "symbol": "APH",
+   "qty": 1,
+   "entry": 75.35,
+   "exit_price": 80.47,
+   "pnl": 4.964180000000004,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 74.75 돌파 · VWAP 위 · 거래량 3.0배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-28",
+   "kind": "exit",
+   "name": "NextEra Energy",
+   "symbol": "NEE",
+   "qty": 3,
+   "entry": 80.86999999999999,
+   "exit_price": 81.55,
+   "pnl": 1.5527400000000204,
+   "reason": "확신도 C(비중 0.75배) · 시초 15분 고점 80.01 돌파 · VWAP 위 · 거래량 2.2배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-28",
+   "kind": "exit",
+   "name": "로켓랩",
+   "symbol": "RKLB",
+   "qty": 1,
+   "entry": 53.63,
+   "exit_price": 57.3,
+   "pnl": 3.5590699999999944,
+   "reason": "확신도 C(비중 0.75배) · VWAP 53.1273 눌림 후 반등 · 오늘 고점 54.33 · 거래량 1.9배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-28",
+   "kind": "exit",
+   "name": "Hewlett Packard Enterprise",
+   "symbol": "HPE",
+   "qty": 3,
+   "entry": 59.95333333333334,
+   "exit_price": 60.44,
+   "pnl": 1.0988199999999795,
+   "reason": "확신도 C(비중 0.75배) · 시초 15분 고점 57.6 돌파 · VWAP 위 · 거래량 2.3배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-28",
+   "kind": "exit",
+   "name": "코어위브",
+   "symbol": "CRWV",
+   "qty": 1,
+   "entry": 60.01,
+   "exit_price": 61.57,
+   "pnl": 1.4384200000000023,
+   "reason": "확신도 C(비중 0.75배) · VWAP 59.6786 눌림 후 반등 · 오늘 고점 60.61 · 거래량 1.5배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-28",
+   "kind": "exit",
+   "name": "AST스페이스모바일",
+   "symbol": "ASTS",
+   "qty": 1,
+   "entry": 40.88,
+   "exit_price": 41.99,
+   "pnl": 1.0271299999999994,
+   "reason": "확신도 C(비중 0.75배) · VWAP 40.6244 눌림 후 반등 · 오늘 고점 41.75 · 거래량 3.3배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-28",
+   "kind": "exit",
+   "name": "아이온큐",
+   "symbol": "IONQ",
+   "qty": 4,
+   "entry": 32.2,
+   "exit_price": 32.05,
+   "pnl": -0.8570000000000227,
+   "reason": "확신도 C(비중 0.75배) · VWAP 32.1178 눌림 후 반등 · 오늘 고점 33.31 · 거래량 2.9배",
+   "exit_reason": "장 마감 전 정리 (수익 -0.4% < 기준 3.0% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요)",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-29",
+   "kind": "exit",
+   "name": "코어위브",
+   "symbol": "CRWV",
+   "qty": 1,
+   "entry": 60.01,
+   "exit_price": 61.11,
+   "pnl": 0.9788800000000014,
+   "reason": "확신도 C(비중 0.75배) · VWAP 59.6786 눌림 후 반등 · 오늘 고점 60.61 · 거래량 1.5배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-29",
+   "kind": "exit",
+   "name": "소파이",
+   "symbol": "SOFI",
+   "qty": 2,
+   "entry": 17.01,
+   "exit_price": 17.44,
+   "pnl": 0.7910999999999995,
+   "reason": "확신도 C(비중 0.75배) · VWAP 16.9811 눌림 후 반등 · 오늘 고점 17.25 · 거래량 2.0배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-29",
+   "kind": "exit",
+   "name": "AST스페이스모바일",
+   "symbol": "ASTS",
+   "qty": 1,
+   "entry": 40.88,
+   "exit_price": 42.94,
+   "pnl": 1.9761799999999952,
+   "reason": "확신도 C(비중 0.75배) · VWAP 40.6244 눌림 후 반등 · 오늘 고점 41.75 · 거래량 3.3배",
+   "exit_reason": "2차 익절",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-29",
+   "kind": "exit",
+   "name": "코어위브",
+   "symbol": "CRWV",
+   "qty": 1,
+   "entry": 61.83,
+   "exit_price": 63.83,
+   "pnl": 1.8743400000000001,
+   "reason": "확신도 C(비중 0.75배) · VWAP 61.2277 눌림 후 반등 · 오늘 고점 62.36 · 거래량 1.4배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-29",
+   "kind": "exit",
+   "name": "Boeing",
+   "symbol": "BA",
+   "qty": 1,
+   "entry": 169.83,
+   "exit_price": 174.11,
+   "pnl": 3.9360600000000012,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 169.06 돌파 · VWAP 위 · 거래량 5.0배",
+   "exit_reason": "1차 익절",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-29",
+   "kind": "exit",
+   "name": "코어위브",
+   "symbol": "CRWV",
+   "qty": 3,
+   "entry": 61.83,
+   "exit_price": 62.49,
+   "pnl": 1.6070399999999898,
+   "reason": "확신도 C(비중 0.75배) · VWAP 61.2277 눌림 후 반등 · 오늘 고점 62.36 · 거래량 1.4배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-29",
+   "kind": "exit",
+   "name": "AST스페이스모바일",
+   "symbol": "ASTS",
+   "qty": 1,
+   "entry": 40.88,
+   "exit_price": 43.45,
+   "pnl": 2.4856700000000003,
+   "reason": "확신도 C(비중 0.75배) · VWAP 40.6244 눌림 후 반등 · 오늘 고점 41.75 · 거래량 3.3배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-29",
+   "kind": "exit",
+   "name": "Freeport-McMoRan",
+   "symbol": "FCX",
+   "qty": 5,
+   "entry": 66.56,
+   "exit_price": 65.65,
+   "pnl": -5.211050000000012,
+   "reason": "확신도 B(비중 1배) · 오늘 고점 66.455 재돌파 · 10분 받침 · 거래량 4.4배",
+   "exit_reason": "장 마감 전 정리 (수익 -1.3% < 기준 3.0% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요)",
+   "extra": {
+    "setup": "hod",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-30",
+   "kind": "exit",
+   "name": "소파이",
+   "symbol": "SOFI",
+   "qty": 5,
+   "entry": 17.01,
+   "exit_price": 17.05,
+   "pnl": 0.029699999999988624,
+   "reason": "확신도 C(비중 0.75배) · VWAP 16.9811 눌림 후 반등 · 오늘 고점 17.25 · 거래량 2.0배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-30",
+   "kind": "exit",
+   "name": "Boeing",
+   "symbol": "BA",
+   "qty": 1,
+   "entry": 169.83,
+   "exit_price": 171.09,
+   "pnl": 0.9190799999999909,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 169.06 돌파 · VWAP 위 · 거래량 5.0배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-30",
+   "kind": "exit",
+   "name": "Boston Scientific",
+   "symbol": "BSX",
+   "qty": 8,
+   "entry": 42.22,
+   "exit_price": 42.49,
+   "pnl": 1.482320000000025,
+   "reason": "확신도 B(비중 1배) · VWAP 42.17 눌림 후 반등 · 오늘 고점 43.035 · 거래량 13.5배",
+   "exit_reason": "추적 손절선 도달",
+   "extra": {
+    "setup": "vwap",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-30",
+   "kind": "exit",
+   "name": "AST스페이스모바일",
+   "symbol": "ASTS",
+   "qty": 3,
+   "entry": 41.86,
+   "exit_price": 40.76,
+   "pnl": -3.5478599999999973,
+   "reason": "확신도 C(비중 0.75배) · VWAP 41.5667 눌림 후 반등 · 오늘 고점 42.36 · 거래량 2.2배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  },
+  {
+   "_day": "2026-10-30",
+   "kind": "exit",
+   "name": "Boston Scientific",
+   "symbol": "BSX",
+   "qty": 11,
+   "entry": 43.31,
+   "exit_price": 42.1,
+   "pnl": -14.249510000000003,
+   "reason": "확신도 A(비중 1.35배) · 시초 15분 고점 43.2256 돌파 · VWAP 위 · 거래량 26.4배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "A"
+   }
+  },
+  {
+   "_day": "2026-10-30",
+   "kind": "exit",
+   "name": "DoorDash",
+   "symbol": "DASH",
+   "qty": 2,
+   "entry": 183.68,
+   "exit_price": 179.01,
+   "pnl": -10.065380000000031,
+   "reason": "확신도 B(비중 1배) · 시초 15분 고점 183 돌파 · VWAP 위 · 거래량 3.0배",
+   "exit_reason": "손절선 도달",
+   "extra": {
+    "setup": "orb",
+    "grade": "B"
+   }
+  },
+  {
+   "_day": "2026-10-30",
+   "kind": "exit",
+   "name": "Fortinet",
+   "symbol": "FTNT",
+   "qty": 2,
+   "entry": 135.82,
+   "exit_price": 135.6,
+   "pnl": -0.9828399999999977,
+   "reason": "확신도 C(비중 0.75배) · VWAP 135.47 눌림 후 반등 · 오늘 고점 138.79 · 거래량 1.8배",
+   "exit_reason": "장 마감 전 정리 (수익 -0.2% < 기준 3.0% — 손실 중이거나 평균 단가 아래라 밤사이 갭하락 위험을 피해요)",
+   "extra": {
+    "setup": "vwap",
+    "grade": "C"
+   }
+  }
+ ]
+}
