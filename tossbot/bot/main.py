@@ -652,6 +652,22 @@ class Bot:
         if self.stopped:
             self.log(f"⛔ 최근 {c.get('days', 5)}일 안에 손실로 판 종목 {len(self.stopped)}개는 다시 안 사요")
 
+    def week_guard(self):
+        """이번 주(월요일부터) 실전 손실이 투자금의 N% 를 넘으면 이번 주는 새로 안 삼 (다음 주 월요일에 자동 재개)."""
+        pct = self.cfg["risk"][self.m].get("weekly_loss_pct")
+        cap = getattr(self.risk, "capital", None)
+        if not pct or not cap:
+            return
+        from .stats import load, merge
+        today = now(self.m).date()
+        mon = today - dt.timedelta(days=today.weekday())
+        tot = sum(float(r.get("pnl") or 0) for r in merge(load(ROOT, self.m, 7, "live")) if r["_day"] >= mon.isoformat())
+        if tot <= -cap * pct / 100:
+            self.risk.halted = (f"이번 주 손실 {money(self.m, tot)} 가 투자금의 {pct:g}% 를 넘어 이번 주는 새로 안 사요 "
+                                f"(보유 종목 관리는 계속, 다음 주 월요일 자동 재개)")
+            self.log("⛔ " + self.risk.halted)
+            self.notify("⛔ " + self.risk.halted)
+
     def perf_size(self):
         """최근 실전 성적이 마이너스면 새 매수 크기를 줄임 (나아지면 자동으로 원래대로)."""
         c = self.cfg.get("perf_size", {})
@@ -682,7 +698,12 @@ class Bot:
                 continue
             win, loss = sum(x for x in v if x > 0), -sum(x for x in v if x <= 0)
             pf = win / loss if loss else 9.9
-            allbad = len(v) >= g.get("all_loss_trades", 3) and not any(x > 0 for x in v)   # 3번 다 잃으면 바로
+            rk = getattr(self, "risk", None)
+            cap = (getattr(rk, "capital", None) or self.cfg["risk"][self.m].get("daily_capital") or 0)
+            one_r = cap * self.cfg["risk"][self.m].get("risk_per_trade_pct", 1.0) / 100
+            # 3번 다 잃었고 합쳐서 1R 넘게 잃었으면 바로 (본전 근처 장 마감 정리 같은 자잘한 손실만으론 안 끔)
+            allbad = (len(v) >= g.get("all_loss_trades", 3) and not any(x > 0 for x in v)
+                      and -sum(v) >= one_r * g.get("all_loss_min_R", 1.0))
             if len(v) < g.get("min_trades", 4) and not allbad:
                 continue
             if (pf < g.get("min_pf", 0.7) or allbad) and sum(v) < 0:
@@ -871,6 +892,7 @@ class Bot:
             self.broker.verify_carried()
         self.setup_gate()
         self.perf_size()
+        self.week_guard()
         self.load_stopped()
         self.dd_check(flatten=True)
         for p in self.broker.pos.values():

@@ -8,13 +8,13 @@
     "KR": {
       "open": "09:00",
       "close": "15:30",
-      "last_entry": "14:30",
+      "last_entry": "14:00",
       "flatten": "15:15"
     },
     "US": {
       "open": "09:30",
       "close": "16:00",
-      "last_entry": "15:00",
+      "last_entry": "14:00",
       "flatten": "15:45"
     }
   },
@@ -189,10 +189,10 @@
       "max_position_pct": 40,
       "min_position_pct": 8,
       "risk_per_trade_pct": 1.0,
-      "daily_loss_pct": 3.0,
+      "daily_loss_pct": 1.5,
       "max_positions": 4,
       "max_trades_per_day": 10,
-      "max_losses_in_row": 3,
+      "max_losses_in_row": 2,
       "budget_per_trade": 100000,
       "max_loss_per_trade": 3000,
       "daily_loss_limit": 10000,
@@ -225,17 +225,18 @@
       "protect_giveback_pct": 50,
       "min_qty": 2,
       "min_grade": "B",
-      "max_drawdown_pct": 10
+      "max_drawdown_pct": 6,
+      "weekly_loss_pct": 3.0
     },
     "US": {
       "daily_capital": 5000,
       "max_position_pct": 40,
       "min_position_pct": 8,
-      "risk_per_trade_pct": 1.0,
-      "daily_loss_pct": 3.0,
+      "risk_per_trade_pct": 0.5,
+      "daily_loss_pct": 1.5,
       "max_positions": 4,
       "max_trades_per_day": 10,
-      "max_losses_in_row": 3,
+      "max_losses_in_row": 2,
       "budget_per_trade": 1000,
       "max_loss_per_trade": 50,
       "daily_loss_limit": 150,
@@ -267,8 +268,9 @@
       "protect_size": 0.5,
       "protect_giveback_pct": 50,
       "min_qty": 2,
-      "min_grade": "B",
-      "max_drawdown_pct": 10
+      "min_grade": "A",
+      "max_drawdown_pct": 6,
+      "weekly_loss_pct": 3.0
     }
   },
   "fees": {
@@ -360,7 +362,7 @@
     "max_add": 25
   },
   "market_filter": {
-    "weak_pct": -0.7
+    "weak_pct": -0.5
   },
   "diversify": {
     "enabled": true,
@@ -378,7 +380,8 @@
     "days": 30,
     "min_trades": 4,
     "all_loss_trades": 3,
-    "min_pf": 0.7
+    "min_pf": 0.7,
+    "all_loss_min_R": 1.0
   },
   "reentry_block": {
     "enabled": true,

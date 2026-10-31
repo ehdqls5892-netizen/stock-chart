@@ -68,4 +68,21 @@ assert fake2.risk.perf_mult == 0.5
 fake3 = SimpleNamespace(cfg=cfg, m="KR", mode="live", log=print)
 M.Bot.load_stopped(fake3)
 assert "P0" in fake3.stopped and "A" in fake3.stopped, fake3.stopped
+
+# 7) 자잘한 손실 3번(합쳐 1R 미만)은 방식 안 끔
+c3 = json.loads(json.dumps(cfg))
+c3["strategy"]["setups"]["hod"]["enabled"] = True
+tiny = [{"kind": "exit", "symbol": f"H{i}", "name": "h", "opened_at": f"h{i}", "qty": 1, "entry": 100, "exit_price": 99.9,
+         "pnl": -1000, "exit_reason": "장 마감 전 정리", "extra": {"setup": "hod"}} for i in range(3)]
+with open(d / f"trades-{today}.jsonl", "a", encoding="utf-8") as fp:
+    fp.write("\n" + "\n".join(json.dumps(x, ensure_ascii=False) for x in tiny))
+M.Bot.setup_gate(SimpleNamespace(cfg=c3, m="KR", log=print, notify=lambda m: None))
+assert c3["strategy"]["setups"]["hod"]["enabled"] is True, "자잘한 손실로 꺼짐"
+
+# 8) 이번 주 손실이 투자금 3% 넘으면 이번 주 새 매수 멈춤
+rk = Risk(cfg, Path(tempfile.mkdtemp()) / "STOP")
+rk.capital = 5_000_000          # 3% = 15만, 이번 주 손실 ≈ 22.8만
+fake4 = SimpleNamespace(cfg=cfg, m="KR", risk=rk, log=print, notify=lambda m: None)
+M.Bot.week_guard(fake4)
+assert rk.halted and "이번 주" in rk.halted, rk.halted
 print("✅ 매수 품질 시험 통과")

@@ -13,6 +13,7 @@ M.ROOT = root
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 cfg["market"] = "KR"
 cfg["risk"]["KR"]["daily_capital"] = 1_000_000
+cfg["risk"]["KR"]["max_drawdown_pct"] = 10     # 시험은 10% 기준으로
 d = root / "logs" / "live" / "KR"
 d.mkdir(parents=True)
 today = dt.date.today().isoformat()
