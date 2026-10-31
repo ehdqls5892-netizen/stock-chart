@@ -50,7 +50,26 @@ def load(root: Path, market: str, days: int, mode: str = "live"):
     return out
 
 
+def merge(recs: list) -> list:
+    """나눠 익절(partial)과 마지막 매도(exit)를 한 매매로 합친다 — 따로 세면 작은 익절이 '이긴 매매'로 여러 번 잡혀 승률이 부풀려짐."""
+    out: dict = {}
+    for r in recs:
+        k = (r.get("symbol"), r.get("opened_at")) if r.get("symbol") and r.get("opened_at") else id(r)
+        if k not in out:
+            out[k] = {**r, "pnl": 0.0, "_parts": 0, "_qty": 0}
+        m = out[k]
+        m["pnl"] += float(r.get("pnl") or 0)
+        m["_qty"] += int(r.get("qty") or 0)
+        m["_parts"] += 1
+        m["_day"] = r["_day"]
+        if r.get("kind") == "exit":
+            m["exit_reason"], m["exit_price"], m["kind"] = r.get("exit_reason"), r.get("exit_price"), "exit"
+            m["extra"] = {**(m.get("extra") or {}), **(r.get("extra") or {})}
+    return list(out.values())
+
+
 def summarize(recs: list, market: str, capital: float | None = None) -> str:
+    recs = merge(recs)
     fmt = (lambda v: f"${v:,.2f}") if market == "US" else (lambda v: f"{v:,.0f}원")
     if not recs:
         return "아직 기록이 없어요"
@@ -90,11 +109,19 @@ def summarize(recs: list, market: str, capital: float | None = None) -> str:
         return "✅" if pf >= 1.2 else "⚠️" if pf >= 0.8 else "❌"
     lines.append("방식별: " + " · ".join(
         f"{tag(v)}{SETUP_NAMES.get(k, k)} {len(v)}건 {sum(1 for x in v if x > 0) / len(v) * 100:.0f}% {fmt(sum(v))}" for k, v in rows))
+    bg: dict[str, list] = {}
+    for r, x in zip(recs, pnl):
+        bg.setdefault((r.get("extra") or {}).get("grade") or "?", []).append(x)
+    if len(bg) > 1 or "?" not in bg:
+        order = ["A+", "A", "B", "C", "?"]
+        lines.append("확신도별: " + " · ".join(
+            f"{tag(bg[g])}{g if g != '?' else '기록없음'} {len(bg[g])}건 {fmt(sum(bg[g]))}" for g in order if g in bg))
     return "\n".join(lines)
 
 
 def verdict(recs: list, capital: float | None) -> str:
     """투자금을 늘려도 되는지 — 기준을 모두 넘을 때만 '늘려도 됨'."""
+    recs = merge(recs)
     if len(recs) < 30 or len({r["_day"] for r in recs}) < 10:
         return f"⏳ 아직 판단 이르다 (기록 {len(recs)}건 · 최소 30건, 거래일 10일 필요)"
     pnl = [float(r.get("pnl") or 0) for r in recs]
@@ -109,6 +136,33 @@ def verdict(recs: list, capital: float | None) -> str:
     ok = sum(pnl) > 0 and pf >= 1.3 and (not capital or mdd <= capital * 0.08)
     return ("✅ 늘려도 되는 기준 통과 (수익 + 이익합/손실합 " f"{pf:.2f} ≥ 1.3 + 최대 낙폭 투자금 8% 이내) → 한 번에 50%까지만 늘리기 추천"
             if ok else f"🟡 아직 유지 추천 (이익합/손실합 {pf:.2f}, 기준 1.3 · 최대 낙폭 기준 투자금 8% 이내)")
+
+
+def diagnose(root: Path, days: int = 7) -> str:
+    """매매 하나하나: 날짜·종목·방식·확신도·수익률·손익·판 이유 (원인 찾기용)."""
+    out = [f"🔍 최근 {days}일 매매 진단 (나눠 익절은 한 매매로 합침)"]
+    for mk, nm in (("KR", "🇰🇷 국장"), ("US", "🇺🇸 미장")):
+        tr = merge(load(root, mk, days, "live"))
+        if not tr:
+            continue
+        fmt = (lambda v: f"${v:,.2f}") if mk == "US" else (lambda v: f"{v:,.0f}원")
+        out.append(f"\n{nm} {len(tr)}건")
+        for r in tr:
+            e, x = float(r.get("entry") or 0), float(r.get("exit_price") or 0)
+            ex = r.get("extra") or {}
+            R = ex.get("R")
+            rm = f" {((x - e) / R):+.1f}R" if R and e and x else ""
+            sl_pct = f" 손절폭{(R / e * 100):.1f}%" if R and e else ""
+            nights = len(ex.get("days_held", []))
+            out.append(f"{'🟢' if r['pnl'] > 0 else '🔴'} {r['_day'][5:]} {r.get('name')} {SETUP_NAMES.get(setup_of(r), '?')}"
+                       f"/{ex.get('grade') or '-'} {(x / e - 1) * 100 if e and x else 0:+.1f}%{rm} {fmt(r['pnl'])}{sl_pct}"
+                       + (f" 밤{nights}" if nights else "") + f" · {(r.get('exit_reason') or '')[:22]}")
+    return "\n".join(out) if len(out) > 1 else "최근 실전 매매 기록이 없어요"
+
+
+def recent_pnl(root: Path, market: str, days: int) -> tuple:
+    tr = merge(load(root, market, days, "live"))
+    return len(tr), sum(float(r.get("pnl") or 0) for r in tr)
 
 
 def report(root: Path, days: int = 14, capitals: dict | None = None) -> str:

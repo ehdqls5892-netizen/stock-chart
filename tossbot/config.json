@@ -224,6 +224,7 @@
       "protect_size": 0.5,
       "protect_giveback_pct": 50,
       "min_qty": 2,
+      "min_grade": "B",
       "max_drawdown_pct": 10
     },
     "US": {
@@ -266,6 +267,7 @@
       "protect_size": 0.5,
       "protect_giveback_pct": 50,
       "min_qty": 2,
+      "min_grade": "B",
       "max_drawdown_pct": 10
     }
   },
@@ -374,8 +376,15 @@
   "setup_gate": {
     "enabled": true,
     "days": 30,
-    "min_trades": 8,
+    "min_trades": 4,
+    "all_loss_trades": 3,
     "min_pf": 0.7
+  },
+  "perf_size": {
+    "enabled": true,
+    "days": 10,
+    "min_trades": 5,
+    "mult": 0.5
   },
   "average_down": {
     "enabled": false,

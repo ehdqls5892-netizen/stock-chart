@@ -22,6 +22,7 @@ class Risk:
         self.losses_in_row = 0
         self.halted: str | None = None
         self.peak = 0.0          # 오늘 확정 손익의 최고점 (번 돈 지키기)
+        self.perf_mult = 1.0     # 최근 실전 성적이 마이너스면 0.5 (main.perf_size)
 
     # ───────── 한도 숫자 ─────────
     @property
@@ -97,11 +98,18 @@ class Risk:
                 return float(w)
         return 0.75
 
+    def grade_ok(self, sig: dict | None) -> bool:
+        """확신도 기준 미만이면 안 삼 (기본 B 이상). 점수 없는 신호는 등급이 없어 통과."""
+        g = (sig or {}).get("grade")
+        order = ["C", "B", "A", "A+"]
+        need = self.c.get("min_grade", "B")
+        return not g or g not in order or need not in order or order.index(g) >= order.index(need)
+
     def qty_for(self, price: float, stop_exec: float, cash: float | None, cost_rate: float = 0.0025,
                 invested: float = 0.0, w: float = 1.0) -> int:
         """금액 한도와 '손절 시 손실 한도'를 둘 다 지키는 수량.
         stop_exec 는 손절 주문이 실제로 나갈 가격, 수수료·세금까지 손실에 넣는다."""
-        w = w * self.size_mult()
+        w = w * self.size_mult() * getattr(self, "perf_mult", 1.0)
         if self.capital:
             pos_pct = min(self.c.get("max_position_pct", 40) * w, self.c.get("max_position_pct_cap", 65))
             risk_pct = min(self.c.get("risk_per_trade_pct", 1.0) * w, self.c.get("risk_per_trade_pct_cap", 1.8))

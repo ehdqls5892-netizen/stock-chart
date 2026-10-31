@@ -248,6 +248,17 @@ class TelegramControl:
             if now - self.pending.pop("resume", 0) < 60 and getattr(self, "resume_fn", None):
                 return self.send(self.resume_fn())
             return self.send("확인 시간이 지났어요. 다시 '재개' 를 보내 주세요.")
+        if t.startswith("진단") or t.startswith("🔍"):
+            from pathlib import Path
+            from .stats import diagnose
+            import re
+            m = re.search(r"\d+", t)
+            txt = diagnose(Path(__file__).resolve().parent.parent, int(m.group()) if m else 7)
+            while txt:                                     # 텔레그램 한 메시지 길이 제한 → 나눠 보냄
+                cut = txt[:3800].rfind("\n") if len(txt) > 3800 else len(txt)
+                self.send(txt[:cut])
+                txt = txt[cut:].lstrip("\n")
+            return
         if "성적" in t:
             from pathlib import Path
             from .stats import report

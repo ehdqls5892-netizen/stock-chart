@@ -636,22 +636,40 @@ class Bot:
         self.risk.halted = f"계좌 낙폭 한도로 멈춤 ({lock}) — 텔레그램 '재개'로 다시 시작"
 
     # ───────── 성적 나쁜 매수 방식 자동 끄기 ─────────
+    def perf_size(self):
+        """최근 실전 성적이 마이너스면 새 매수 크기를 줄임 (나아지면 자동으로 원래대로)."""
+        c = self.cfg.get("perf_size", {})
+        if not c.get("enabled") or self.mode != "live":
+            return
+        from .stats import recent_pnl
+        n, tot = recent_pnl(ROOT, self.m, c.get("days", 10))
+        if n >= c.get("min_trades", 5) and tot < 0:
+            self.risk.perf_mult = c.get("mult", 0.5)
+            msg = (f"📉 최근 {c.get('days', 10)}일 실전 {n}건 합계 {money(self.m, tot)} → 성적이 회복될 때까지 "
+                   f"새 매수 크기를 {self.risk.perf_mult:g}배로 줄여요")
+            self.log(msg)
+            self.notify(msg)
+
     def setup_gate(self):
         g = self.cfg.get("setup_gate", {})
         if not g.get("enabled"):
             return
         from .stats import SETUP_NAMES, load, setup_of
-        recs = load(ROOT, self.m, g.get("days", 30), "live") + load(ROOT, self.m, g.get("days", 30), "paper")
+        from .stats import merge
+        recs = merge(load(ROOT, self.m, g.get("days", 30), "live")) + merge(load(ROOT, self.m, g.get("days", 30), "paper"))
         by: dict = {}
         for r in recs:
             by.setdefault(setup_of(r), []).append(float(r.get("pnl") or 0))
         off = []
         for name, v in by.items():
-            if name == "?" or len(v) < g.get("min_trades", 8):
+            if name == "?":
                 continue
             win, loss = sum(x for x in v if x > 0), -sum(x for x in v if x <= 0)
             pf = win / loss if loss else 9.9
-            if pf < g.get("min_pf", 0.7) and sum(v) < 0:
+            allbad = len(v) >= g.get("all_loss_trades", 3) and not any(x > 0 for x in v)   # 3번 다 잃으면 바로
+            if len(v) < g.get("min_trades", 4) and not allbad:
+                continue
+            if (pf < g.get("min_pf", 0.7) or allbad) and sum(v) < 0:
                 if name == "orb":
                     self.cfg["strategy"]["orb_enabled"] = False
                 elif name in self.cfg["strategy"].get("setups", {}):
@@ -836,6 +854,7 @@ class Bot:
         if live:
             self.broker.verify_carried()
         self.setup_gate()
+        self.perf_size()
         self.dd_check(flatten=True)
         for p in self.broker.pos.values():
             self.syms.setdefault(p.symbol, SymState(p.symbol)).name = p.name
@@ -942,6 +961,11 @@ class Bot:
                             sl_exec = add_ticks(self.m, sl, -2 if live else -1)
                             fee = self.cfg["fees"][self.m]
                             w = self.risk.strength(sig)
+                            if not self.risk.grade_ok(sig):
+                                if time.time() - st.__dict__.get("_grade_log", 0) > 900:
+                                    st._grade_log = time.time()
+                                    self.log(f"🙅 {st.name or sym} 신호는 났지만 확신도 {sig.get('grade')}(기준 {self.risk.c.get('min_grade', 'B')} 이상)라 안 사요 · {sig['reason'][:40]}")
+                                continue
                             if getattr(st, "etf", False):
                                 w = min(w, self.cfg["universe"].get("etf_weight", 0.6))   # 레버리지 ETF 는 작게
                             qty = self.risk.qty_for(est, sl_exec, cash, (fee["buy_pct"] + fee["sell_pct"] + fee["sell_tax_pct"]) / 100,
