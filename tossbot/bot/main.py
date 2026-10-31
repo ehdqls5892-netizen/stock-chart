@@ -125,6 +125,7 @@ class Bot:
         self.stop_req: str | None = None   # None / "keep"(보유 유지하고 끝) / "sell"(전부 팔고 끝)
         self.sell_reqs: list[str] = []     # 텔레그램 보유종목 칸에서 '팔기' 누른 종목
         self.loop_on = False               # 장중 루프가 돌고 있을 때만 True (이때만 한 종목 팔기 가능)
+        self.stopped: dict = {}            # 최근 손실로 판 종목 → 며칠 다시 안 삼
         self.phase = "준비 중"
         self.open_t: dt.datetime | None = None
         self.close_t: dt.datetime | None = None
@@ -600,6 +601,8 @@ class Bot:
         except Exception as e:
             self.log(f"낙폭 확인 오류: {e}")
         st = self.syms.get(p.symbol)
+        if p.pnl < 0 and p.state == "closed" and p.exit_price and p.exit_price < p.entry:
+            self.stopped[p.symbol] = now(self.m).date().isoformat()     # 손실로 판 종목은 며칠 다시 안 삼
         if st and p.pnl < 0:
             st.cooldown_until = now(self.m) + dt.timedelta(minutes=self.cfg["strategy"]["cooldown_min"])
 
@@ -636,6 +639,19 @@ class Bot:
         self.risk.halted = f"계좌 낙폭 한도로 멈춤 ({lock}) — 텔레그램 '재개'로 다시 시작"
 
     # ───────── 성적 나쁜 매수 방식 자동 끄기 ─────────
+    def load_stopped(self):
+        """최근 N일 안에 손실로 판 종목 → 다시 사지 않음 (같은 종목에 연달아 손절 방지, 예: 코세스 이틀 연속)."""
+        c = self.cfg.get("reentry_block", {})
+        self.stopped = {}
+        if not c.get("enabled"):
+            return
+        from .stats import load, merge
+        for r in merge(load(ROOT, self.m, c.get("days", 5), self.mode if self.mode in ("live", "paper") else "live")):
+            if float(r.get("pnl") or 0) < 0 and r.get("kind") == "exit":
+                self.stopped[r.get("symbol")] = r["_day"]
+        if self.stopped:
+            self.log(f"⛔ 최근 {c.get('days', 5)}일 안에 손실로 판 종목 {len(self.stopped)}개는 다시 안 사요")
+
     def perf_size(self):
         """최근 실전 성적이 마이너스면 새 매수 크기를 줄임 (나아지면 자동으로 원래대로)."""
         c = self.cfg.get("perf_size", {})
@@ -855,6 +871,7 @@ class Bot:
             self.broker.verify_carried()
         self.setup_gate()
         self.perf_size()
+        self.load_stopped()
         self.dd_check(flatten=True)
         for p in self.broker.pos.values():
             self.syms.setdefault(p.symbol, SymState(p.symbol)).name = p.name
@@ -931,7 +948,7 @@ class Bot:
                         if full:
                             last_full = time.time()
                         for sym in (self.universe if full else [x for x in self.universe if x in changed]):
-                            if sym in self.broker.pos or sym not in self.syms:
+                            if sym in self.broker.pos or sym not in self.syms or sym in self.stopped:
                                 continue
                             try:
                                 sig = entry_signal(self.syms[sym], n, self.open_t, self.cfg, self.ctx)

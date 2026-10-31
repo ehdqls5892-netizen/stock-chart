@@ -63,4 +63,9 @@ fake2 = SimpleNamespace(cfg=cfg, m="KR", mode="live", log=print, notify=lambda m
 cfg["perf_size"]["min_trades"] = 3
 M.Bot.perf_size(fake2)
 assert fake2.risk.perf_mult == 0.5
+
+# 6) 손실로 판 종목은 며칠 다시 안 삼
+fake3 = SimpleNamespace(cfg=cfg, m="KR", mode="live", log=print)
+M.Bot.load_stopped(fake3)
+assert "P0" in fake3.stopped and "A" in fake3.stopped, fake3.stopped
 print("✅ 매수 품질 시험 통과")

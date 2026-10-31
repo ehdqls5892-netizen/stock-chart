@@ -59,6 +59,7 @@ def merge(recs: list) -> list:
             out[k] = {**r, "pnl": 0.0, "_parts": 0, "_qty": 0}
         m = out[k]
         m["pnl"] += float(r.get("pnl") or 0)
+        m["peak"] = max(float(m.get("peak") or 0), float(r.get("peak") or 0))
         m["_qty"] += int(r.get("qty") or 0)
         m["_parts"] += 1
         m["_day"] = r["_day"]
@@ -154,8 +155,10 @@ def diagnose(root: Path, days: int = 7) -> str:
             rm = f" {((x - e) / R):+.1f}R" if R and e and x else ""
             sl_pct = f" 손절폭{(R / e * 100):.1f}%" if R and e else ""
             nights = len(ex.get("days_held", []))
+            pk = float(r.get("peak") or 0)
+            best = f" 최고{(pk / e - 1) * 100:+.1f}%" if pk > e > 0 else ""
             out.append(f"{'🟢' if r['pnl'] > 0 else '🔴'} {r['_day'][5:]} {r.get('name')} {SETUP_NAMES.get(setup_of(r), '?')}"
-                       f"/{ex.get('grade') or '-'} {(x / e - 1) * 100 if e and x else 0:+.1f}%{rm} {fmt(r['pnl'])}{sl_pct}"
+                       f"/{ex.get('grade') or '-'} {(x / e - 1) * 100 if e and x else 0:+.1f}%{best}{rm} {fmt(r['pnl'])}{sl_pct}"
                        + (f" 밤{nights}" if nights else "") + f" · {(r.get('exit_reason') or '')[:22]}")
     return "\n".join(out) if len(out) > 1 else "최근 실전 매매 기록이 없어요"
 

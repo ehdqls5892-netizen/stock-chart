@@ -380,6 +380,10 @@
     "all_loss_trades": 3,
     "min_pf": 0.7
   },
+  "reentry_block": {
+    "enabled": true,
+    "days": 5
+  },
   "perf_size": {
     "enabled": true,
     "days": 10,
