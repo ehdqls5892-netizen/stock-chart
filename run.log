@@ -1,0 +1,31 @@
+/home/runner/work/stock-chart/stock-chart/tossbot/tools/swing_data.py:178: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  res = {"asof": dt.datetime.utcnow().isoformat(timespec="minutes"), "flow": {}, "earn": {}}
+국장 후보 2539 → 700
+일봉 60/700 · 받음 60
+일봉 120/700 · 받음 119
+일봉 180/700 · 받음 176
+일봉 240/700 · 받음 234
+일봉 300/700 · 받음 293
+일봉 360/700 · 받음 353
+일봉 420/700 · 받음 412
+일봉 480/700 · 받음 471
+일봉 540/700 · 받음 531
+일봉 600/700 · 받음 591
+일봉 660/700 · 받음 650
+일봉 700/700 · 받음 690
+일봉 2/2 · 받음 2
+수급 0/690 · 받음 0
+수급 50/690 · 받음 0
+수급 100/690 · 받음 0
+수급 150/690 · 받음 0
+수급 200/690 · 받음 0
+수급 250/690 · 받음 0
+수급 300/690 · 받음 0
+수급 350/690 · 받음 0
+수급 400/690 · 받음 0
+수급 450/690 · 받음 0
+수급 500/690 · 받음 0
+수급 550/690 · 받음 0
+수급 600/690 · 받음 0
+수급 650/690 · 받음 0
+완료 {'asof': 16, 'flow': 0, 'earn': 0, 'bars': 690, 'names': 700, 'index': 2}
