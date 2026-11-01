@@ -271,9 +271,23 @@ def run(m: str, data: dict, names: dict, capital: float, uni_n: int, last_days: 
         ks = k.split(".")
         for x in ks[:-1]:
             node = node.setdefault(x, {})
-        node[ks[-1]] = json.loads(v)
+        try:
+            node[ks[-1]] = json.loads(v)
+        except ValueError:
+            node[ks[-1]] = v                      # 따옴표 없이 쓴 글자 값 (예: 11:30)
     daily = daily or {}
     M.Bot.fetch_daily = lambda self, code: daily.get(code, [])
+    import bot.broker as BR
+    if not getattr(BR.PaperBroker, "_bt_wrapped", False):     # 들어간 시각을 가짜 시계로 (분석용)
+        _enter = BR.PaperBroker.enter
+
+        def _enter_bt(self, *a, **k):
+            p = _enter(self, *a, **k)
+            if p:
+                p.opened_at = CLK.t.isoformat()
+            return p
+        BR.PaperBroker.enter = _enter_bt
+        BR.PaperBroker._bt_wrapped = True
     (tmp / "config.json").write_text(json.dumps(cfg), encoding="utf-8")
     (tmp / "settings.json").write_text(json.dumps({"capital": {mk: capital}}), encoding="utf-8")
     M.ROOT = tmp
@@ -324,7 +338,8 @@ def run(m: str, data: dict, names: dict, capital: float, uni_n: int, last_days: 
         for p in got:
             trades.append({"_day": day.isoformat(), "kind": "exit", "name": p.name, "symbol": p.symbol, "qty": p.qty,
                            "entry": p.entry, "exit_price": p.exit_price, "pnl": p.pnl, "reason": p.reason,
-                           "exit_reason": p.exit_reason, "extra": {k: p.extra.get(k) for k in ("setup", "grade")}})
+                           "exit_reason": p.exit_reason, "opened_at": p.opened_at, "sl": p.sl, "peak": p.peak,
+                           "extra": {k: p.extra.get(k) for k in ("setup", "grade", "R", "atr")}})
         dp = sum(p.pnl for p in got)
         log(f"{day} 후보 {len(uni)} · 매매 {len(got)} · 손익 {dp:,.2f} · 들고 감 {len(bot.broker.carried()) if getattr(bot, 'broker', None) else 0}"
             f" · {real_time() - t0:.0f}초")
