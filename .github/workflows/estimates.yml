@@ -1,0 +1,55 @@
+name: 컨센서스 기록 (추정치·목표가 매일)
+
+on:
+  schedule:
+    - cron: "5 10 * * 1-5"    # 국장: 19:05(한국)
+    - cron: "40 23 * * 1-5"   # 미장: 뉴욕 장 마감 뒤
+  workflow_dispatch:
+    inputs:
+      market:
+        description: "kr 또는 us"
+        required: true
+        default: "us"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: estimates          # 같은 브랜치에 쌓으므로 한 번에 하나씩
+  cancel-in-progress: false
+
+jobs:
+  snap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install -r requirements.txt lxml html5lib
+      - name: 시장 정하기
+        id: mk
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then M="${{ github.event.inputs.market }}";
+          elif [ "${{ github.event.schedule }}" = "5 10 * * 1-5" ]; then M=kr; else M=us; fi
+          echo "m=$M" >> $GITHUB_OUTPUT
+          echo "d=$(date -u +%F)" >> $GITHUB_OUTPUT
+      - name: 기존 기록 받기 (estimates 브랜치)
+        run: |
+          if git ls-remote --exit-code --heads origin estimates >/dev/null; then
+            git clone -q --depth 1 -b estimates "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" store
+          else
+            mkdir store && cd store && git init -q && git checkout -q -b estimates
+          fi
+      - name: 오늘 기록
+        run: python tossbot/tools/estimates_snapshot.py ${{ steps.mk.outputs.m }} --out store/${{ steps.mk.outputs.m }}/${{ steps.mk.outputs.d }}.csv 2> >(tee snap.log >&2)
+      - name: 올리기
+        if: always()
+        run: |
+          cd store
+          mkdir -p logs && cp -f ../snap.log logs/${{ steps.mk.outputs.m }}-latest.log 2>/dev/null || true
+          git config user.name "cof-bot" && git config user.email "cof-bot@users.noreply.github.com"
+          git add -A && git commit -qm "컨센서스 ${{ steps.mk.outputs.m }} ${{ steps.mk.outputs.d }}" || exit 0
+          git push -q "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD:estimates
