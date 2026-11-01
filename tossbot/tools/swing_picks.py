@@ -51,7 +51,7 @@ def build(m, bars, names, idx):
                           "stop": round(float(stop), 4), "atr": round(float(s["atr"][i]), 4), "score": round(float(sc), 3),
                           "reason": f"{NAMES[name]} · 거래량 {s['v'][i] / s['v20'][i - 1]:.1f}배 · 손절 {(stop / s['c'][i] - 1) * 100:.1f}%"})
     picks.sort(key=lambda x: -x["score"])
-    reg = True
+    reg = False                      # 지수를 못 받으면 '모름' → 새로 안 삼
     ix = None
     if idx:
         si = B.prep(idx)

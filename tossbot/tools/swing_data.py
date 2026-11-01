@@ -61,7 +61,11 @@ def yf_bars(tickers: dict, years: int) -> dict:
             continue
         for code, s in part:
             try:
-                h = (df[s] if len(syms) > 1 else df).dropna(subset=["Close"])
+                try:
+                    h = df[s]
+                except KeyError:
+                    h = df
+                h = h.dropna(subset=["Close"])
                 h = h[h["Volume"] > 0]
                 b = frames_to_bars(h)
                 if len(b) >= 120:
