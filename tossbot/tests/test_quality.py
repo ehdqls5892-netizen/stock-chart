@@ -80,6 +80,9 @@ M.Bot.setup_gate(SimpleNamespace(cfg=c3, m="KR", log=print, notify=lambda m: Non
 assert c3["strategy"]["setups"]["hod"]["enabled"] is True, "자잘한 손실로 꺼짐"
 
 # 8) 이번 주 손실이 투자금 3% 넘으면 이번 주 새 매수 멈춤
+kday = M.now("KR").date().isoformat()          # 시험 기계 날짜와 한국 날짜가 다를 수 있어 한국 날짜로
+if kday != today:
+    (d / f"trades-{kday}.jsonl").write_text((d / f"trades-{today}.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
 rk = Risk(cfg, Path(tempfile.mkdtemp()) / "STOP")
 rk.capital = 5_000_000          # 3% = 15만, 이번 주 손실 ≈ 22.8만
 fake4 = SimpleNamespace(cfg=cfg, m="KR", risk=rk, log=print, notify=lambda m: None)
