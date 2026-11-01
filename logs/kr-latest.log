@@ -1,0 +1,16 @@
+국장 후보 2539 → 700
+국장 0/700 · 예시 {'code': '000660', 'price': None, 'err': 'table:ValueError', 'name': 'SK하이닉스'}
+국장 50/700 · 예시 {'code': '005490', 'price': None, 'err': 'table:ValueError', 'name': 'POSCO홀딩스'}
+국장 100/700 · 예시 {'code': '319660', 'price': None, 'err': 'table:ValueError', 'name': '피에스케이'}
+국장 150/700 · 예시 {'code': '319400', 'price': None, 'err': 'table:ValueError', 'name': '현대무벡스'}
+국장 200/700 · 예시 {'code': '064760', 'price': None, 'err': 'table:ValueError', 'name': '티씨케이'}
+국장 250/700 · 예시 {'code': '010580', 'price': None, 'err': 'table:ValueError', 'name': '에스엠벡셀'}
+국장 300/700 · 예시 {'code': '142280', 'price': None, 'err': 'table:ValueError', 'name': '녹십자엠에스'}
+국장 350/700 · 예시 {'code': '139130', 'price': None, 'err': 'table:ValueError', 'name': 'iM금융지주'}
+국장 400/700 · 예시 {'code': '127120', 'price': None, 'err': 'table:ValueError', 'name': '제이에스링크'}
+국장 450/700 · 예시 {'code': '234690', 'price': None, 'err': 'table:ValueError', 'name': '녹십자웰빙'}
+국장 500/700 · 예시 {'code': '007820', 'price': None, 'err': 'table:ValueError', 'name': '엠엑스로보틱스'}
+국장 550/700 · 예시 {'code': '003690', 'price': None, 'err': 'table:ValueError', 'name': '코리안리'}
+국장 600/700 · 예시 {'code': '033240', 'price': None, 'err': 'table:ValueError', 'name': '자화전자'}
+국장 650/700 · 예시 {'code': '003570', 'price': None, 'err': 'table:ValueError', 'name': 'SNT다이내믹스'}
+완료 700개 · 오류 없음 0 · 추정치 있음 0 → store/kr/2026-11-01.csv
