@@ -141,6 +141,12 @@ def signals(name, S, P, data, mk):
                 if (r is not None and r >= P.get("rs", 0.9) and c[i] > s["ma50"][i] > s["ma150"][i]
                         and s["rsi3"][i - 1] < P.get("rsi", 30) and c[i] > o[i] and c[i] > c[i - 1]):
                     out.append((s["d"][i], code, r, c[i] - P.get("stop_atr", 2.0) * a))
+            elif name == "dip":
+                # 하락 국면용 저점 매수: 200일선 위(장기 우상향) 종목이 3일 RSI 10 아래·20일 고점 대비 10% 넘게 밀림
+                hi20 = c[max(0, i - 20):i + 1].max()
+                if ((not P.get("need200", True) or c[i] > s["ma200"][i]) and s["rsi3"][i] < P.get("rsi", 10)
+                        and c[i] <= hi20 * (1 - P.get("drop", 0.10))):
+                    out.append((s["d"][i], code, -s["rsi3"][i], c[i] - P.get("stop_atr", 2.5) * a))
             elif name == "hi52":
                 if (not np.isnan(s["hi252"][i]) and c[i] > s["hi252"][i] and v[i] >= P.get("volx", 1.5) * s["v20"][i - 1]
                         and c[i] > s["ma50"][i]):

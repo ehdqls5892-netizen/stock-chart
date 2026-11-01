@@ -13,8 +13,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import swing_data as SD  # noqa: E402
 import swingbt as B  # noqa: E402
 
-SETUPS = {"kr": {"ep": {"gap": 0.04, "volx": 3}}, "us": {"hi52": {"volx": 1.5}}}
-NAMES = {"ep": "큰 재료 갭(갭 상승+거래량 폭증+강한 마감)", "hi52": "52주 신고가 돌파+거래량"}
+SETUPS = {"kr": {"ep": {"gap": 0.04, "volx": 3}}, "us": {"hi52": {"volx": 1.5}, "dip": {"rsi": 10, "drop": 0.10}}}
+NAMES = {"ep": "큰 재료 갭(갭 상승+거래량 폭증+강한 마감)", "hi52": "52주 신고가 돌파+거래량",
+         "dip": "하락장 저점 매수(200일선 위 종목·3일 RSI 10↓·20일 고점 -10%↓)"}
 
 
 def main():
@@ -49,7 +50,8 @@ def build(m, bars, names, idx):
             i = s["pos"][d]
             picks.append({"code": code, "name": names.get(code, code), "setup": name, "close": round(float(s["c"][i]), 4),
                           "stop": round(float(stop), 4), "atr": round(float(s["atr"][i]), 4), "score": round(float(sc), 3),
-                          "reason": f"{NAMES[name]} · 거래량 {s['v'][i] / s['v20'][i - 1]:.1f}배 · 손절 {(stop / s['c'][i] - 1) * 100:.1f}%"})
+                          "reason": f"{NAMES[name]} · " + (f"RSI3 {s['rsi3'][i]:.0f}" if name == "dip" else f"거래량 {s['v'][i] / s['v20'][i - 1]:.1f}배")
+                          + f" · 손절 {(stop / s['c'][i] - 1) * 100:.1f}%"})
     picks.sort(key=lambda x: -x["score"])
     reg = False                      # 지수를 못 받으면 '모름' → 새로 안 삼
     ix = None

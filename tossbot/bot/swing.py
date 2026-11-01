@@ -81,7 +81,7 @@ def daily_check(p_entry: float, stop: float, stop0: float, hi: float, held: int,
         if tr > new:
             new = tr
             notes.append(f"추적: 최고 종가 − {c.get('trail_atr', 3):g}×ATR")
-    m = sma(closes, c.get("exit_ma", 10))
+    m = sma(closes, c["exit_ma"]) if c.get("exit_ma") else None
     why = None
     if m and held >= 2 and close < m and close < p_entry + 3 * R:
         why = f"{c.get('exit_ma', 10)}일선 아래로 마감 (추세 꺾임)"

@@ -177,7 +177,7 @@ class TelegramControl:
         if not c.get("enabled"):
             return "🧭 일봉 스윙이 꺼져 있어요"
         out = ["🧭 일봉 스윙 후보 (장 마감 뒤 계산 · 다음 장 시작 1분 뒤 매수)"]
-        for mk, nm in (("KR", "🇰🇷 국장 · 큰 재료 갭"), ("US", "🇺🇸 미장 · 52주 신고가 돌파")):
+        for mk, nm in (("KR", "🇰🇷 국장 · 큰 재료 갭"), ("US", "🇺🇸 미장 · 52주 신고가 돌파 / 하락장 저점 매수")):
             if mk not in (c.get("markets") or {}):
                 continue
             try:
@@ -186,8 +186,11 @@ class TelegramControl:
                 out.append(f"{nm}: 아직 후보 자료가 없어요")
                 continue
             ix = d.get("index") or {}
-            reg = "🟢 상승 국면(지수 50일선 위) → 삼" if d.get("regime") else "🔴 하락 국면(지수 50일선 아래) → 새로 안 삼"
-            ps = [x for x in d.get("picks", []) if x.get("setup") in c["markets"][mk]]
+            below = set(c.get("below_setups", [])) & set(c["markets"][mk])
+            reg = ("🟢 상승 국면(지수 50일선 위) → 추세 종목 삼" if d.get("regime") else
+                   "🔴 하락 국면(지수 50일선 아래) → " + ("저점 매수만" if below else "새로 안 삼"))
+            ps = [x for x in d.get("picks", []) if x.get("setup") in c["markets"][mk]
+                  and ((x.get("setup") in below) != bool(d.get("regime")))]
             out.append(f"\n{nm} · {d.get('date')} 기준 · {reg} ({ix.get('close')} / 50일선 {ix.get('ma50')})")
             out += [f"- {x['name']} {won(x['close'], mk)} · 손절 {won(x['stop'], mk)} · {x['reason']}" for x in ps[:8]] or ["- 신호 종목 없음"]
         return "\n".join(out)

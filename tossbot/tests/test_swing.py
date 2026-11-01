@@ -98,4 +98,26 @@ bot.swing_bars = lambda sym, last: M.Bot.swing_bars(bot, sym, last)
 M.Bot.swing_daily(bot, p, 9600)
 assert "111111" not in b2.pos and "10일선" in b2.closed[-1].exit_reason, b2.closed[-1].exit_reason
 print("정리:", sent[-2])
+
+# 7) 하락 국면엔 저점 매수(dip)만 사고, 짧게 관리 (10일선으로 안 팔고, 7거래일 지나면 정리)
+b3 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker, bot.m = b3, "US"
+cfg["market"] = "US"
+prices.update({"AAA": 100.0, "BBB": 50.0})
+bot.sw_picks = {"regime": False, "picks": [
+    {"code": "AAA", "name": "저점주", "setup": "dip", "close": 101, "stop": 94, "atr": 2, "score": -5, "reason": "하락장 저점 매수"},
+    {"code": "BBB", "name": "신고가주", "setup": "hi52", "close": 50, "stop": 47, "atr": 1, "score": 3, "reason": "52주 신고가"}]}
+M.Bot.swing_enter(bot, None)
+assert list(b3.pos) == ["AAA"], list(b3.pos)
+p = b3.pos["AAA"]
+assert p.extra["sw_kind"] == "dip"
+p.extra["sw_days"] = 3
+hist2 = [{"timestamp": (d0 + dt.timedelta(days=i)).isoformat(), "closePrice": str(110 - i), "highPrice": str(111 - i), "lowPrice": str(109 - i)}
+         for i in range(20)]
+api.candles = lambda sym, iv, n: hist2
+M.Bot.swing_daily(bot, p, 99)
+assert "AAA" in b3.pos, "저점 매수가 10일선으로 팔림"
+p.extra["sw_days"] = 7
+M.Bot.swing_daily(bot, p, 99)
+assert "AAA" not in b3.pos and "최대 보유" in b3.closed[-1].exit_reason, b3.closed[-1].exit_reason
 print("✅ 일봉 스윙 시험 통과")

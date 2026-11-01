@@ -709,13 +709,16 @@ class Bot:
         if not d:
             return
         on = set(self.swing_on())
-        d["picks"] = [x for x in d.get("picks", []) if x.get("setup") in on]
+        below = set(c.get("below_setups", []))
+        # 상승 국면엔 추세 방식만, 하락 국면엔 저점 매수 방식만
+        d["picks"] = [x for x in d.get("picks", []) if x.get("setup") in on
+                      and ((x.get("setup") in below) != bool(d.get("regime")))]
         self.sw_picks = d
         ix = d.get("index") or {}
         name = "코스피" if self.m == "KR" else "S&P500(SPY)"
-        if not d.get("regime"):
+        if not d.get("regime") and not d["picks"]:
             msg = (f"🧭 스윙: {name} 가 50일선 아래(하락 국면 · {ix.get('close')} < {ix.get('ma50')}) → 오늘은 새로 안 사요. "
-                   f"보유분 손절·점검만 해요." + (f" (신호 {len(d['picks'])}개는 건너뜀)" if d["picks"] else ""))
+                   f"보유분 손절·점검만 해요." + (" (하락장 저점 매수 신호도 없음)" if below & on else ""))
         elif not d["picks"]:
             msg = f"🧭 스윙: {d['date']} 신호 종목 없음 (시장 국면 좋음 · {name} 50일선 위)"
         else:
@@ -727,14 +730,16 @@ class Bot:
 
     def swing_enter(self, cash) -> float:
         d, c = self.sw_picks or {}, self.cfg["daily_swing"]
-        if not d.get("regime") or not d.get("picks"):
+        if not d.get("picks"):
             return 0.0
         if self.risk.kill_switch() or self.risk.halted:
             self.log(f"🧭 스윙 매수 건너뜀: {self.risk.halted or '긴급 정지'}")
             return 0.0
         have = [p for p in self.broker.pos.values() if p.extra.get("sw") and p.state in ("pending", "open", "closing")]
         slots = c.get("max_pos", 6) - len(have)
-        cands = [x for x in d["picks"] if x["code"] not in self.broker.pos and x["code"] not in self.stopped][: max(0, slots) * 2]
+        below = set(c.get("below_setups", []))
+        cands = [x for x in d["picks"] if x["code"] not in self.broker.pos and x["code"] not in self.stopped
+                 and ((x.get("setup") in below) != bool(d.get("regime")))][: max(0, slots) * 2]
         if slots <= 0 or not cands:
             return 0.0
         try:
@@ -775,7 +780,7 @@ class Bot:
             if not p:
                 continue
             base = dt.datetime.now(TZ["KR"]).date() if self.m == "US" else now(self.m).date()
-            p.extra.update(sw=True, carry=True, setup="sw_" + x["setup"], sw_stop0=sl, sw_hi=e, sw_days=0,
+            p.extra.update(sw=True, carry=True, setup="sw_" + x["setup"], sw_kind=x["setup"], sw_stop0=sl, sw_hi=e, sw_days=0,
                            expire=(base + dt.timedelta(days=c.get("expire_days", 20))).isoformat())
             st = self.syms.setdefault(sym, SymState(sym))
             st.name = x["name"]
@@ -811,7 +816,8 @@ class Bot:
 
     def swing_daily(self, p, last):
         """장 마감 15분 전 일봉 점검: 손절선 올리기 / 추세 꺾이면 정리."""
-        c = self.cfg["daily_swing"]
+        c = dict(self.cfg["daily_swing"])
+        c.update((c.get("exit_by_setup") or {}).get(p.extra.get("sw_kind"), {}))   # 저점 매수는 짧게 (반등 먹고 나옴)
         bars = self.swing_bars(p.symbol, last)
         if len(bars) < 12:
             self.log(f"🧭 {p.name} 일봉이 부족해 오늘 점검은 건너뜀")
