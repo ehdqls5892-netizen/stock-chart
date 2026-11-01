@@ -26,6 +26,7 @@ from .notify import Notifier
 from .risk import Risk
 from .strategy import SymState, corr, entry_signal, exit_levels, session_bars, vwap
 from .util import TZ, add_ticks, f, money, now, parse_hm, parse_ts, round_tick
+from . import etf as ETF
 from . import swing as SW
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -642,6 +643,59 @@ class Bot:
         self.risk.halted = f"계좌 낙폭 한도로 멈춤 ({lock}) — 텔레그램 '재개'로 다시 시작"
 
     # ───────── 성적 나쁜 매수 방식 자동 끄기 ─────────
+    # ───────── 장기 ETF 모으기 (매달 첫 거래일) ─────────
+    def etf_buy(self, n, cash) -> float:
+        c = self.cfg.get("etf_long", {})
+        items = (c.get("list") or {}).get(self.m) or []
+        st = load_settings()
+        budget = float((st.get("etf_budget") or {}).get(self.m) or 0)
+        month = n.strftime("%Y-%m")
+        if not items or budget <= 0 or (st.get("etf_month") or {}).get(self.m) == month:
+            return 0.0
+        if self.risk.kill_switch():
+            return 0.0
+        try:
+            px = {x.get("symbol"): f(x.get("lastPrice")) for x in (self.api.prices([x[0] for x in items]) or [])}
+        except TossError as e:
+            self.log(f"🏦 ETF 시세 조회 실패: {e}")
+            return 0.0
+        for code, name, _ in items:            # 레버리지·인버스는 절대 안 삼 (이름 확인)
+            try:
+                nm = ((self.api.stocks([code]) or [{}])[0].get("name") or "")
+            except TossError:
+                nm = ""
+            if LEV.search(nm):
+                px.pop(code, None)
+        buys, bank = ETF.plan(budget, items, (st.get("etf_bank") or {}).get(self.m) or {}, px, cash)
+        spent, done = 0.0, []
+        for code, name, q, price in buys:
+            p = self.broker.pos.get(code)
+            why = f"🏦 장기 ETF 적립 ({month})"
+            if p and p.extra.get("etf_long") and p.state == "open":
+                self.broker.add(p, q, price, why)
+            elif p:
+                bank[code] = bank.get(code, 0) + q * price      # 다른 방식으로 보유 중이면 이번 달은 이월
+                continue
+            else:
+                p = self.broker.enter(code, name, price, q, price * 100, 0.0, why, r=price, atr=None)
+                if not p:
+                    bank[code] = bank.get(code, 0) + q * price
+                    continue
+                p.extra.update(etf_long=True, nostop=True, locked=True, carry=True, setup="etf")
+                self.broker.save_state()
+            spent += q * price
+            done.append(f"{name} {q}주")
+        st = load_settings()
+        st.setdefault("etf_bank", {})[self.m] = {k: round(v, 2) for k, v in bank.items()}
+        st.setdefault("etf_month", {})[self.m] = month
+        save_settings(st)
+        left = ", ".join(f"{nm} {money(self.m, bank.get(cd, 0))}" for cd, nm, _ in items if bank.get(cd, 0) >= 1)
+        msg = (f"🏦 {month} ETF 적립 ({money(self.m, budget)}/월): " + (", ".join(done) if done else "이번 달은 1주 값이 안 돼 이월")
+               + (f" · 다음 달로 이월 {left}" if left else ""))
+        self.log(msg)
+        self.notify(msg)
+        return spent
+
     # ───────── 일봉 스윙 ─────────
     def swing_on(self) -> list:
         c = self.cfg.get("daily_swing", {})
@@ -1101,6 +1155,16 @@ class Bot:
                 self.loop_on = True
                 if self.stop_req and self.handle_stop(today):
                     break
+                etc = self.cfg.get("etf_long", {})
+                if (etc.get("enabled") and getattr(self, "etf_done", "") != today and not self.stop_req and n < no_entry_t
+                        and n >= self.open_t + dt.timedelta(minutes=etc.get("delay_min", 10))):
+                    self.etf_done = today
+                    try:
+                        spent = self.etf_buy(n, cash)
+                        if cash is not None:
+                            cash -= spent
+                    except Exception as e:
+                        self.log(f"🏦 ETF 매수 오류: {e}")
                 swc = self.cfg.get("daily_swing", {})
                 if (self.sw_picks and self.sw_done != today and not self.stop_req and n < no_entry_t
                         and n >= self.open_t + dt.timedelta(minutes=swc.get("entry_delay_min", 1))):
@@ -1115,7 +1179,7 @@ class Bot:
                     sym = self.sell_reqs.pop(0)
                     st = self.syms.get(sym)
                     if sym in self.broker.pos and self.broker.pos[sym].state == "open":
-                        self.broker.flatten(sym, "직접 매도 (텔레그램 보유종목)", st.last if st else None)
+                        self.broker.flatten(sym, "직접 매도 (텔레그램 보유종목)", st.last if st else None, force=True)
                 undecided = [p for p in self.broker.pos.values() if p.extra.get("carry_done") != today]
                 if n >= self.close_t or (n >= flatten_t and not undecided):
                     break
@@ -1265,6 +1329,9 @@ class Bot:
                             continue
                         st = self.syms.get(sym)
                         last = st.last if st else None
+                        if p.extra.get("etf_long"):
+                            p.extra["carry_done"] = today       # 장기 ETF: 그대로 보유
+                            continue
                         if p.state == "open" and p.extra.get("sw"):
                             try:
                                 self.swing_daily(p, last)
@@ -1358,7 +1425,7 @@ class Bot:
             for sym in list(self.broker.pos):
                 st = self.syms.get(sym)
                 self.broker.flatten(sym, "종료 버튼 — 전부 정리", st.last if st else None)
-        if not self.broker.pos:
+        if not [p for p in self.broker.pos.values() if not p.extra.get("etf_long")]:
             return True
         if time.time() - self._sell_sent > 90:
             self.log("⚠️ 90초 안에 다 팔리지 않았어요. 토스 앱에서 직접 확인하세요.")

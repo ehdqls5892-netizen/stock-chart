@@ -139,6 +139,9 @@ def lock_cmd(text: str) -> str:
         return f"'{key}' 은 로봇이 관리하는 보유 종목에 없어요. (로봇이 산 종목만 잠글 수 있어요)"
     out = []
     for mk, br, p in found:
+        if unlock and p.extra.get("etf_long"):
+            out.append(f"🏦 {p.name} 은 장기 ETF 라 잠금을 풀 수 없어요 (팔려면 💰 팔기)")
+            continue
         if unlock:
             p.extra.pop("locked", None)
             out.append(f"🔓 {p.name} 잠금 해제 — 다시 동시 보유 한도에 포함되고, 장 마감 정리 규칙을 따라요")
@@ -185,6 +188,7 @@ def holdings() -> list:
                 out.append({"market": mk, "symbol": p.symbol, "name": p.name, "qty": p.qty, "entry": p.entry, "sl": p.sl,
                             "last": last, "pct": (last / p.entry - 1) * 100 if last else None,
                             "locked": bool(p.extra.get("locked")), "state": p.state, "swing": bool(p.extra.get("sw")),
+                            "etf": bool(p.extra.get("etf_long")),
                             "days": len(p.extra.get("days_held", []))})
         else:
             for d in _file_positions(mk):
@@ -192,7 +196,7 @@ def holdings() -> list:
                 out.append({"market": mk, "symbol": d["symbol"], "name": d.get("name") or d["symbol"], "qty": d.get("qty"),
                             "entry": d.get("entry"), "sl": d.get("sl"), "last": None, "pct": None,
                             "locked": bool(ex.get("locked")), "state": "open", "days": len(ex.get("days_held", [])),
-                            "swing": bool(ex.get("sw"))})
+                            "swing": bool(ex.get("sw")), "etf": bool(ex.get("etf_long"))})
     miss = [h for h in out if not h["last"]]
     if miss:                                  # 장 밖이거나 아직 체결이 없으면 토스 현재가(마지막 가격)로
         px = quotes([h["symbol"] for h in miss])
@@ -337,6 +341,8 @@ def fx_usdkrw():
 
 def set_lock(mk: str, sym: str, on: bool) -> str:
     br = _broker(mk)
+    if not on and any(h["symbol"] == sym and h.get("etf") for h in holdings()):
+        return "🏦 장기 ETF 는 잠금을 풀 수 없어요 (풀면 장 마감에 팔리게 돼요). 팔려면 💰 팔기를 누르세요."
     if br is not None:
         p = br.pos.get(sym)
         if not p or p.state != "open":
@@ -388,6 +394,36 @@ def lock_all() -> str:
     if not hs:
         return "잠글 종목이 없어요 (이미 다 잠겨 있거나 보유가 없어요)."
     return "\n".join(set_lock(h["market"], h["symbol"], True) for h in hs)
+
+
+def etf_cmd(text: str) -> str:
+    """'ETF' (보기) · 'ETF 국장 50만' · 'ETF 미장 300' · 'ETF 국장 0'(끄기)"""
+    import re
+    cfg = _cfg()
+    c = cfg.get("etf_long", {})
+    st = M.load_settings()
+    parts = text.replace("🏦", "").replace("ETF", "").replace("etf", "").split()
+    mk = {"국장": "KR", "KR": "KR", "미장": "US", "US": "US"}.get(parts[0]) if parts else None
+    if mk and len(parts) >= 2:
+        raw = "".join(parts[1:]).replace(",", "").replace("원", "").replace("$", "")
+        m = re.fullmatch(r"([\d.]+)(만)?", raw)
+        if not m:
+            return "숫자로 적어 주세요. 예: ETF 국장 50만 / ETF 미장 300"
+        v = float(m.group(1)) * (10000 if m.group(2) else 1)
+        st.setdefault("etf_budget", {})[mk] = v
+        M.save_settings(st)
+        items = (c.get("list") or {}).get(mk) or []
+        return (f"🏦 {'국장' if mk == 'KR' else '미장'} ETF 매달 {M.money(mk, v)} 적립으로 정했어요"
+                + (" (끔)" if v <= 0 else f" — 매달 첫 거래일 장 시작 {c.get('delay_min', 10)}분 뒤: "
+                   + ", ".join(f"{nm} {w * 100:.0f}%" for _, nm, w in items)))
+    lines = ["🏦 장기 ETF 적립 (매달 첫 거래일 · 🔒 잠금 보유 · 손절 없음 · 배당은 계좌로)"]
+    for k, nm in (("KR", "🇰🇷 국장"), ("US", "🇺🇸 미장")):
+        b = float((st.get("etf_budget") or {}).get(k) or 0)
+        items = (c.get("list") or {}).get(k) or []
+        lines.append(f"{nm}: 매달 {M.money(k, b) if b else '꺼짐'} · " + ", ".join(f"{n} {w * 100:.0f}%" for _, n, w in items)
+                     + (f" · 이번 달 완료({st['etf_month'][k]})" if (st.get("etf_month") or {}).get(k) else ""))
+    lines.append("정하기: 'ETF 국장 50만' · 'ETF 미장 300' · 끄기: 'ETF 국장 0'")
+    return "\n".join(lines)
 
 
 def resume_dd() -> str:
@@ -612,6 +648,7 @@ def main():
     tc.resume_fn = resume_dd
     tc.lock_fn = lock_cmd
     tc.holdings_fn, tc.set_lock_fn, tc.sell_one_fn, tc.lock_all_fn = holdings, set_lock, sell_one, lock_all
+    tc.etf_fn = etf_cmd
     if tc.enabled:
         tc.start()
         threading.Thread(target=_briefing_loop, args=(lambda t: tc.send(t),), daemon=True).start()

@@ -18,7 +18,7 @@ import requests
 
 KB = {"keyboard": [[{"text": "📊 상태"}, {"text": "💵 투자금"}],
                    [{"text": "▶️ 연습 시작"}, {"text": "🔴 실전 시작"}],
-                   [{"text": "📦 보유종목"}, {"text": "🧭 스윙"}],
+                   [{"text": "📦 보유종목"}, {"text": "🧭 스윙"}, {"text": "🏦 ETF"}],
                    [{"text": "📈 성적"}, {"text": "📜 기록"}]],
       "resize_keyboard": True, "is_persistent": True}
 
@@ -79,7 +79,7 @@ class TelegramControl:
             mk = h["market"]
             fx = h.get("fx")
             g = {"유지": " · 🟢유지", "보통": " · 🟡보통", "나쁨": " · 🔴나쁨"}.get(h.get("grade") or "", "")
-            lines.append(f"{'🔒' if h['locked'] else '🧭' if h.get('swing') else '▫️'} {FL.get(mk, '')} {h['name']} {h['qty']}주{g}" + (" · 파는 중" if h.get("state") == "closing" else ""))
+            lines.append(f"{'🏦' if h.get('etf') else '🔒' if h['locked'] else '🧭' if h.get('swing') else '▫️'} {FL.get(mk, '')} {h['name']} {h['qty']}주{g}" + (" · 파는 중" if h.get("state") == "closing" else ""))
             if h.get("pnl") is not None:
                 pl = sgn(h["pnl"], mk) + (f" ≈ {krw(h['pnl'] * fx, True)}" if mk == "US" and fx else "")
                 lines.append(f"   {'📈' if h['pnl'] > 0 else '📉' if h['pnl'] < 0 else '➖'} 현재 {won(h['last'], mk)} ({h['pct']:+.2f}%) · 평가손익 {pl}")
@@ -277,6 +277,8 @@ class TelegramControl:
             if now - self.pending.pop("resume", 0) < 60 and getattr(self, "resume_fn", None):
                 return self.send(self.resume_fn())
             return self.send("확인 시간이 지났어요. 다시 '재개' 를 보내 주세요.")
+        if t.upper().startswith("ETF") or t.startswith("🏦"):
+            return self.send(self.etf_fn(t) if getattr(self, "etf_fn", None) else "이 기능을 쓸 수 없어요")
         if t in ("스윙", "🧭 스윙", "/swing"):
             return self.send(self.swing_text())
         if t.startswith("진단") or t.startswith("🔍"):

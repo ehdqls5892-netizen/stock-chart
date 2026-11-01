@@ -428,5 +428,46 @@
     "max_hold": 60,
     "expire_days": 20,
     "_note": "백테스트 3년(tools/swingbt.py): 미장 52주 신고가(6종목·위험 0.5%) +51%·낙폭 12%, 국장 재료 갭 +28%·낙폭 12%. 단타(intraday)는 우위가 없어 꺼 둠"
+  },
+  "etf_long": {
+    "enabled": true,
+    "delay_min": 10,
+    "list": {
+      "KR": [
+        [
+          "069500",
+          "KODEX 200",
+          0.5
+        ],
+        [
+          "360750",
+          "TIGER 미국S&P500",
+          0.3
+        ],
+        [
+          "458730",
+          "TIGER 미국배당다우존스",
+          0.2
+        ]
+      ],
+      "US": [
+        [
+          "VOO",
+          "Vanguard S&P 500 ETF",
+          0.5
+        ],
+        [
+          "SCHD",
+          "Schwab US Dividend Equity ETF",
+          0.3
+        ],
+        [
+          "QQQ",
+          "Invesco QQQ",
+          0.2
+        ]
+      ]
+    },
+    "_note": "금액은 텔레그램 'ETF 국장 50만' / 'ETF 미장 300' 으로 정함 (기본 0 = 안 삼). 매달 첫 거래일 적립, 잠금·손절 없음"
   }
 }

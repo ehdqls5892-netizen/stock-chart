@@ -118,7 +118,7 @@ class BaseBroker:
         R = p.extra.get("R") or max(p.entry - p.sl, p.entry * 0.01)
         a = p.extra.get("atr") or p.entry * 0.004
         p.peak = max(p.peak or p.entry, last)
-        if p.extra.get("hold_eod") or p.extra.get("sw"):
+        if p.extra.get("hold_eod") or p.extra.get("sw") or p.extra.get("etf_long"):
             return None, None, ""          # 갭하락 반등·일봉 스윙: 장중엔 손절선만 (스윙은 장 마감 전 일봉 점검에서 올림)          # 갭하락 반등: 손절선만 두고 그날 종가 무렵까지 그대로 (백테스트와 같은 방식)
         new_sl, why = p.sl, ""
         if t.get("cushion_at_R") and last >= p.entry + R * t["cushion_at_R"]:
@@ -438,8 +438,10 @@ class PaperBroker(BaseBroker):
             p.extra["days_held"].append(d)
         self.save_state()
 
-    def flatten(self, sym, why, last):
+    def flatten(self, sym, why, last, force=False):
         p = self.pos.get(sym)
+        if p and p.extra.get("etf_long") and not force:
+            return                     # 장기 ETF 는 로봇이 정리하지 않음 (텔레그램 💰 팔기로만)
         if p and p.state == "open":
             self._close(p, add_ticks(self.m, last, -1) if last else p.entry, why)
 
@@ -509,6 +511,8 @@ class LiveBroker(BaseBroker):
                 continue
             if q < p.qty:
                 p.qty = q
+            if p.extra.get("nostop"):
+                continue
             try:
                 c = self.api.get_conditional(p.cond_id) if p.cond_id else {}
                 if c.get("status") not in ("WATCHING", "PAUSED"):
@@ -608,6 +612,13 @@ class LiveBroker(BaseBroker):
             p.last_check = 0  # 다음 poll 에서 바로 확인
 
     def _arm_exit(self, p: Position):
+        if p.extra.get("nostop"):              # 장기 ETF: 손절 주문 없이 보유
+            p.state = "open"
+            p.peak = p.peak or p.entry
+            self.log(f"[실전] {p.name} {p.qty}주 체결 @ {money(self.m, p.entry)} · 장기 보유(손절 주문 없음)")
+            self.notify(f"🏦 ETF 체결 {p.name} {p.qty}주 @ {money(self.m, p.entry)} · 🔒 장기 보유")
+            self._journal("armed", p)
+            return
         try:
             # 손절은 '시장가' 조건주문: 손절선에 닿으면 토스 서버가 바로 시장가로 판다 (갭하락·PC 꺼짐에도 작동)
             hard = self.hard_level(p)
@@ -748,6 +759,8 @@ class LiveBroker(BaseBroker):
             self.save_state()
 
     def _modify(self, p: Position, qty: int, sl: float):
+        if p.extra.get("nostop"):
+            return                             # 장기 ETF: 손절 주문 없음
         old = p.cond_id
         try:
             p.cond_id, how = self.api.replace_stop_market(old, p.symbol, qty, price_str(self.m, self.hard_level(p, sl)),
@@ -832,10 +845,12 @@ class LiveBroker(BaseBroker):
             except TossError as e:
                 self.log(f"[실전] 상태 확인 실패 {p.name}: {e}")
 
-    def flatten(self, sym, why, last):
+    def flatten(self, sym, why, last, force=False):
         p = self.pos.get(sym)
         if not p:
             return
+        if p.extra.get("etf_long") and not force:
+            return                     # 장기 ETF 는 로봇이 정리하지 않음 (텔레그램 💰 팔기로만)
         if p.state == "pending":
             try:
                 self.api.cancel_order(p.buy_order_id)
