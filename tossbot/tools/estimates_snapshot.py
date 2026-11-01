@@ -77,10 +77,37 @@ def us_rows(codes: dict) -> list[dict]:
     return rows
 
 
+def kr_api(code: str, ses, debug=False) -> dict:
+    """네이버 모바일 API (JSON): 컨센서스(목표가·투자의견), 추정 PER·EPS, 최근 외국인·기관 순매수."""
+    r = {"code": code}
+    res = ses.get(f"https://m.stock.naver.com/api/stock/{code}/integration", timeout=15)
+    if debug:
+        log("API 확인", code, res.status_code, res.text[:300].replace("\n", " "))
+    if res.status_code != 200:
+        r["err"] = f"api:{res.status_code}"
+        return r
+    d = res.json()
+    for it in d.get("totalInfos") or []:
+        k = it.get("code") or it.get("key")
+        if k:
+            r[f"ti_{k}"] = num(re.sub(r"[^\d.\-]", "", str(it.get("value") or "")) or None)
+    for k, v in (d.get("consensusInfo") or {}).items():
+        r[f"cs_{k}"] = num(v) if not isinstance(v, (dict, list)) else None
+    dt_ = d.get("dealTrendInfos") or []
+    if dt_:
+        x = dt_[0]
+        r["flow_date"] = x.get("bizdate")
+        for k in ("foreignerPureBuyQuant", "organPureBuyQuant", "individualPureBuyQuant", "closePrice", "foreignerHoldRatio"):
+            if k in x:
+                r[k] = num(re.sub(r"[^\d.\-]", "", str(x[k])) or None)
+    return r
+
+
 def kr_one(code: str, ses) -> dict:
     import pandas as pd
     r = {"code": code}
-    html = ses.get(f"https://finance.naver.com/item/main.naver?code={code}", timeout=15).content.decode("euc-kr", "replace")
+    res = ses.get(f"https://finance.naver.com/item/main.naver?code={code}", timeout=15)
+    html = res.content.decode(res.encoding if res.encoding and "euc" not in res.encoding.lower() else "euc-kr", "replace")
     m = re.search(r'<p class="no_today">.*?<span class="blind">([\d,]+)</span>', html, re.S)
     r["price"] = num(m.group(1)) if m else None
     # 투자의견 · 목표주가 (컨센서스 영역)
@@ -124,9 +151,12 @@ def kr_rows(n: int) -> list[dict]:
             log("시간 예산 초과", i)
             break
         try:
-            r = kr_one(code, ses)
+            r = kr_api(code, ses, debug=i < 2)
+            if r.get("err") or len(r) < 4:
+                r2 = kr_one(code, ses)
+                r = {**r2, **{k: v for k, v in r.items() if k != "err"}} if not r2.get("err") else r
         except Exception as e:
-            r = {"code": code, "err": type(e).__name__}
+            r = {"code": code, "err": f"{type(e).__name__}:{str(e)[:60]}"}
         r["name"] = name
         rows.append(r)
         if i % 50 == 0:
@@ -160,7 +190,8 @@ def main():
         for r in rows:
             w.writerow({"date": day, **r})
     ok = sum(1 for r in rows if not r.get("err"))
-    filled = sum(1 for r in rows if (r.get("forwardEps") or r.get("eps_E") or r.get("target")))
+    filled = sum(1 for r in rows if (r.get("forwardEps") or r.get("eps_E") or r.get("target")
+                                     or any(k.startswith("cs_") and r[k] for k in r)))
     log(f"완료 {len(rows)}개 · 오류 없음 {ok} · 추정치 있음 {filled} → {out}")
 
 
