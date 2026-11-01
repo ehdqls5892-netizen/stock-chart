@@ -71,7 +71,7 @@ class BaseBroker:
     def open_count(self, day_only: bool = False) -> int:
         """동시 보유 수 — 잠금한 종목은 세지 않음(4종목 한도와 별개)."""
         return sum(1 for p in self.pos.values() if p.state in ("pending", "open", "closing")
-                   and not (day_only and p.extra.get("carry")) and not p.extra.get("locked"))
+                   and not (day_only and p.extra.get("carry")) and not p.extra.get("locked") and not p.extra.get("sw"))
 
     def invested(self) -> float:
         """들고 있는(사는 중 포함) 종목에 들어간 돈 — 잠금한 종목은 오늘 투자금 계산에서 뺌."""
@@ -118,8 +118,8 @@ class BaseBroker:
         R = p.extra.get("R") or max(p.entry - p.sl, p.entry * 0.01)
         a = p.extra.get("atr") or p.entry * 0.004
         p.peak = max(p.peak or p.entry, last)
-        if p.extra.get("hold_eod"):
-            return None, None, ""          # 갭하락 반등: 손절선만 두고 그날 종가 무렵까지 그대로 (백테스트와 같은 방식)
+        if p.extra.get("hold_eod") or p.extra.get("sw"):
+            return None, None, ""          # 갭하락 반등·일봉 스윙: 장중엔 손절선만 (스윙은 장 마감 전 일봉 점검에서 올림)          # 갭하락 반등: 손절선만 두고 그날 종가 무렵까지 그대로 (백테스트와 같은 방식)
         new_sl, why = p.sl, ""
         if t.get("cushion_at_R") and last >= p.entry + R * t["cushion_at_R"]:
             cu = round_tick(self.m, p.entry - R * t.get("cushion_R", 0.4), "up")

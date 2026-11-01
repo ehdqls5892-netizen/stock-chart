@@ -25,7 +25,8 @@ from .broker import LiveBroker, PaperBroker
 from .notify import Notifier
 from .risk import Risk
 from .strategy import SymState, corr, entry_signal, exit_levels, session_bars, vwap
-from .util import TZ, add_ticks, f, money, now, parse_hm, parse_ts
+from .util import TZ, add_ticks, f, money, now, parse_hm, parse_ts, round_tick
+from . import swing as SW
 
 ROOT = Path(__file__).resolve().parent.parent
 import re as _re
@@ -126,6 +127,8 @@ class Bot:
         self.sell_reqs: list[str] = []     # 텔레그램 보유종목 칸에서 '팔기' 누른 종목
         self.loop_on = False               # 장중 루프가 돌고 있을 때만 True (이때만 한 종목 팔기 가능)
         self.stopped: dict = {}            # 최근 손실로 판 종목 → 며칠 다시 안 삼
+        self.sw_picks = None               # 일봉 스윙 후보 (전날 장 끝난 뒤 만든 것)
+        self.sw_done = ""
         self.phase = "준비 중"
         self.open_t: dt.datetime | None = None
         self.close_t: dt.datetime | None = None
@@ -639,6 +642,155 @@ class Bot:
         self.risk.halted = f"계좌 낙폭 한도로 멈춤 ({lock}) — 텔레그램 '재개'로 다시 시작"
 
     # ───────── 성적 나쁜 매수 방식 자동 끄기 ─────────
+    # ───────── 일봉 스윙 ─────────
+    def swing_on(self) -> list:
+        c = self.cfg.get("daily_swing", {})
+        return (c.get("markets") or {}).get(self.m, []) if c.get("enabled") else []
+
+    def swing_load(self):
+        if not self.swing_on() or os.getenv("TOSSBOT_OFFLINE") == "1":
+            return
+        c = self.cfg["daily_swing"]
+        d = SW.load_picks(c["picks_url"], self.m, self.open_t.date(), self.log)
+        if not d:
+            return
+        on = set(self.swing_on())
+        d["picks"] = [x for x in d.get("picks", []) if x.get("setup") in on]
+        self.sw_picks = d
+        ix = d.get("index") or {}
+        name = "코스피" if self.m == "KR" else "S&P500(SPY)"
+        if not d.get("regime"):
+            msg = (f"🧭 스윙: {name} 가 50일선 아래(하락 국면 · {ix.get('close')} < {ix.get('ma50')}) → 오늘은 새로 안 사요. "
+                   f"보유분 손절·점검만 해요." + (f" (신호 {len(d['picks'])}개는 건너뜀)" if d["picks"] else ""))
+        elif not d["picks"]:
+            msg = f"🧭 스윙: {d['date']} 신호 종목 없음 (시장 국면 좋음 · {name} 50일선 위)"
+        else:
+            msg = (f"🧭 스윙 후보 {len(d['picks'])}개 ({d['date']} 종가 기준 · 장 시작 {c.get('entry_delay_min', 1)}분 뒤 매수 시도):\n"
+                   + "\n".join(f"- {x['name']} {money(self.m, x['close'])} · 손절 {money(self.m, x['stop'])} · {x['reason']}"
+                               for x in d["picks"][:8]))
+        self.log(msg)
+        self.notify(msg)
+
+    def swing_enter(self, cash) -> float:
+        d, c = self.sw_picks or {}, self.cfg["daily_swing"]
+        if not d.get("regime") or not d.get("picks"):
+            return 0.0
+        if self.risk.kill_switch() or self.risk.halted:
+            self.log(f"🧭 스윙 매수 건너뜀: {self.risk.halted or '긴급 정지'}")
+            return 0.0
+        have = [p for p in self.broker.pos.values() if p.extra.get("sw") and p.state in ("pending", "open", "closing")]
+        slots = c.get("max_pos", 6) - len(have)
+        cands = [x for x in d["picks"] if x["code"] not in self.broker.pos and x["code"] not in self.stopped][: max(0, slots) * 2]
+        if slots <= 0 or not cands:
+            return 0.0
+        try:
+            px = {x.get("symbol"): f(x.get("lastPrice")) for x in (self.api.prices([x["code"] for x in cands]) or [])}
+        except TossError as e:
+            self.log(f"🧭 스윙 시세 조회 실패: {e}")
+            return 0.0
+        cap = self.risk.capital or 0
+        spent = 0.0
+        for x in cands:
+            if slots <= 0:
+                break
+            sym, e, stop = x["code"], px.get(x["code"]), float(x["stop"])
+            if not e:
+                continue
+            if stop >= e * 0.995:
+                self.log(f"🧭 {x['name']} 손절선({money(self.m, stop)}) 근처·아래로 열려서 안 사요")
+                continue
+            if e > x["close"] * (1 + c.get("max_gap_pct", 10) / 100):
+                self.log(f"🧭 {x['name']} 어제 종가보다 {(e / x['close'] - 1) * 100:.0f}% 넘게 올라 열려서 안 쫓아가요")
+                continue
+            try:
+                info = (self.api.stocks([sym]) or [{}])[0]
+                if LEV.search(info.get("name") or "") or str(info.get("securityType") or "STOCK") not in ("STOCK", "FOREIGN_STOCK", "DEPOSITARY_RECEIPT"):
+                    continue
+                if any(w.get("warningType") in BAD_WARNINGS and not w.get("endDate") for w in (self.api.warnings(sym) or [])):
+                    self.log(f"🧭 {x['name']} 투자경고·거래정지 등 경고가 있어 안 사요")
+                    continue
+            except TossError:
+                pass
+            q = SW.qty_for(cap, c.get("risk_pct", 0.5), c.get("cap_pct", 20), e, stop, None if cash is None else cash - spent)
+            if q < 1:
+                self.log(f"🧭 {x['name']} 살 수 있는 수량이 0주 (손절 폭 대비 투자금 부족)")
+                continue
+            sl = round_tick(self.m, stop, "down")
+            p = self.broker.enter(sym, x["name"], e, q, round_tick(self.m, e * 3, "up"), sl,
+                                  f"🧭 스윙 · {x['reason']}", r=e - sl, atr=x.get("atr"))
+            if not p:
+                continue
+            base = dt.datetime.now(TZ["KR"]).date() if self.m == "US" else now(self.m).date()
+            p.extra.update(sw=True, carry=True, setup="sw_" + x["setup"], sw_stop0=sl, sw_hi=e, sw_days=0,
+                           expire=(base + dt.timedelta(days=c.get("expire_days", 20))).isoformat())
+            st = self.syms.setdefault(sym, SymState(sym))
+            st.name = x["name"]
+            if self.stream:
+                self.stream.set_codes(list(dict.fromkeys(list(self.broker.pos) + self.universe)))
+            self.broker.save_state()
+            spent += e * q
+            slots -= 1
+            self.notify(f"🧭 스윙 매수 {x['name']} {q}주 ≈ {money(self.m, e)} · 손절 {money(self.m, sl)} "
+                        f"(-{(1 - sl / e) * 100:.1f}%, 손실 한도 투자금의 {c.get('risk_pct', 0.5):g}%)\n산 이유: {x['reason']}")
+        return spent
+
+    def swing_bars(self, sym, last):
+        """토스 일봉 + 오늘(지금 가격을 종가로)."""
+        today = now(self.m).date()
+        rows = []
+        for cd in self.api.candles(sym, "1d", 40) or []:
+            t = parse_ts(cd.get("timestamp"), self.m)
+            cl = f(cd.get("closePrice"))
+            if not t or not cl:
+                continue
+            rows.append((t.date(), f(cd.get("highPrice")) or cl, f(cd.get("lowPrice")) or cl, cl))
+        rows.sort(key=lambda r: r[0])
+        old = [r for r in rows if r[0] < today]
+        cur = [r for r in rows if r[0] == today]
+        if last:
+            h = max([last] + [r[1] for r in cur])
+            l = min([last] + [r[2] for r in cur])
+            old.append((today, h, l, last))
+        elif cur:
+            old.append(cur[-1])
+        return old
+
+    def swing_daily(self, p, last):
+        """장 마감 15분 전 일봉 점검: 손절선 올리기 / 추세 꺾이면 정리."""
+        c = self.cfg["daily_swing"]
+        bars = self.swing_bars(p.symbol, last)
+        if len(bars) < 12:
+            self.log(f"🧭 {p.name} 일봉이 부족해 오늘 점검은 건너뜀")
+            return
+        held = int(p.extra.get("sw_days", 0))
+        fee = self.cfg["fees"][self.m]
+        cost = (fee["buy_pct"] + fee["sell_pct"] + fee["sell_tax_pct"]) / 100
+        new, hi, why, note = SW.daily_check(p.entry, p.sl, p.extra.get("sw_stop0") or p.sl, p.extra.get("sw_hi"), held, bars, c, cost)
+        p.extra["sw_hi"] = hi
+        p.extra["sw_days"] = held + 1
+        close = bars[-1][3]
+        if why:
+            self.notify(f"🧭 스윙 정리 {p.name} ({held + 1}거래일째, {(close / p.entry - 1) * 100:+.1f}%) — {why}")
+            self.broker.flatten(p.symbol, f"스윙 정리: {why}", close)
+            return
+        new = round_tick(self.m, new, "down")
+        base = dt.datetime.now(TZ["KR"]).date() if self.m == "US" else now(self.m).date()
+        p.extra["expire"] = (base + dt.timedelta(days=c.get("expire_days", 20))).isoformat()   # 손절 주문 만료 늘리기
+        if hasattr(self.broker, "_modify"):
+            try:
+                self.broker._modify(p, p.qty, max(new, p.sl))
+            except TossError as e:
+                self.log(f"[실전] 🧭 {p.name} 손절 주문 갱신 실패: {e}")
+                return
+        if new > p.sl:
+            p.sl = new
+        p.extra["carry"] = True
+        d = now(self.m).date().isoformat()
+        if d not in p.extra.setdefault("days_held", []):
+            p.extra["days_held"].append(d)
+        self.notify(f"🧭 스윙 점검 {p.name} {held + 1}거래일째 · {money(self.m, close)} ({(close / p.entry - 1) * 100:+.1f}%) "
+                    f"· 손절 {money(self.m, p.sl)}" + (f" · {note}" if note else "") + " · 계속 보유")
+
     def load_stopped(self):
         """최근 N일 안에 손실로 판 종목 → 다시 사지 않음 (같은 종목에 연달아 손절 방지, 예: 코세스 이틀 연속)."""
         c = self.cfg.get("reentry_block", {})
@@ -694,8 +846,8 @@ class Bot:
             by.setdefault(setup_of(r), []).append(float(r.get("pnl") or 0))
         off = []
         for name, v in by.items():
-            if name == "?":
-                continue
+            if name == "?" or str(name).startswith("sw_"):
+                continue                       # 스윙은 며칠~몇 주 단위라 단타 기준으로 끄지 않음
             win, loss = sum(x for x in v if x > 0), -sum(x for x in v if x <= 0)
             pf = win / loss if loss else 9.9
             rk = getattr(self, "risk", None)
@@ -772,7 +924,7 @@ class Bot:
         fmt = lambda v: money(self.m, v)
         mk = self.market_move()
         for sym, p in list(self.broker.pos.items()):
-            if p.state != "open" or p.extra.get("locked"):
+            if p.state != "open" or p.extra.get("locked") or p.extra.get("sw"):
                 continue
             st = self.syms.get(sym)
             last = st.last if st else None
@@ -894,6 +1046,10 @@ class Bot:
         self.perf_size()
         self.week_guard()
         self.load_stopped()
+        try:
+            self.swing_load()
+        except Exception as e:
+            self.log(f"🧭 스윙 후보 불러오기 오류: {e}")
         self.dd_check(flatten=True)
         for p in self.broker.pos.values():
             self.syms.setdefault(p.symbol, SymState(p.symbol)).name = p.name
@@ -945,6 +1101,16 @@ class Bot:
                 self.loop_on = True
                 if self.stop_req and self.handle_stop(today):
                     break
+                swc = self.cfg.get("daily_swing", {})
+                if (self.sw_picks and self.sw_done != today and not self.stop_req and n < no_entry_t
+                        and n >= self.open_t + dt.timedelta(minutes=swc.get("entry_delay_min", 1))):
+                    self.sw_done = today
+                    try:
+                        spent = self.swing_enter(cash)
+                        if cash is not None:
+                            cash -= spent
+                    except Exception as e:
+                        self.log(f"🧭 스윙 매수 오류: {e}")
                 while self.sell_reqs:
                     sym = self.sell_reqs.pop(0)
                     st = self.syms.get(sym)
@@ -960,7 +1126,7 @@ class Bot:
                     self._bg_tick(no_entry_t)
                     last_bg = time.time()
                 # 진입
-                if self.open_t <= n < no_entry_t and not self.stop_req:
+                if self.open_t <= n < no_entry_t and not self.stop_req and self.cfg["strategy"].get("intraday", True):
                     why = self.risk.can_enter(self.broker.open_count(), self.broker.invested())
                     if why is None:
                         cands = []
@@ -1060,7 +1226,8 @@ class Bot:
                             p.extra["avgdown"] = 1
                             self.broker.add(p, q, st.last, f"물타기(산 값 {(st.last / p.entry - 1) * 100:+.1f}%, 추세 좋음·시장 안정·반등 봉)")
                 # 추가 매수(불타기): 잃지 않는 상태 + 같은 종목에 새 강한 신호
-                if self.open_t <= n < no_entry_t and not self.stop_req and not self.risk.kill_switch() and not self.risk.halted:
+                if (self.open_t <= n < no_entry_t and not self.stop_req and not self.risk.kill_switch() and not self.risk.halted
+                        and self.cfg["strategy"].get("intraday", True)):
                     for sym, p in list(self.broker.pos.items()):
                         st = self.syms.get(sym)
                         if not st or not st.last or not self.broker.can_add(p, st.last):
@@ -1098,6 +1265,14 @@ class Bot:
                             continue
                         st = self.syms.get(sym)
                         last = st.last if st else None
+                        if p.state == "open" and p.extra.get("sw"):
+                            try:
+                                self.swing_daily(p, last)
+                            except Exception as e:
+                                self.log(f"🧭 스윙 점검 오류 {p.name}: {e}")
+                            p.extra["carry_done"] = today
+                            self.broker.save_state()
+                            continue
                         if p.state == "open" and p.extra.get("locked"):
                             self.broker.carry(p, last or p.entry)        # 잠금: 장 마감 정리 안 함(손절 주문은 유지·연장)
                             p.extra["carry_done"] = today

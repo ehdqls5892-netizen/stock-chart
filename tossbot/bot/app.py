@@ -184,14 +184,15 @@ def holdings() -> list:
                 last = getattr(st, "last", None) or None
                 out.append({"market": mk, "symbol": p.symbol, "name": p.name, "qty": p.qty, "entry": p.entry, "sl": p.sl,
                             "last": last, "pct": (last / p.entry - 1) * 100 if last else None,
-                            "locked": bool(p.extra.get("locked")), "state": p.state,
+                            "locked": bool(p.extra.get("locked")), "state": p.state, "swing": bool(p.extra.get("sw")),
                             "days": len(p.extra.get("days_held", []))})
         else:
             for d in _file_positions(mk):
                 ex = d.get("extra") or {}
                 out.append({"market": mk, "symbol": d["symbol"], "name": d.get("name") or d["symbol"], "qty": d.get("qty"),
                             "entry": d.get("entry"), "sl": d.get("sl"), "last": None, "pct": None,
-                            "locked": bool(ex.get("locked")), "state": "open", "days": len(ex.get("days_held", []))})
+                            "locked": bool(ex.get("locked")), "state": "open", "days": len(ex.get("days_held", [])),
+                            "swing": bool(ex.get("sw"))})
     miss = [h for h in out if not h["last"]]
     if miss:                                  # 장 밖이거나 아직 체결이 없으면 토스 현재가(마지막 가격)로
         px = quotes([h["symbol"] for h in miss])

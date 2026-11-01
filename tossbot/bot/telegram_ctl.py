@@ -18,7 +18,7 @@ import requests
 
 KB = {"keyboard": [[{"text": "📊 상태"}, {"text": "💵 투자금"}],
                    [{"text": "▶️ 연습 시작"}, {"text": "🔴 실전 시작"}],
-                   [{"text": "📦 보유종목"}],
+                   [{"text": "📦 보유종목"}, {"text": "🧭 스윙"}],
                    [{"text": "📈 성적"}, {"text": "📜 기록"}]],
       "resize_keyboard": True, "is_persistent": True}
 
@@ -79,7 +79,7 @@ class TelegramControl:
             mk = h["market"]
             fx = h.get("fx")
             g = {"유지": " · 🟢유지", "보통": " · 🟡보통", "나쁨": " · 🔴나쁨"}.get(h.get("grade") or "", "")
-            lines.append(f"{'🔒' if h['locked'] else '▫️'} {FL.get(mk, '')} {h['name']} {h['qty']}주{g}" + (" · 파는 중" if h.get("state") == "closing" else ""))
+            lines.append(f"{'🔒' if h['locked'] else '🧭' if h.get('swing') else '▫️'} {FL.get(mk, '')} {h['name']} {h['qty']}주{g}" + (" · 파는 중" if h.get("state") == "closing" else ""))
             if h.get("pnl") is not None:
                 pl = sgn(h["pnl"], mk) + (f" ≈ {krw(h['pnl'] * fx, True)}" if mk == "US" and fx else "")
                 lines.append(f"   {'📈' if h['pnl'] > 0 else '📉' if h['pnl'] < 0 else '➖'} 현재 {won(h['last'], mk)} ({h['pct']:+.2f}%) · 평가손익 {pl}")
@@ -111,6 +111,8 @@ class TelegramControl:
                 lines.append(f"💰 합계 평가손익 ≈ {krw(tot['krw'], True)} (" + " · ".join(parts) + ")")
                 lines.append(f"   평가금액 ≈ {krw(tot['val'])}" + (f" · 환율 {fxv:,.0f}원/$ 기준" if fxv else ""))
         lines.append("")
+        if any(h.get("swing") for h in hs):
+            lines.append("🧭 = 일봉 스윙(며칠~몇 주 보유 · 매일 장 마감 15분 전 일봉 점검으로 손절선 올림/정리)")
         lines.append("🔒 = 장 마감에 안 팔고 들고 감 · 동시 보유 4종목 한도에서 빠짐 · 손절선 닿으면 자동 매도는 그대로")
         lines.append("🟢유지=잠가서 들고 갈 만함 · 🟡보통=판단 반반 · 🔴나쁨=잠금 비추천(오늘 정리가 나음) — 판단 재료일 뿐 자동 매매는 안 바뀜")
         lines.append("🔒 잠긴 종목도 💰 팔기를 누르면 바로 팔아요 (해제 안 해도 됨) · 장 밖엔 마지막 가격 기준")
@@ -162,6 +164,33 @@ class TelegramControl:
             note = ("⏹ " + self.stop_fn("keep")) if fresh(parts[1]) else "확인 시간이 지났어요. 다시 눌러 주세요."
         text, mk = self.holdings_view(note)
         self._edit(mid, text, mk)
+
+    def swing_text(self) -> str:
+        """오늘 밤·내일 아침 살 스윙 후보와 시장 국면."""
+        import json
+        from pathlib import Path
+        try:
+            cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
+            c = cfg.get("daily_swing", {})
+        except Exception:
+            return "설정을 읽지 못했어요"
+        if not c.get("enabled"):
+            return "🧭 일봉 스윙이 꺼져 있어요"
+        out = ["🧭 일봉 스윙 후보 (장 마감 뒤 계산 · 다음 장 시작 1분 뒤 매수)"]
+        for mk, nm in (("KR", "🇰🇷 국장 · 큰 재료 갭"), ("US", "🇺🇸 미장 · 52주 신고가 돌파")):
+            if mk not in (c.get("markets") or {}):
+                continue
+            try:
+                d = requests.get(c["picks_url"].format(m=mk.lower()), timeout=15).json()
+            except Exception:
+                out.append(f"{nm}: 아직 후보 자료가 없어요")
+                continue
+            ix = d.get("index") or {}
+            reg = "🟢 상승 국면(지수 50일선 위) → 삼" if d.get("regime") else "🔴 하락 국면(지수 50일선 아래) → 새로 안 삼"
+            ps = [x for x in d.get("picks", []) if x.get("setup") in c["markets"][mk]]
+            out.append(f"\n{nm} · {d.get('date')} 기준 · {reg} ({ix.get('close')} / 50일선 {ix.get('ma50')})")
+            out += [f"- {x['name']} {won(x['close'], mk)} · 손절 {won(x['stop'], mk)} · {x['reason']}" for x in ps[:8]] or ["- 신호 종목 없음"]
+        return "\n".join(out)
 
     def status_text(self) -> str:
         s = self.status_fn()
@@ -248,6 +277,8 @@ class TelegramControl:
             if now - self.pending.pop("resume", 0) < 60 and getattr(self, "resume_fn", None):
                 return self.send(self.resume_fn())
             return self.send("확인 시간이 지났어요. 다시 '재개' 를 보내 주세요.")
+        if t in ("스윙", "🧭 스윙", "/swing"):
+            return self.send(self.swing_text())
         if t.startswith("진단") or t.startswith("🔍"):
             from pathlib import Path
             from .stats import diagnose

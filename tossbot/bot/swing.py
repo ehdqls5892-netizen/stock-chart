@@ -1,0 +1,92 @@
+"""일봉 스윙 (며칠~몇 주 보유) — 단타 대신 '남들보다 오래 버티는' 쪽의 우위를 노림.
+
+근거: tools/swingbt.py · tools/swing_check.py 로 3년치 일봉 백테스트 + 같은 종목군에서 '아무거나 산 것'과 비교해
+      우위가 확인된 것만 켬 (미장: 52주 신고가 돌파, 국장: 큰 재료 갭).
+흐름
+  1) 장 끝난 뒤 GitHub Actions(swingpicks.yml)가 신호 종목을 picks.json 으로 올림 (시장 국면 판단 포함)
+  2) 다음 날 장 시작 1분 뒤 로봇이 그 종목을 시장가로 삼 (손절선 아래로 갭하락해 열리면 안 삼)
+  3) 손절은 토스 서버의 시장가 손절 조건주문으로 계속 걸어 둠 (밤사이에도)
+  4) 매일 장 마감 15분 전 일봉 기준 점검: +1R 넘으면 본전, +2R 넘으면 '최고 종가 − 3×ATR' 추적,
+     10일선 깨지면 정리, 10거래일 지나도 +0.5R 못 가면 정리, 최대 60거래일
+"""
+from __future__ import annotations
+
+import datetime as dt
+
+
+def load_picks(url: str, market: str, session_date: dt.date, log=print) -> dict | None:
+    """전날 장 끝난 뒤 만든 신호 목록. 날짜가 너무 오래됐으면 None."""
+    import requests
+    try:
+        r = requests.get(url.format(m=market.lower()), timeout=20)
+        if r.status_code != 200:
+            log(f"🧭 스윙 후보를 못 받았어요 (HTTP {r.status_code})")
+            return None
+        d = r.json()
+    except Exception as e:
+        log(f"🧭 스윙 후보를 못 받았어요: {e}")
+        return None
+    try:
+        pd_ = dt.date.fromisoformat(d.get("date", ""))
+    except ValueError:
+        return None
+    gap = (session_date - pd_).days
+    if gap <= 0 or gap > 4:
+        log(f"🧭 스윙 후보 날짜({pd_})가 오늘 장({session_date})과 안 맞아서 안 써요")
+        return None
+    return d
+
+
+def qty_for(capital: float, risk_pct: float, cap_pct: float, entry: float, stop: float, cash: float | None) -> int:
+    """손절 시 손실 = 투자금의 risk_pct%, 한 종목 최대 cap_pct%, 현금 안에서."""
+    per = entry - stop
+    if per <= 0 or entry <= 0 or not capital:
+        return 0
+    q = min(capital * risk_pct / 100 / per, capital * cap_pct / 100 / entry)
+    if cash is not None:
+        q = min(q, cash * 0.97 / entry)
+    return int(q)
+
+
+def sma(xs, n):
+    return sum(xs[-n:]) / n if len(xs) >= n else None
+
+
+def atr(highs, lows, closes, n=20):
+    if len(closes) < n + 1:
+        return None
+    trs = [max(highs[i], closes[i - 1]) - min(lows[i], closes[i - 1]) for i in range(len(closes) - n, len(closes))]
+    return sum(trs) / n
+
+
+def daily_check(p_entry: float, stop: float, stop0: float, hi: float, held: int, bars: list, c: dict, cost: float = 0.003):
+    """일봉 점검 (오늘 = bars 마지막, 종가 자리에 지금 가격).
+    bars: [(날짜, 고가, 저가, 종가)] 오래된 것부터.
+    돌려줌: (새 손절선, 새 최고 종가, 정리 이유 또는 None, 설명)"""
+    highs = [b[1] for b in bars]
+    lows = [b[2] for b in bars]
+    closes = [b[3] for b in bars]
+    close = closes[-1]
+    R = max(p_entry - stop0, p_entry * 0.005)
+    hi = max(hi or p_entry, close)
+    a = atr(highs, lows, closes) or R / 2
+    new, notes = stop, []
+    if hi >= p_entry + c.get("be_after_R", 1) * R:
+        be = p_entry * (1 + cost)
+        if be > new:
+            new = be
+            notes.append("+1R 넘음 → 손절선 본전(수수료 포함)")
+    if hi >= p_entry + c.get("trail_after_R", 2) * R:
+        tr = hi - c.get("trail_atr", 3) * a
+        if tr > new:
+            new = tr
+            notes.append(f"추적: 최고 종가 − {c.get('trail_atr', 3):g}×ATR")
+    m = sma(closes, c.get("exit_ma", 10))
+    why = None
+    if m and held >= 2 and close < m and close < p_entry + 3 * R:
+        why = f"{c.get('exit_ma', 10)}일선 아래로 마감 (추세 꺾임)"
+    elif held >= c.get("time_stop_days", 10) and close < p_entry + c.get("time_need_R", 0.5) * R:
+        why = f"{held}거래일 지나도 +{c.get('time_need_R', 0.5):g}R 못 감 (힘 없음)"
+    elif held >= c.get("max_hold", 60):
+        why = f"최대 보유 {c.get('max_hold', 60)}거래일"
+    return new, hi, why, " · ".join(notes)

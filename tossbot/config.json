@@ -181,7 +181,8 @@
       }
     },
     "earn_max_day_change_pct": 25,
-    "earn_max_range_pct": 15
+    "earn_max_range_pct": 15,
+    "intraday": false
   },
   "risk": {
     "KR": {
@@ -401,5 +402,31 @@
     "need_uptrend": true,
     "ratio": 0.5,
     "loss_mult": 1.6
+  },
+  "daily_swing": {
+    "enabled": true,
+    "markets": {
+      "KR": [
+        "ep"
+      ],
+      "US": [
+        "hi52"
+      ]
+    },
+    "picks_url": "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/swingpicks-{m}/picks.json",
+    "risk_pct": 0.5,
+    "cap_pct": 20,
+    "max_pos": 6,
+    "entry_delay_min": 1,
+    "max_gap_pct": 10,
+    "be_after_R": 1,
+    "trail_after_R": 2,
+    "trail_atr": 3,
+    "exit_ma": 10,
+    "time_stop_days": 10,
+    "time_need_R": 0.5,
+    "max_hold": 60,
+    "expire_days": 20,
+    "_note": "백테스트 3년(tools/swingbt.py): 미장 52주 신고가(6종목·위험 0.5%) +51%·낙폭 12%, 국장 재료 갭 +28%·낙폭 12%. 단타(intraday)는 우위가 없어 꺼 둠"
   }
 }
