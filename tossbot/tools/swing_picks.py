@@ -33,11 +33,10 @@ def main():
         bars = SD.yf_bars({c: c.replace(".", "-") for c in names}, 2)
         idx = SD.yf_bars({"SPY": "SPY"}, 2).get("SPY")
     out = build(m, bars, names, idx)
-    if m == "us":
-        try:
-            enrich_us(out["picks"], bars)
-        except Exception as e:
-            print("실적·애널리스트 정보 실패:", e, file=sys.stderr)
+    try:
+        enrich_us(out["picks"], bars, (lambda c: yfs.get(c, c)) if m == "kr" else None)
+    except Exception as e:
+        print("실적·애널리스트·업종 정보 실패:", e, file=sys.stderr)
     try:
         out["etf"] = etf_metrics(m)
     except Exception as e:
@@ -57,17 +56,25 @@ def react_day(ts: str) -> str:
     return d.isoformat()
 
 
-def enrich_us(picks, bars):
-    """후보마다 다음 실적일·과거 실적 갭 크기·애널리스트 전망치 변화·목표가·업종을 붙임 (ev)."""
+def enrich_us(picks, bars, tick=None):
+    """후보마다 다음 실적일·과거 실적 갭 크기·애널리스트 전망치 변화·목표가·업종을 붙임 (ev).
+    국장도 같은 함수(tick: 코드 → 야후 티커 005930.KS). 국장은 야후에 실적일·전망치가 비어 있는 경우가 많아 있는 것만 씀."""
     import yfinance as yf
     today = dt.date.today().isoformat()
     for p in picks:
         ev = {}
-        t = yf.Ticker(p["code"].replace(".", "-"))
+        t = yf.Ticker(tick(p["code"]) if tick else p["code"].replace(".", "-"))
         try:
             df = t.get_earnings_dates(limit=12)
             rows = sorted((ts.strftime("%Y-%m-%d %H:%M"), r.get("Reported EPS")) for ts, r in (df if df is not None else []).iterrows())
             fut = [ts for ts, rep in rows if ts[:10] >= today and rep != rep]
+            if not fut and tick:                       # 국장: 달력(calendar)에 다음 실적일이 있는 경우
+                try:
+                    cal = t.calendar or {}
+                    eds = cal.get("Earnings Date") or []
+                    fut = [f"{x.isoformat()} 16:00" for x in eds if x.isoformat() >= today][:1]
+                except Exception:
+                    pass
             if fut:
                 ev["earn"], ev["react"] = fut[0], react_day(fut[0])
             b = bars.get(p["code"]) or []

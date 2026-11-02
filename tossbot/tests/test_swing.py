@@ -225,4 +225,16 @@ bot.sw_picks = {"date": "2026-11-02", "regime": True, "index": {"close": 100.0},
 M.Bot.swing_enter(bot, None, "open")
 assert list(b7.pos) == ["H2"], list(b7.pos)                      # H1: 시장 +1% 인데 +8% → 7%p 더 뜀 → 안 삼
 assert any("H1" in m and "시장보다" in m for m in sent)
+# 13) 국장 재료 갭도 11/2 신호부터 마감 때 삼
+cfg["market"] = "KR"
+b8 = PaperBroker("KR", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker, bot.m = b8, "KR"
+bot.risk = SimpleNamespace(kill_switch=lambda: False, halted=None, capital=10_000_000)
+prices["111111"] = 10000
+bot.sw_picks = {"date": "2026-11-03", "regime": True, "picks": [{"code": "111111", "name": "가재료", "setup": "ep", "close": 9900, "stop": 9300, "atr": 300, "score": 5, "reason": "큰 재료 갭", "ev": {"sector": "Industrials"}}]}
+M.Bot.swing_enter(bot, None, "open")
+assert not b8.pos and "마감 15분 전" in sent[-1], sent[-1]
+api.candles = lambda sym, iv, n: [{"timestamp": dt.datetime.now(M.TZ["KR"]).isoformat(), "closePrice": "10000", "highPrice": "10100", "lowPrice": "9800"}]
+M.Bot.swing_enter(bot, None, "close")
+assert list(b8.pos) == ["111111"] and b8.pos["111111"].extra["sector"] == "Industrials", list(b8.pos)
 print("✅ 실적 다루기 시험 통과")

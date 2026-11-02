@@ -887,7 +887,7 @@ class Bot:
         later = [] if dry else [x for x in cands if Bot.swing_timing(self, x, d) != when]
         cands = cands if dry else [x for x in cands if Bot.swing_timing(self, x, d) == when]
         if when == "open" and later and slots > 0:
-            self.notify(f"🧭 저점 매수 후보 {len(later)}개({', '.join(x['name'] for x in later[:5])})는 장 시작 직후 말고 "
+            self.notify(f"🧭 스윙 후보 {len(later)}개({', '.join(x['name'] for x in later[:5])})는 장 시작 직후 말고 "
                         f"장 마감 15분 전에 오늘 흐름을 보고 살게요. 장중에 손절선까지 밀리면 안 사요.")
         # 실적이 보유 기간 안에 없는 종목 먼저 (점수 순서는 유지)
         cands.sort(key=lambda x: SW.earn_plan(x, today, 100.0, 90.0, ec)[0] != "ok")
