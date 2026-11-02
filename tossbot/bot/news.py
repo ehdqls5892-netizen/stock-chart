@@ -187,3 +187,43 @@ class NewsWatch:
         if self.fail == 12:
             self.log("📰 뉴스 감시: 뉴스 사이트에 계속 연결이 안 돼요 (매매는 그대로, 뉴스 반영만 멈춤)")
         return out
+
+
+# ── 스윙 매수 직전 '치명적 악재' 확인 ─────────────────────────────────────────────
+# 백테스트로 검증할 수 없는 보호용 규칙: 밤사이 회사 존립·주주가치를 크게 흔드는 뉴스(유상증자·거래정지·회계·당국 조사·파산)가
+# 최근 2일 안에 나왔으면 신호가 좋아도 안 삼. 하향·실적 부진 같은 흔한 악재는 저점 매수의 대상이라 거르지 않음.
+RED = {
+    "US": ["stock offering", "share offering", "public offering", "secondary offering", "dilution", "trading halt", "halted",
+           "sec probe", "sec investigation", "doj", "subpoena", "fraud", "accounting", "restate", "restatement",
+           "bankruptcy", "chapter 11", "delist", "going concern", "short seller", "short report", "ceo resigns", "cfo resigns"],
+    "KR": ["유상증자", "거래정지", "횡령", "배임", "분식", "감사의견", "상장폐지", "관리종목", "회생", "파산", "압수수색",
+           "전환사채 발행", "최대주주 변경", "불성실공시"],
+}
+
+
+def red_flags(name: str, market: str, days: int = 2, get=None) -> list[str]:
+    """종목 이름으로 최근 뉴스 제목을 찾아 치명적 악재 단어가 있는 제목 목록. 연결 실패면 [] (매매는 그대로)."""
+    import requests
+    get = get or (lambda u: requests.get(u, timeout=8, headers={"User-Agent": "Mozilla/5.0 (tossbot news)"}))
+    nm = _norm_us(name) if market == "US" else name
+    q = f'"{nm}" when:{days}d'
+    url = (f"https://news.google.com/rss/search?q={quote(q)}&hl=ko&gl=KR&ceid=KR:ko" if market == "KR"
+           else f"https://news.google.com/rss/search?q={quote(q)}&hl=en-US&gl=US&ceid=US:en")
+    try:
+        r = get(url)
+        if r.status_code != 200:
+            return []
+        xml = r.text
+    except Exception:
+        return []
+    out = []
+    w = NewsWatch.__new__(NewsWatch)
+    for it in NewsWatch.parse(w, xml)[:40]:
+        t = it["title"]
+        tl = t if market == "KR" else t.lower()
+        key = nm if market == "KR" else nm.lower().split()[0]
+        if key and key not in tl:
+            continue
+        if any(k in tl for k in RED[market]):
+            out.append(t)
+    return out[:3]

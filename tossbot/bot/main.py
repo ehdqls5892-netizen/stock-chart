@@ -936,6 +936,19 @@ class Bot:
             if e > x["close"] * (1 + c.get("max_gap_pct", 10) / 100):
                 skip(x, f"어제 종가보다 {(e / x['close'] - 1) * 100:.0f}% 넘게 올라 열려서 안 쫓아감")
                 continue
+            rg = (c.get("max_rel_gap_by_setup") or {}).get(x.get("setup"))
+            if rg and not dry and mgap is not None and (e / x["close"] - 1) - mgap >= rg / 100:
+                skip(x, f"밤사이 시장보다 {((e / x['close'] - 1) - mgap) * 100:.1f}%p 더 뛰어 열림 (재료로 급등한 갭은 안 쫓아감, 기준 {rg:g}%p)", loud=True)
+                continue
+            if c.get("red_flag_news", True) and not getattr(self, "_offline", False):
+                try:
+                    from .news import red_flags
+                    rf = red_flags(x["name"], self.m)
+                except Exception:
+                    rf = []
+                if rf:
+                    skip(x, "최근 2일 치명적 악재 뉴스: " + " / ".join(rf[:2]), loud=True)
+                    continue
             try:
                 info = (self.api.stocks([sym]) or [{}])[0]
                 if LEV.search(info.get("name") or "") or str(info.get("securityType") or "STOCK") not in ("STOCK", "FOREIGN_STOCK", "DEPOSITARY_RECEIPT"):

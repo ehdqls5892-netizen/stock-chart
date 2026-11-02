@@ -11,6 +11,7 @@ from bot.broker import PaperBroker
 
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 c = cfg["daily_swing"]
+c["red_flag_news"] = False          # 시험에선 인터넷 뉴스 안 봄 (아래 12번에서 따로 시험)
 assert cfg["strategy"]["intraday"] is False and c["enabled"]
 
 # 1) 수량: 손실 한도 0.5%·한 종목 20%·현금 안
@@ -204,4 +205,24 @@ bot.broker = b6
 bot.sw_picks = {"date": "2026-10-30", "regime": False, "picks": [mk("T6", {"sector": "Healthcare"})]}
 M.Bot.swing_enter(bot, None, "open")
 assert list(b6.pos) == ["T6"] and b6.pos["T6"].qty == 6, list(b6.pos)        # 금요일 후보는 1% 그대로
+# 12) 치명적 악재 뉴스 / 시장보다 크게 뛴 갭
+import bot.news as N
+xml = """<rss><channel>
+<item><title>CrowdStrike upgraded to Buy at Deutsche Bank - Investing.com</title><source>Investing.com</source><pubDate>Mon, 02 Nov 2026 12:00:00 GMT</pubDate></item>
+<item><title>Acme Corp announces $500 million public offering - Reuters</title><source>Reuters</source><pubDate>Mon, 02 Nov 2026 11:00:00 GMT</pubDate></item>
+<item><title>Other Co faces SEC probe - WSJ</title><source>WSJ</source><pubDate>Mon, 02 Nov 2026 11:00:00 GMT</pubDate></item>
+</channel></rss>"""
+fake_get = lambda u: SimpleNamespace(status_code=200, text=xml)
+assert N.red_flags("CrowdStrike Holdings, Inc.", "US", get=fake_get) == []
+assert N.red_flags("Acme Corp", "US", get=fake_get) == ["Acme Corp announces $500 million public offering"]
+assert N.red_flags("Acme", "US", get=lambda u: (_ for _ in ()).throw(OSError("x"))) == []     # 연결 실패 → 매매 그대로
+b7 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker = b7
+prices.update({"SPY": 101.0, "H1": 108.0, "H2": 104.0})
+bot.sw_picks = {"date": "2026-11-02", "regime": True, "index": {"close": 100.0}, "picks": [
+    {"code": "H1", "name": "H1", "setup": "hi52", "close": 100, "stop": 95, "atr": 2, "score": 3, "reason": "신고가", "ev": {"sector": "A"}},
+    {"code": "H2", "name": "H2", "setup": "hi52", "close": 100, "stop": 95, "atr": 2, "score": 2, "reason": "신고가", "ev": {"sector": "B"}}]}
+M.Bot.swing_enter(bot, None, "open")
+assert list(b7.pos) == ["H2"], list(b7.pos)                      # H1: 시장 +1% 인데 +8% → 7%p 더 뜀 → 안 삼
+assert any("H1" in m and "시장보다" in m for m in sent)
 print("✅ 실적 다루기 시험 통과")
