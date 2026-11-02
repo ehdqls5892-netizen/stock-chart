@@ -1,7 +1,7 @@
 {
  "market": "us",
  "date": "2026-11-02",
- "updatedAt": "2026-11-02T17:57+00:00",
+ "updatedAt": "2026-11-02T18:51+00:00",
  "plans": {
   "AMZN": {
    "name": "아마존",
@@ -10,25 +10,21 @@
    "entryHigh": 253.1,
    "t1": 258.18,
    "src": "장중 1순위",
-   "score": 64
+   "score": 59
   }
  },
  "watch": [
+  "INTC",
+  "MRVL",
   "ORCL",
   "IDXX",
   "UAL",
-  "INO",
-  "RIVN",
-  "TEM",
-  "MAR",
+  "MPWR",
   "AMZN",
   "XOM",
-  "MRVL",
-  "LITE",
-  "COHR",
   "AAPL",
   "PLTR",
-  "CHKP"
+  "LITE"
  ],
  "earn_good": {}
 }
