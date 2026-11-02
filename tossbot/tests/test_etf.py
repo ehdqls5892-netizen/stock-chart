@@ -65,3 +65,21 @@ print(A.etf_cmd("ETF"))
 print(A.etf_cmd("ETF 미장 300"))
 assert M.load_settings()["etf_budget"]["US"] == 300
 print("✅ 장기 ETF 시험 통과")
+
+# 4) 실전: 손절 주문 없는 ETF 의 다음 달 추가 매수 체결도 확인돼야 함
+from bot.broker import LiveBroker, Position
+orders = {}
+class FakeLiveAPI:
+    def create_order(self, sym, side, q, typ, price, cid):
+        orders["o1"] = {"status": "FILLED", "execution": {"filledQuantity": str(q), "averageFilledPrice": "51000"}}
+        return {"orderId": "o1"}
+    def get_order(self, oid):
+        return orders[oid]
+lb = LiveBroker(FakeLiveAPI(), "KR", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+ep = Position("069500", "KODEX 200", 10, 50000, 5_000_000, 0.0, "x", "x", state="open",
+              extra={"etf_long": True, "nostop": True, "locked": True, "carry": True})
+lb.pos["069500"] = ep
+lb.add(ep, 5, 51000, "적립")
+lb.poll(None, {})
+assert ep.qty == 15 and "add_oid" not in ep.extra, (ep.qty, ep.extra)
+print("✅ 실전 ETF 추가 적립 체결 확인 통과")

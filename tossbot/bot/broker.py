@@ -816,6 +816,8 @@ class LiveBroker(BaseBroker):
                         self.log(f"[실전] {p.name} {self.cfg['live']['buy_timeout_sec']}초 안에 안 사져서 취소")
                         self.pos.pop(p.symbol, None)
                         self.save_state()
+                elif p.state == "open" and p.extra.get("nostop"):
+                    self._poll_add(p)                  # 장기 ETF: 손절 주문이 없으니 추가 적립 체결만 확인
                 elif p.state == "open" and p.cond_id:
                     self._poll_add(p)
                     if p.extra.get("partial_oid"):

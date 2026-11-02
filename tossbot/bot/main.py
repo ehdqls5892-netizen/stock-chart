@@ -986,7 +986,7 @@ class Bot:
             by.setdefault(setup_of(r), []).append(float(r.get("pnl") or 0))
         off = []
         for name, v in by.items():
-            if name == "?" or str(name).startswith("sw_"):
+            if name in ("?", "etf") or str(name).startswith("sw_"):
                 continue                       # 스윙은 며칠~몇 주 단위라 단타 기준으로 끄지 않음
             win, loss = sum(x for x in v if x > 0), -sum(x for x in v if x <= 0)
             pf = win / loss if loss else 9.9
