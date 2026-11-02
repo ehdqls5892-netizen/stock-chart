@@ -956,12 +956,15 @@ class Bot:
                 skip(x, etxt, loud=True)
                 continue
             size_stop = e - per
-            q = SW.qty_for(cap, c.get("risk_pct", 0.5), c.get("cap_pct", 20), e, size_stop, None if cash is None else cash - spent)
+            rp = c.get("risk_pct", 0.5)
+            if str(d.get("date", "")) >= str(c.get("risk_by_setup_since", "9999")):
+                rp = (c.get("risk_by_setup") or {}).get(x.get("setup"), rp)      # 저점 매수 1.5% (보유 종목이 적고 낙폭이 낮음)
+            q = SW.qty_for(cap, rp, c.get("cap_pct", 20), e, size_stop, None if cash is None else cash - spent)
             if q < 1 and plan == "hold":
                 skip(x, f"{etxt}: 실적 갭이 커서 1주도 손실 한도를 넘음", loud=True)
                 continue
             if q < 1:
-                full = SW.qty_for(cap, c.get("risk_pct", 0.5), c.get("cap_pct", 20), e, size_stop, None)
+                full = SW.qty_for(cap, rp, c.get("cap_pct", 20), e, size_stop, None)
                 if full >= 1 and cash is not None:
                     self.notify(f"💸 🧭 {x['name']} 계획은 {full}주인데 계좌 매수 가능 금액({money(self.m, max(0, cash - spent))})이 "
                                 f"모자라 절반도 못 사서 건너뛰었어요. 현금을 채우거나 '투자금' 설정을 실제 현금에 맞춰 주세요.")
@@ -1000,7 +1003,7 @@ class Bot:
             spent += e * q
             slots -= 1
             self.notify(f"🧭 스윙 매수 {x['name']} {q}주 ≈ {money(self.m, e)} · 손절 {money(self.m, sl)} "
-                        f"(-{(1 - sl / e) * 100:.1f}%, 손실 한도 투자금의 {c.get('risk_pct', 0.5):g}%)\n산 이유: {x['reason']}"
+                        f"(-{(1 - sl / e) * 100:.1f}%, 손실 한도 투자금의 {rp:g}%)\n산 이유: {x['reason']}"
                         + SW.ev_text(ev, etxt))
         return spent
 

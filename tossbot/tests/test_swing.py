@@ -177,13 +177,13 @@ M.Bot.swing_enter(bot, None, "close")
 assert set(b4.pos) == set(plan_names), (plan_names, list(b4.pos))          # 판단표와 실제 매수가 같음
 assert set(b4.pos) == {"T3", "T4", "T5", "T6"}, list(b4.pos)                # 실적 없는 것 먼저 → 업종 3개 차서 T1 은 업종 한도
 assert any("T2" in m and "내려가" in m for m in sent) or "T2" not in b4.pos
-assert b4.pos["T3"].qty == 6 and b4.pos["T3"].extra["sector"] == "Technology"   # $50 / $8
+assert b4.pos["T3"].qty == 9 and b4.pos["T3"].extra["sector"] == "Technology"   # 저점 매수 1.5%: $75 / $8
 # 업종 한도 없을 때 실적 낀 T1 은 작게
 b5 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
 bot.broker = b5
 bot.sw_picks["picks"] = [bot.sw_picks["picks"][0]]
 M.Bot.swing_enter(bot, None, "close")
-assert b5.pos["T1"].qty == 2 and b5.pos["T1"].extra["earn_hold"], b5.pos["T1"].qty   # $50 / $20(갭 10%×2)
+assert b5.pos["T1"].qty == 3 and b5.pos["T1"].extra["earn_hold"], b5.pos["T1"].qty   # $75 / $20(갭 10%×2)
 print("매수(실적):", sent[-1])
 
 # 10) 실적 전날: 줄여 사지 않은 종목이 쿠션 없고 갭 위험 크면 정리 / 줄여 산 종목은 들고 감
@@ -203,5 +203,5 @@ b6 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
 bot.broker = b6
 bot.sw_picks = {"date": "2026-10-30", "regime": False, "picks": [mk("T6", {"sector": "Healthcare"})]}
 M.Bot.swing_enter(bot, None, "open")
-assert list(b6.pos) == ["T6"], list(b6.pos)
+assert list(b6.pos) == ["T6"] and b6.pos["T6"].qty == 6, list(b6.pos)        # 금요일 후보는 1% 그대로
 print("✅ 실적 다루기 시험 통과")
