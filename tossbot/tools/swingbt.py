@@ -178,16 +178,37 @@ def simulate(sigs, S, mk, P, reg, dates):
         for sc, code, stop in pend:
             s = S[code]
             i = s["pos"].get(d)
-            if i is None or code in pos or len(pos) >= maxpos:
+            if i is None or code in pos:
                 continue
             e = s["o"][i]
             if stop >= e * 0.995:
                 continue
+            if len(pos) >= maxpos:
+                if not P.get("rotate"):
+                    continue
+                # 자리가 꽉 찼으면: 가장 약한 보유(지금 R 이 가장 낮고 기준 아래)를 팔고 새 신호로 바꿈
+                def cur_r(k):
+                    pp = pos[k]
+                    j = S[k]["pos"].get(d, pp["li"])
+                    return (S[k]["o"][j] - pp["e"]) / pp["R"]
+                worst = min(pos, key=cur_r)
+                if cur_r(worst) >= P.get("rotate_below_R", 0.0):
+                    continue
+                pp = pos.pop(worst)
+                j = S[worst]["pos"].get(d, pp["li"])
+                x = S[worst]["o"][j]
+                cash += pp["q"] * x * (1 - cost / 2)
+                trades.append((pp["d0"], worst, (x / pp["e"] - 1) - cost, (x - pp["e"]) / pp["R"], "교체", j - pp["i0"]))
             per = e - stop
             mv = sum(p["q"] * S[k]["c"][S[k]["pos"].get(d, p["li"])] for k, p in pos.items())
             equity = cash + mv
-            q = min(equity * risk / per, equity * cap / e, cash / e)
-            if q * e < equity * 0.02:
+            if P.get("fixed"):
+                q = min(equity * P["fixed"] / e, cash / e)          # 정해진 비중만큼 (손절 폭과 상관없이)
+            else:
+                q = min(equity * risk / per, equity * cap / e, cash / e)
+            if P.get("capital"):                                    # 실제 투자금으로 주(株) 단위 내림 (소수 주 없음)
+                q = int(q * P["capital"]) / P["capital"]
+            if q <= 0 or q * e < equity * P.get("min_pos", 0.02):
                 continue
             cash -= q * e * (1 + cost / 2)
             pos[code] = {"q": q, "e": e, "stop": stop, "R": per, "d0": d, "i0": i, "li": i, "hi": e, "why": ""}
