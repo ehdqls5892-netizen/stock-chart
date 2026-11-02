@@ -217,8 +217,10 @@ def simulate(sigs, S, mk, P, reg, dates):
             held = i - p["i0"]
             a = s["atr"][i]
             # 추적 손절: +1R 넘으면 본전, 이후 최고 종가 − k·ATR
-            if p["hi"] >= p["e"] + p["R"]:
+            if p["hi"] >= p["e"] + P.get("be_R", 1) * p["R"]:
                 p["stop"] = max(p["stop"], p["e"] * (1 + cost))
+            if P.get("ratchet") and p["hi"] > p["e"]:          # 이익 잠금: 최고 이익의 일정 비율은 지킴
+                p["stop"] = max(p["stop"], p["e"] + (p["hi"] - p["e"]) * P["ratchet"])
             if p["hi"] >= p["e"] + P.get("trail_after_R", 2) * p["R"]:
                 p["stop"] = max(p["stop"], p["hi"] - P.get("trail_atr", 3) * a)
             if P.get("exit_ma") and held >= 2 and c < s[P["exit_ma"]][i] and c < p["e"] + 3 * p["R"]:
