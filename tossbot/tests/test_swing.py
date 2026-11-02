@@ -74,7 +74,8 @@ spent = M.Bot.swing_enter(bot, None)
 assert list(b.pos) == ["111111"], list(b.pos)
 p = b.pos["111111"]
 assert p.extra["sw"] and p.extra["carry"] and p.extra["setup"] == "sw_ep" and p.sl == 9300
-assert 0.004 * 10_000_000 <= (p.entry - p.sl) * p.qty <= 0.0051 * 10_000_000, (p.qty, p.entry)
+rp = c["risk_pct"] / 100
+assert (rp - 0.001) * 10_000_000 <= (p.entry - p.sl) * p.qty <= (rp + 0.0001) * 10_000_000, (p.qty, p.entry)
 print("매수:", sent[-1])
 assert b.open_count() == 0, "스윙이 단타 동시 보유 한도에 셈"
 

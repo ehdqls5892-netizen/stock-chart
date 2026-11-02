@@ -93,7 +93,7 @@ kday = M.now("KR").date().isoformat()          # 시험 기계 날짜와 한국 
 if kday != today:
     (d / f"trades-{kday}.jsonl").write_text((d / f"trades-{today}.jsonl").read_text(encoding="utf-8"), encoding="utf-8")
 rk = Risk(cfg, Path(tempfile.mkdtemp()) / "STOP")
-rk.capital = 5_000_000          # 3% = 15만, 이번 주 손실 ≈ 22.8만
+rk.capital = 3_000_000          # 5% = 15만, 이번 주 손실 ≈ 22.8만
 fake4 = SimpleNamespace(cfg=cfg, m="KR", risk=rk, log=print, notify=lambda m: None)
 M.Bot.week_guard(fake4)
 assert rk.halted and "이번 주" in rk.halted, rk.halted
