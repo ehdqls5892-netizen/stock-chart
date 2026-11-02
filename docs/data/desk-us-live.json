@@ -1,29 +1,29 @@
 {
  "market": "us",
  "date": "2026-11-02",
- "updatedAt": "2026-11-02T16:16+00:00",
+ "updatedAt": "2026-11-02T17:23+00:00",
  "plans": {
-  "TSLA": {
-   "name": "테슬라",
-   "stop": 384.89,
-   "entryLow": 397.15,
-   "entryHigh": 409.41,
-   "t1": 415.38,
+  "AMZN": {
+   "name": "아마존",
+   "stop": 248.13,
+   "entryLow": 250.62,
+   "entryHigh": 253.1,
+   "t1": 258.18,
    "src": "장중 1순위",
-   "t2": 450.0,
-   "score": 54
+   "score": 65
   }
  },
  "watch": [
-  "MRVL",
-  "ORCL",
-  "ECHO",
-  "RIVN",
-  "FIGS",
-  "HCA",
-  "NVDA",
   "AMZN",
+  "ORCL",
+  "IDXX",
+  "RIVN",
+  "INO",
+  "CHKP",
+  "TEM",
   "TSLA",
+  "NVDA",
+  "MRVL",
   "LITE",
   "COHR",
   "AAPL",
