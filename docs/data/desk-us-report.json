@@ -1,144 +1,145 @@
 {
  "market": "us",
- "date": "2026-10-26",
+ "date": "2026-10-27",
  "plans": {
+  "CLS": {
+   "name": "셀레스티카",
+   "stop": 273.8,
+   "entryLow": 275.17,
+   "entryHigh": 276.54,
+   "t1": 283.38,
+   "src": "1순위",
+   "t2": 375.0,
+   "score": 84
+  },
+  "AMD": {
+   "name": "AMD",
+   "stop": 557.21,
+   "entryLow": 558.74,
+   "entryHigh": 560.26,
+   "t1": 579.46,
+   "src": "픽",
+   "t2": 637.61,
+   "score": 62
+  },
+  "SOFI": {
+   "name": "소파이",
+   "stop": 15.57,
+   "entryLow": 15.98,
+   "entryHigh": 16.4,
+   "t1": 16.98,
+   "src": "픽",
+   "score": 64
+  },
+  "NBIS": {
+   "name": "네비우스",
+   "stop": 164.31,
+   "entryLow": 167.39,
+   "entryHigh": 170.47,
+   "t1": 181.82,
+   "src": "픽",
+   "score": 46
+  },
   "TSLA": {
    "name": "테슬라",
    "stop": 384.89,
-   "entryLow": 388.26,
-   "entryHigh": 391.62,
+   "entryLow": 396.17,
+   "entryHigh": 407.46,
    "t1": 415.38,
-   "src": "1순위",
+   "src": "관심",
    "t2": 450.0,
-   "score": 68
+   "score": 63
   },
-  "CLS": {
-   "name": "셀레스티카",
-   "stop": 246.65,
-   "entryLow": 283.38,
-   "entryHigh": 288.0,
-   "t1": 333.86,
-   "src": "픽",
-   "t2": 375.0,
+  "ALAB": {
+   "name": "아스테라랩스",
+   "stop": 264.38,
+   "entryLow": 275.53,
+   "entryHigh": 286.69,
+   "t1": 306.55,
+   "src": "관심",
    "score": 62
   },
   "LITE": {
    "name": "루멘텀",
-   "stop": 756.17,
-   "entryLow": 787.14,
-   "entryHigh": 818.1,
+   "stop": 818.1,
+   "entryLow": 842.15,
+   "entryHigh": 866.2,
    "t1": 1143.0,
-   "src": "픽",
+   "src": "관심",
    "t2": 1200.0,
-   "score": 50
+   "score": 60
   },
-  "MSFT": {
-   "name": "마이크로소프트",
-   "stop": 516.72,
-   "entryLow": 524.66,
-   "entryHigh": 532.6,
-   "t1": 551.15,
-   "src": "픽",
-   "t2": 599.24,
-   "score": 64
-  },
-  "NVDA": {
-   "name": "엔비디아",
-   "stop": 214.37,
-   "entryLow": 214.9,
-   "entryHigh": 216.0,
-   "t1": 221.64,
+  "TSM": {
+   "name": "TSMC",
+   "stop": 424.7,
+   "entryLow": 430.78,
+   "entryHigh": 436.87,
+   "t1": 477.9,
    "src": "관심",
-   "score": 59
+   "score": 58
   },
-  "AMD": {
-   "name": "AMD",
-   "stop": 525.37,
-   "entryLow": 528.33,
-   "entryHigh": 531.28,
-   "t1": 557.21,
+  "ANET": {
+   "name": "아리스타",
+   "stop": 182.05,
+   "entryLow": 184.53,
+   "entryHigh": 187.0,
+   "t1": 187.99,
    "src": "관심",
-   "score": 56
+   "score": 58
+  },
+  "AMZN": {
+   "name": "아마존",
+   "stop": 248.13,
+   "entryLow": 250.62,
+   "entryHigh": 253.1,
+   "t1": 258.18,
+   "src": "관심",
+   "score": 57
   },
   "MU": {
    "name": "마이크론",
    "stop": 893.96,
-   "entryLow": 898.83,
-   "entryHigh": 903.7,
-   "t1": 926.07,
+   "entryLow": 911.36,
+   "entryHigh": 928.76,
+   "t1": 990.53,
    "src": "관심",
-   "score": 54
-  },
-  "ANET": {
-   "name": "아리스타",
-   "stop": 156.24,
-   "entryLow": 166.74,
-   "entryHigh": 177.24,
-   "t1": 182.05,
-   "src": "관심",
-   "score": 53
-  },
-  "PLTR": {
-   "name": "팔란티어",
-   "stop": 194.73,
-   "entryLow": 196.79,
-   "entryHigh": 198.84,
-   "t1": 212.94,
-   "src": "관심",
-   "t2": 206.43,
-   "score": 51
-  },
-  "INTC": {
-   "name": "인텔",
-   "stop": 85.43,
-   "entryLow": 87.95,
-   "entryHigh": 90.47,
-   "t1": 94.52,
-   "src": "관심",
-   "score": 50
-  },
-  "AAPL": {
-   "name": "애플",
-   "stop": 340.47,
-   "entryLow": 342.19,
-   "entryHigh": 343.91,
-   "t1": 348.15,
-   "src": "관심",
-   "score": 49
-  },
-  "COHR": {
-   "name": "코히런트",
-   "stop": 209.29,
-   "entryLow": 215.4,
-   "entryHigh": 221.5,
-   "t1": 396.0,
-   "src": "관심",
-   "score": 48
+   "score": 56
   }
  },
  "watch": [
-  "AAOI",
-  "ARM",
+  "VRT",
+  "NVDA",
+  "MSFT",
+  "AAPL",
   "QCOM",
-  "TSM",
-  "XOM",
-  "ALAB",
-  "MRVL",
-  "CRDO",
   "AVGO",
-  "PBR",
-  "PBR-A",
-  "NU",
-  "MELI",
-  "ITUB",
-  "EWZ",
-  "NVO",
-  "COST",
-  "JPM",
-  "RTX",
-  "CLF",
+  "CRDO",
+  "PLTR",
   "BE",
-  "LMT",
-  "SHOP"
+  "DELL",
+  "INTC",
+  "MRVL",
+  "ARM",
+  "ASML",
+  "SMCI",
+  "HPE",
+  "CRWV",
+  "GEV",
+  "CEG",
+  "VST",
+  "OKLO",
+  "ORCL",
+  "BA",
+  "PNR",
+  "XYL",
+  "CTAS",
+  "VLO",
+  "KO",
+  "NVO",
+  "DIS",
+  "CLF",
+  "COST",
+  "SNOW",
+  "LLY"
  ]
 }
