@@ -156,9 +156,12 @@ def build(m, bars, names, idx):
             i = s["pos"][d]
             picks.append({"code": code, "name": names.get(code, code), "setup": name, "close": round(float(s["c"][i]), 4),
                           "stop": round(float(stop), 4), "atr": round(float(s["atr"][i]), 4), "score": round(float(sc), 3),
-                          "reason": f"{NAMES[name]} · " + (f"RSI3 {s['rsi3'][i]:.0f}" if name == "dip" else f"거래량 {s['v'][i] / s['v20'][i - 1]:.1f}배")
+                          "reason": f"{NAMES[name]} · " + (f"200일선 위 {(s['c'][i] / s['ma200'][i] - 1) * 100:.0f}%" if name == "dip" else f"거래량 {s['v'][i] / s['v20'][i - 1]:.1f}배")
                           + f" · 손절 {(stop / s['c'][i] - 1) * 100:.1f}%"})
     picks.sort(key=lambda x: -x["score"])
+    # 방식마다 상위 20개씩 (점수 단위가 달라 한 줄로 자르면 한쪽이 밀려남 — 2026-10-30 저점 매수 14개 중 5개만 남았던 문제)
+    per = {}
+    picks = [x for x in picks if per.setdefault(x["setup"], []).append(x) or len(per[x["setup"]]) <= 20]
     reg = False                      # 지수를 못 받으면 '모름' → 새로 안 삼
     ix = None
     if idx:
@@ -167,7 +170,7 @@ def build(m, bars, names, idx):
         reg = bool(si["c"][-1] > m50[-1])
         ix = {"close": round(float(si["c"][-1]), 2), "ma50": round(float(m50[-1]), 2), "date": si["d"][-1]}
     out = {"market": m.upper(), "date": last, "made": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
-           "regime": reg, "index": ix, "universe": len(S), "picks": picks[:20]}
+           "regime": reg, "index": ix, "universe": len(S), "picks": picks}
     return out
 
 
