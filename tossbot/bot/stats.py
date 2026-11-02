@@ -197,6 +197,16 @@ def buys(root: Path, days: int = 14, key: str = "") -> str:
     return "\n".join(out) if len(out) > 1 else "매수 기록이 없어요"
 
 
+def shadow_report(root: Path, days: int = 30) -> str:
+    """단타 그림자 장부(실제 매매 아님) 성적 — 단타를 다시 켤지 판단용."""
+    out = [f"👻 단타 그림자 최근 {days}일 (실제 주문 없음 · 단타 신호대로 샀다면)"]
+    for mk, nm in (("KR", "🇰🇷 국장"), ("US", "🇺🇸 미장")):
+        recs = load(root, mk, days, "shadow")
+        out.append(f"{nm}\n" + summarize(recs, mk))
+    out.append("판단 기준: 거래일 10일·30건 넘게 쌓였을 때 합계 플러스 + 이익합/손실합 1.3 이상이면 단타를 다시 켜 볼 만해요")
+    return "\n".join(out)
+
+
 def recent_pnl(root: Path, market: str, days: int) -> tuple:
     tr = merge(load(root, market, days, "live"))
     return len(tr), sum(float(r.get("pnl") or 0) for r in tr)

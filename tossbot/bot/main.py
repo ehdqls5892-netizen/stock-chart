@@ -597,6 +597,12 @@ class Bot:
         t = parse_ts(ts, self.m) or now(self.m)
         st.on_trade(price, vol, t)
         self.broker.on_price(sym, price, t)
+        sh = getattr(self, "shadow", None)
+        if sh is not None and sym in sh.pos:
+            try:
+                sh.on_price(sym, price, t)
+            except Exception:
+                pass
 
     def on_closed(self, p):
         self.risk.record_exit(p.pnl)
@@ -643,6 +649,60 @@ class Bot:
         self.risk.halted = f"계좌 낙폭 한도로 멈춤 ({lock}) — 텔레그램 '재개'로 다시 시작"
 
     # ───────── 성적 나쁜 매수 방식 자동 끄기 ─────────
+    def shadow_tick(self, n, no_entry_t, flatten_t, today):
+        """단타 그림자 장부: 단타 신호가 나면 '샀다고 치고' 같은 규칙(손절·나눠 익절·추적)으로 관리, 장 마감에 정리.
+        실제 주문은 없음. 확신도 등급과 상관없이 모든 신호를 기록 (등급별로 나중에 비교)."""
+        sh, rk = self.shadow, self.shadow_risk
+        if n >= flatten_t:
+            if getattr(self, "_sh_flat", "") != today:
+                self._sh_flat = today
+                for sym in list(sh.pos):
+                    st = self.syms.get(sym)
+                    sh.flatten(sym, "장 마감 정리", st.last if st else None)
+                got = [p for p in sh.closed]
+                if got:
+                    tot = sum(p.pnl for p in got)
+                    self.notify(f"👻 오늘 단타 그림자(실제 매매 아님): 신호 {len(got)}건 · 샀다면 {money(self.m, tot)}"
+                                f" · 승 {sum(1 for p in got if p.pnl > 0)} / 패 {sum(1 for p in got if p.pnl <= 0)}  ('단타기록' 으로 누적 보기)")
+            return
+        if not (self.open_t <= n < no_entry_t) or time.time() - self._sh_t < 3:
+            return
+        self._sh_t = time.time()
+        if rk.can_enter(sh.open_count(), sh.invested()):
+            return
+        cands = []
+        for sym in self.universe:
+            if sym in sh.pos or sym in self.broker.pos or sym not in self.syms:
+                continue
+            st = self.syms[sym]
+            if st.__dict__.get("_sh_n", 0) >= self.cfg["strategy"].get("max_entries_per_symbol", 2):
+                continue
+            try:
+                sig = entry_signal(st, n, self.open_t, self.cfg, self.ctx)
+            except RuntimeError:
+                sig = None
+            if sig:
+                cands.append((sig["score"], sym, sig))
+        mk = self.market_move()
+        if mk is not None and mk <= self.cfg.get("market_filter", {}).get("weak_pct", -0.7):
+            cands = [x for x in cands if x[1] in self.ctx.get("earn_good", {})]
+        for _, sym, sig in sorted(cands, key=lambda x: -x[0]):
+            st = self.syms[sym]
+            est = add_ticks(self.m, st.last, 1)
+            tp, sl, R, a = exit_levels(self.m, est, sig, self.cfg, st, self.open_t)
+            fee = self.cfg["fees"][self.m]
+            w = rk.strength(sig)
+            q = rk.qty_for(est, add_ticks(self.m, sl, -1), None, (fee["buy_pct"] + fee["sell_pct"] + fee["sell_tax_pct"]) / 100, sh.invested(), w)
+            if q < 1:
+                continue
+            p = sh.enter(sym, st.name or sym, st.last, q, tp, sl, sig["reason"], r=R, atr=a)
+            if p:
+                p.extra["setup"], p.extra["grade"] = sig.get("setup"), sig.get("grade")
+                st._sh_n = st.__dict__.get("_sh_n", 0) + 1
+                rk.trades += 1
+                self.log(f"👻 [그림자] {st.name or sym} 샀다고 침 · {sig.get('grade') or ''} · {sig['reason'][:40]}")
+                break
+
     def fresh_cash(self, cash, force=False):
         """계좌의 실제 매수 가능 금액으로 다시 맞춤 (20초에 한 번).
         예전엔 장 시작 때 한 번 읽고 살 때마다 빼기만 해서, 판 돈이 돌아와도 반영이 안 됐음
@@ -1118,6 +1178,15 @@ class Bot:
         self.broker = (LiveBroker(self.api, self.m, self.cfg, self.dir, self.log, self.notify) if live
                        else PaperBroker(self.m, self.cfg, self.dir, self.log, self.notify))
         self.broker.on_closed = self.on_closed
+        self.shadow = None
+        if not self.cfg["strategy"].get("intraday", True) and self.cfg.get("shadow", {}).get("enabled"):
+            # 단타 '그림자': 실제로 사지는 않고, 단타 신호대로 샀다면 어땠을지 연습 장부에만 기록 (나중에 다시 켤지 판단용)
+            sd = ROOT / "logs" / "shadow" / self.m
+            sd.mkdir(parents=True, exist_ok=True)
+            self.shadow = PaperBroker(self.m, self.cfg, sd, lambda msg: None, lambda msg: None)
+            self.shadow_risk = Risk({**self.cfg, "market": self.m}, ROOT / "STOP_SHADOW_NEVER")
+            self.shadow_risk.capital = self.risk.capital
+            self._sh_t = 0.0
         self.broker.judge = self.stop_info
         self.broker.restore()
         if live:
@@ -1296,6 +1365,13 @@ class Bot:
                                 if cash is not None:
                                     cash -= p.entry * p.qty
                                 break  # 한 번에 한 종목씩
+                if self.shadow is not None:
+                    try:
+                        self.shadow_tick(n, no_entry_t, flatten_t, today)
+                    except Exception as e:
+                        if time.time() - getattr(self, "_sh_err", 0) > 600:
+                            self._sh_err = time.time()
+                            self.log(f"👻 단타 그림자 기록 오류: {e}")
                 # 물타기(시험용, 기본 꺼짐): 차트 추세가 좋고 시장이 안정적인데 살짝 밀렸다가 반등하는 봉이 나오면 1번만 소량 추가
                 ad = self.cfg.get("average_down", {})
                 if ad.get("enabled") and self.open_t <= n < no_entry_t and not self.stop_req and not self.risk.halted:
@@ -1434,6 +1510,15 @@ class Bot:
                                 self.broker.on_price(sym, stx.last, n)
                             except Exception as e:
                                 self.log(f"보유 점검 오류 {sym}: {e}")
+                if self.shadow is not None and time.time() - getattr(self, "_shp_t", 0) > 15:
+                    self._shp_t = time.time()
+                    for sym, p in list(self.shadow.pos.items()):
+                        stx = self.syms.get(sym)
+                        if stx and stx.last:
+                            try:
+                                self.shadow.on_price(sym, stx.last, n)
+                            except Exception:
+                                pass
                 self.broker.poll(n, {k: v.last for k, v in self.syms.items()})
                 if time.time() - last_status > 300:
                     self.status()
