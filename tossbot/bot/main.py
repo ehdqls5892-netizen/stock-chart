@@ -1394,6 +1394,15 @@ class Bot:
                         self.broker.reconcile()
                     except Exception as e:
                         self.log(f"계좌 맞춰 보기 오류: {e}")
+                    # 매수 가능 금액도 실제 계좌에서 다시 읽음 — 예전엔 장 시작 때 한 번 읽고 살 때마다 빼기만 해서
+                    # 팔아서 돌아온 돈이 반영되지 않았음 (10/30 오후 삼성중공업 '계획 2주'의 원인)
+                    if cash is not None:
+                        try:
+                            fresh = f((self.api.buying_power("KRW" if self.m == "KR" else "USD") or {}).get("cashBuyingPower"))
+                            if fresh is not None:
+                                cash = fresh
+                        except TossError:
+                            pass
                 # 거래가 없어도(상한가에 묶임 등) 15초마다 보유 종목의 손절선·이익 잠금을 다시 계산
                 if time.time() - getattr(self, "_mg_t", 0) > 15:
                     self._mg_t = time.time()
