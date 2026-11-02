@@ -33,9 +33,43 @@ def main():
         bars = SD.yf_bars({c: c.replace(".", "-") for c in names}, 2)
         idx = SD.yf_bars({"SPY": "SPY"}, 2).get("SPY")
     out = build(m, bars, names, idx)
+    try:
+        out["etf"] = etf_metrics(m)
+    except Exception as e:
+        print("ETF 상태 계산 실패:", e, file=sys.stderr)
     Path(a.out).mkdir(parents=True, exist_ok=True)
     (Path(a.out) / "picks.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in out.items() if k != "picks"}, ensure_ascii=False), len(out["picks"]), "picks")
+
+
+def etf_metrics(m):
+    """추천용 ETF 상태: 현재가·1년 수익률·52주 고점 대비·200일선 위/아래·배당수익률(최근 1년)."""
+    import yfinance as yf
+    cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
+    items = ((cfg.get("etf_long") or {}).get("list") or {}).get(m.upper()) or []
+    tick = {code: (code + ".KS" if m == "kr" else code) for code, _, _ in items}
+    bars = SD.yf_bars(tick, 2)
+    out = []
+    for code, name, w in items:
+        b = bars.get(code)
+        if not b or len(b) < 210:
+            out.append({"code": code, "name": name, "w": w})
+            continue
+        c = [x[4] for x in b]
+        ma200 = sum(c[-200:]) / 200
+        hi = max(x[2] for x in b[-252:])
+        d = {"code": code, "name": name, "w": w, "close": round(c[-1], 4), "date": b[-1][0],
+             "ma200": round(ma200, 4), "above200": c[-1] > ma200, "from_hi": round(c[-1] / hi - 1, 4),
+             "ret1y": round(c[-1] / c[-253] - 1, 4) if len(c) > 253 else None}
+        try:
+            dv = yf.Ticker(tick[code]).dividends
+            if dv is not None and len(dv):
+                last = dv[dv.index >= dv.index[-1] - __import__("pandas").Timedelta(days=365)]
+                d["div_yield"] = round(float(last.sum()) / c[-1], 4)
+        except Exception:
+            pass
+        out.append(d)
+    return out
 
 
 def build(m, bars, names, idx):

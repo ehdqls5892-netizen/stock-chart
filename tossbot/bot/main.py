@@ -719,6 +719,20 @@ class Bot:
             return cash
 
     # ───────── 장기 ETF 모으기 (매달 첫 거래일) ─────────
+    def etf_advise(self, n):
+        """매달 첫 거래일: 직접 사실 ETF 수량 추천 (로봇은 주문하지 않음)."""
+        st = load_settings()
+        month = n.strftime("%Y-%m")
+        if (st.get("etf_month") or {}).get(self.m) == month:
+            return
+        budget = float((st.get("etf_budget") or {}).get(self.m) or 0)
+        st.setdefault("etf_month", {})[self.m] = month
+        save_settings(st)
+        if budget <= 0:
+            return
+        from .app import etf_plan_text
+        self.notify(f"🏦 {month} ETF 적립일이에요 (직접 매수 · 로봇은 주문 안 함)\n" + etf_plan_text(self.m, budget))
+
     def etf_buy(self, n, cash) -> float:
         c = self.cfg.get("etf_long", {})
         items = (c.get("list") or {}).get(self.m) or []
@@ -1259,13 +1273,16 @@ class Bot:
                 if (etc.get("enabled") and getattr(self, "etf_done", "") != today and not self.stop_req and n < no_entry_t
                         and n >= self.open_t + dt.timedelta(minutes=etc.get("delay_min", 10))):
                     self.etf_done = today
-                    cash = self.fresh_cash(cash, force=True)
                     try:
-                        spent = self.etf_buy(n, cash)
-                        if cash is not None:
-                            cash -= spent
+                        if etc.get("mode", "advise") == "auto":
+                            cash = self.fresh_cash(cash, force=True)
+                            spent = self.etf_buy(n, cash)
+                            if cash is not None:
+                                cash -= spent
+                        else:
+                            self.etf_advise(n)
                     except Exception as e:
-                        self.log(f"🏦 ETF 매수 오류: {e}")
+                        self.log(f"🏦 ETF 오류: {e}")
                 swc = self.cfg.get("daily_swing", {})
                 if (self.sw_picks and self.sw_done != today and not self.stop_req and n < no_entry_t
                         and n >= self.open_t + dt.timedelta(minutes=swc.get("entry_delay_min", 1))):

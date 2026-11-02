@@ -396,33 +396,117 @@ def lock_all() -> str:
     return "\n".join(set_lock(h["market"], h["symbol"], True) for h in hs)
 
 
+def etf_info(mk: str) -> dict:
+    """ETF 상태(장 마감 뒤 계산한 것) + 지금 가격."""
+    import requests
+    cfg = _cfg()
+    url = (cfg.get("daily_swing") or {}).get("picks_url", "")
+    info = {}
+    try:
+        d = requests.get(url.format(m=mk.lower()), timeout=15).json() if url else {}
+        info = {x["code"]: x for x in d.get("etf") or []}
+    except Exception:
+        pass
+    items = ((cfg.get("etf_long") or {}).get("list") or {}).get(mk) or []
+    px = quotes([c for c, _, _ in items])
+    for code, name, w in items:
+        x = info.setdefault(code, {"code": code, "name": name})
+        x["w"], x["name"] = w, name
+        if px.get(code):
+            x["price"] = px[code]
+    return {c: info[c] for c, _, _ in items}
+
+
+def etf_plan_text(mk: str, amount: float, lump: bool = False) -> str:
+    """투자금 → ETF별 금액·수량 + 지금 상태 + 언제 사는 게 나은지."""
+    info = etf_info(mk)
+    m = M.money
+    tot_w = sum(float(x.get("w") or 0) for x in info.values()) or 1
+    lines, left = [], amount
+    plan = {}
+    for code, x in info.items():
+        price = x.get("price") or x.get("close")
+        part = amount * float(x["w"]) / tot_w
+        q = int(part // price) if price else 0
+        plan[code] = [price, part, q]
+        left -= q * (price or 0)
+    # 남는 돈으로 목표 비중에서 가장 모자란 ETF 를 1주씩 더 (살 수 있는 것만)
+    while True:
+        can = [(plan[c][1] - plan[c][0] * plan[c][2]) / plan[c][1] for c in plan if plan[c][0] and plan[c][0] <= left and plan[c][1] > 0]
+        if not can:
+            break
+        best = max((c for c in plan if plan[c][0] and plan[c][0] <= left and plan[c][1] > 0),
+                   key=lambda c: (plan[c][1] - plan[c][0] * plan[c][2]) / plan[c][1])
+        plan[best][2] += 1
+        left -= plan[best][0]
+    for code, x in info.items():
+        price, part, q = plan[code]
+        flag = []
+        if x.get("above200") is not None:
+            flag.append("200일선 위(장기 상승)" if x["above200"] else "200일선 아래(장기 약세)")
+        if x.get("from_hi") is not None:
+            flag.append(f"1년 고점 대비 {x['from_hi'] * 100:+.0f}%")
+        if x.get("ret1y") is not None:
+            flag.append(f"1년 수익 {x['ret1y'] * 100:+.0f}%")
+        if x.get("div_yield"):
+            flag.append(f"배당 {x['div_yield'] * 100:.1f}%")
+        lines.append(f"- {x['name']} ({code}) 목표 {float(x['w']) / tot_w * 100:.0f}% → "
+                     + (f"{q}주 × {m(mk, price)} = {m(mk, q * price)}" if price else "가격 확인 필요")
+                     + (f"\n   {' · '.join(flag)}" if flag else ""))
+    out = [f"{'🇰🇷 국장' if mk == 'KR' else '🇺🇸 미장'} {m(mk, amount)} 나누기:"] + lines
+    out.append(f"   남는 돈 {m(mk, max(0, left))} → 다음 달에 보태기")
+    weak = [x["name"] for x in info.values() if x.get("above200") is False]
+    if lump:
+        out.append("언제: 큰돈 한 번이면 ① 지금 전부 넣기(과거엔 길게 보면 나눠 넣기보다 이긴 경우가 더 많았음) "
+                   "② 마음이 불편하면 3~6개월로 나눠 매달 첫 거래일에 같은 금액 — 둘 다 괜찮은 방법이에요."
+                   + (f" 지금 {', '.join(weak)} 은 200일선 아래라, 나눠 넣기가 심리적으로 편할 수 있어요." if weak else ""))
+    else:
+        out.append("언제: 매달 첫 거래일에 같은 금액. 3년 지수 시험에서 '쌀 때만 사기'는 평균 단가가 나아지지 않았어요 "
+                   "(코스피는 오히려 나빴음) → 날짜를 정해 꾸준히가 가장 근거 있는 방법이에요.")
+    out.append("※ 로봇은 ETF 를 사지 않아요. 토스 앱에서 직접 사 주세요. 투자 권유가 아니라 참고용이에요.")
+    return "\n".join(out)
+
+
 def etf_cmd(text: str) -> str:
-    """'ETF' (보기) · 'ETF 국장 50만' · 'ETF 미장 300' · 'ETF 국장 0'(끄기)"""
+    """'ETF' (보기) · 'ETF 국장 50만'(매달 적립액 → 추천 + 매달 알림) · 'ETF 한번에 미장 5000'(목돈 나누기) · 'ETF 국장 0'(알림 끔)"""
     import re
     cfg = _cfg()
     c = cfg.get("etf_long", {})
     st = M.load_settings()
-    parts = text.replace("🏦", "").replace("ETF", "").replace("etf", "").split()
+    lump = "한번" in text or "목돈" in text
+    parts = text.replace("🏦", "").replace("ETF", "").replace("etf", "").replace("한번에", "").replace("목돈", "").split()
     mk = {"국장": "KR", "KR": "KR", "미장": "US", "US": "US"}.get(parts[0]) if parts else None
     if mk and len(parts) >= 2:
         raw = "".join(parts[1:]).replace(",", "").replace("원", "").replace("$", "")
         m = re.fullmatch(r"([\d.]+)(만)?", raw)
         if not m:
-            return "숫자로 적어 주세요. 예: ETF 국장 50만 / ETF 미장 300"
+            return "숫자로 적어 주세요. 예: ETF 국장 50만 / ETF 미장 300 / ETF 한번에 국장 2000만"
         v = float(m.group(1)) * (10000 if m.group(2) else 1)
+        if lump:
+            return "🏦 목돈 나누기 추천\n" + etf_plan_text(mk, v, lump=True)
         st.setdefault("etf_budget", {})[mk] = v
         M.save_settings(st)
-        items = (c.get("list") or {}).get(mk) or []
-        return (f"🏦 {'국장' if mk == 'KR' else '미장'} ETF 매달 {M.money(mk, v)} 적립으로 정했어요"
-                + (" (끔)" if v <= 0 else f" — 매달 첫 거래일 장 시작 {c.get('delay_min', 10)}분 뒤: "
-                   + ", ".join(f"{nm} {w * 100:.0f}%" for _, nm, w in items)))
-    lines = ["🏦 장기 ETF 적립 (매달 첫 거래일 · 🔒 잠금 보유 · 손절 없음 · 배당은 계좌로)"]
+        if v <= 0:
+            return f"🏦 {'국장' if mk == 'KR' else '미장'} ETF 매달 알림을 껐어요."
+        return (f"🏦 매달 {M.money(mk, v)} 적립으로 정했어요 — 매달 첫 거래일 장 시작 {c.get('delay_min', 10)}분 뒤 "
+                f"그달 살 수량을 알려 드려요 (주문은 직접).\n\n" + etf_plan_text(mk, v))
+    lines = ["🏦 ETF 추천 (로봇은 사지 않음 · 직접 매수용)"]
     for k, nm in (("KR", "🇰🇷 국장"), ("US", "🇺🇸 미장")):
         b = float((st.get("etf_budget") or {}).get(k) or 0)
-        items = (c.get("list") or {}).get(k) or []
-        lines.append(f"{nm}: 매달 {M.money(k, b) if b else '꺼짐'} · " + ", ".join(f"{n} {w * 100:.0f}%" for _, n, w in items)
-                     + (f" · 이번 달 완료({st['etf_month'][k]})" if (st.get("etf_month") or {}).get(k) else ""))
-    lines.append("정하기: 'ETF 국장 50만' · 'ETF 미장 300' · 끄기: 'ETF 국장 0'")
+        info = etf_info(k)
+        lines.append(f"\n{nm} · 매달 알림 {M.money(k, b) if b else '꺼짐'}")
+        for code, x in info.items():
+            p = x.get("price") or x.get("close")
+            bits = [f"{M.money(k, p)}" if p else "가격 –"]
+            if x.get("above200") is not None:
+                bits.append("200일선 위" if x["above200"] else "200일선 아래")
+            if x.get("from_hi") is not None:
+                bits.append(f"고점 대비 {x['from_hi'] * 100:+.0f}%")
+            if x.get("div_yield"):
+                bits.append(f"배당 {x['div_yield'] * 100:.1f}%")
+            lines.append(f"- {x['name']} {float(x['w']) * 100:.0f}% · " + " · ".join(bits))
+    lines.append("\n쓰는 법: 'ETF 국장 50만' (매달 적립액 → 지금 살 수량 + 매달 첫 거래일 알림) · "
+                 "'ETF 한번에 국장 2000만' (목돈 나누는 법) · 'ETF 국장 0' (알림 끔)")
     return "\n".join(lines)
 
 
