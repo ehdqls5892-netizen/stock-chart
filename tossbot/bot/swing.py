@@ -93,3 +93,85 @@ def daily_check(p_entry: float, stop: float, stop0: float, hi: float, held: int,
     elif held >= c.get("max_hold", 60):
         why = f"최대 보유 {c.get('max_hold', 60)}거래일"
     return new, hi, why, " · ".join(notes)
+
+
+# ── 실적 발표 다루기 ───────────────────────────────────────────────────────────
+# 백테스트(tools/earnbt.py, 미장 2년·500종목): 실적 전에 무조건 파는 것(-50%p)·무조건 안 사는 것(-16%p)은 수익을 크게 깎음.
+# '실적 갭 크기 기준으로 수량을 줄이고 들고 가기'가 수익은 그대로(+135%)·낙폭은 줄임(19.2→18.4%).
+# 과거 '예상 상회 횟수'는 예측력이 없었음(강함 10건 승률 10%) → 대신 최근 30일 애널리스트 전망치 방향을 봄
+# (전망치 하향은 흔한 위험 신호, 백테스트 자료가 아직 없어 '실적 앞둔 매수'에만 씀).
+
+def biz_days(a: dt.date, b: dt.date) -> int:
+    """a 다음 날부터 b 까지 평일 수 (b 가 a 이전이면 음수/0)."""
+    if b <= a:
+        return 0
+    n, d = 0, a
+    while d < b:
+        d += dt.timedelta(days=1)
+        if d.weekday() < 5:
+            n += 1
+    return n
+
+
+def next_biz(a: dt.date) -> dt.date:
+    d = a + dt.timedelta(days=1)
+    while d.weekday() >= 5:
+        d += dt.timedelta(days=1)
+    return d
+
+
+def rev_state(ev: dict) -> tuple[str, str]:
+    """애널리스트 전망치 방향: ('up'|'down'|'flat'|'?', 설명)."""
+    now_, ago = ev.get("eps0q"), ev.get("eps0q_30d")
+    up, dn = ev.get("up30") or 0, ev.get("down30") or 0
+    ch = None
+    if now_ is not None and ago:
+        ch = (now_ - ago) / abs(ago) * 100
+    if ch is None and not (up or dn):
+        return "?", "전망치 자료 없음"
+    txt = (f"이번 분기 EPS 전망 30일간 {ch:+.1f}%" if ch is not None else "EPS 전망") + f" (상향 {up:g}·하향 {dn:g})"
+    if (ch is not None and ch <= -1.0) or (dn >= 2 and dn > up):
+        return "down", txt
+    if (ch is not None and ch >= 1.0) or up > dn:
+        return "up", txt
+    return "flat", txt
+
+
+def earn_plan(x: dict, today: dt.date, entry: float, stop: float, ec: dict) -> tuple[str, float, str]:
+    """매수 전 실적 점검 → (결정, 수량 계산용 1주 위험, 설명).
+    결정: ok(실적 없음) / hold(실적 끼고 들고 감, 실적 갭 기준으로 작게) / skip(안 삼)."""
+    ev = x.get("ev") or {}
+    per = entry - stop
+    react = ev.get("react")
+    if not ec.get("enabled") or not react:
+        return "ok", per, ("실적일 모름" if ec.get("enabled") and x.get("setup") in ("hi52", "dip") and not ev.get("earn") else "")
+    try:
+        rd = dt.date.fromisoformat(react)
+    except ValueError:
+        return "ok", per, ""
+    n = biz_days(today, rd)
+    win = (ec.get("window") or {}).get(x.get("setup"), 10)
+    rv, rtxt = rev_state(ev)
+    when = f"실적 반응일 {rd.month}/{rd.day}({n}거래일 뒤)"
+    if rd <= today or n > win:
+        return "ok", per, f"{when} · 보유 기간 밖" if n > win else ""
+    if rv == "down" and ec.get("skip_if_rev_down", True):
+        return "skip", per, f"{when}인데 애널리스트 전망치가 내려가는 중 ({rtxt})"
+    gap = float(ev.get("gap_avg") or ec.get("default_gap", 0.07))
+    per2 = max(per, entry * gap * ec.get("gap_mult", 2))
+    return "hold", per2, (f"{when} · 들고 감(평균 실적 갭 {gap * 100:.0f}%의 {ec.get('gap_mult', 2):g}배가 나도 손실 한도 안으로 수량 줄임) · {rtxt}")
+
+
+def ev_text(ev: dict, etxt: str) -> str:
+    """매수 알림에 붙일 실적·애널리스트 요약."""
+    parts = []
+    if etxt:
+        parts.append(etxt)
+    elif ev.get("react"):
+        parts.append(f"다음 실적 {ev['react']}")
+    if ev.get("tgt_up") is not None:
+        parts.append(f"애널리스트 목표가 평균 {ev['tgt_up'] * 100:+.0f}% 위"
+                     + (f"·추천 {ev['rec']:.1f}/5(낮을수록 매수)" if ev.get("rec") else ""))
+    if ev.get("sector"):
+        parts.append(f"업종 {ev.get('industry') or ev['sector']}")
+    return ("\n📅 " + " · ".join(parts)) if parts else ""

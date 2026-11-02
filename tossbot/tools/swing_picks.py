@@ -33,6 +33,11 @@ def main():
         bars = SD.yf_bars({c: c.replace(".", "-") for c in names}, 2)
         idx = SD.yf_bars({"SPY": "SPY"}, 2).get("SPY")
     out = build(m, bars, names, idx)
+    if m == "us":
+        try:
+            enrich_us(out["picks"], bars)
+        except Exception as e:
+            print("실적·애널리스트 정보 실패:", e, file=sys.stderr)
     try:
         out["etf"] = etf_metrics(m)
     except Exception as e:
@@ -40,6 +45,73 @@ def main():
     Path(a.out).mkdir(parents=True, exist_ok=True)
     (Path(a.out) / "picks.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in out.items() if k != "picks"}, ensure_ascii=False), len(out["picks"]), "picks")
+
+
+def react_day(ts: str) -> str:
+    """발표 시각(뉴욕) → 주가 반응일: 정오 전 발표면 그날, 뒤면 다음 평일."""
+    d = dt.date.fromisoformat(ts[:10])
+    if int(ts[11:13] or 0) >= 12:
+        d += dt.timedelta(days=1)
+        while d.weekday() >= 5:
+            d += dt.timedelta(days=1)
+    return d.isoformat()
+
+
+def enrich_us(picks, bars):
+    """후보마다 다음 실적일·과거 실적 갭 크기·애널리스트 전망치 변화·목표가·업종을 붙임 (ev)."""
+    import yfinance as yf
+    today = dt.date.today().isoformat()
+    for p in picks:
+        ev = {}
+        t = yf.Ticker(p["code"].replace(".", "-"))
+        try:
+            df = t.get_earnings_dates(limit=12)
+            rows = sorted((ts.strftime("%Y-%m-%d %H:%M"), r.get("Reported EPS")) for ts, r in (df if df is not None else []).iterrows())
+            fut = [ts for ts, rep in rows if ts[:10] >= today and rep != rep]
+            if fut:
+                ev["earn"], ev["react"] = fut[0], react_day(fut[0])
+            b = bars.get(p["code"]) or []
+            pos = {x[0]: i for i, x in enumerate(b)}
+            gaps = []
+            for ts, rep in rows:
+                if ts[:10] >= today:
+                    continue
+                rd = react_day(ts)
+                i = pos.get(rd)
+                if i:
+                    gaps.append(abs(b[i][1] / b[i - 1][4] - 1))
+            if gaps:
+                ev["gap_avg"] = round(sum(gaps[-8:]) / len(gaps[-8:]), 4)
+                ev["gap_max"] = round(max(gaps[-8:]), 4)
+        except Exception as e:
+            ev["err"] = f"earn:{type(e).__name__}"
+        try:
+            info = t.get_info() or {}
+            ev["sector"], ev["industry"] = info.get("sector"), info.get("industry")
+            px, tg = info.get("currentPrice") or p["close"], info.get("targetMeanPrice")
+            if tg and px:
+                ev["tgt_up"] = round(tg / px - 1, 4)
+            if info.get("recommendationMean"):
+                ev["rec"] = round(float(info["recommendationMean"]), 2)
+            ev["n_analysts"] = info.get("numberOfAnalystOpinions")
+        except Exception as e:
+            ev["err"] = (ev.get("err", "") + f" info:{type(e).__name__}").strip()
+        try:
+            tr = t.eps_trend
+            if tr is not None and "0q" in tr.index:
+                ev["eps0q"] = float(tr.loc["0q", "current"])
+                ev["eps0q_30d"] = float(tr.loc["0q", "30daysAgo"])
+            rv = t.eps_revisions
+            if rv is not None and "0q" in rv.index:
+                ev["up30"] = float(rv.loc["0q", "upLast30days"]) if "upLast30days" in rv.columns else None
+                for k in ("downLast30days", "downLast30Days"):
+                    if k in rv.columns:
+                        ev["down30"] = float(rv.loc["0q", k])
+        except Exception as e:
+            ev["err"] = (ev.get("err", "") + f" eps:{type(e).__name__}").strip()
+        ev = {k: v for k, v in ev.items() if v is not None and v == v}
+        p["ev"] = ev
+        print(p["code"], ev, file=sys.stderr)
 
 
 def etf_metrics(m):

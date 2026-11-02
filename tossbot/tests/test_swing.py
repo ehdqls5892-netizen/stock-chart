@@ -123,3 +123,65 @@ p.extra["sw_days"] = 7
 M.Bot.swing_daily(bot, p, 99)
 assert "AAA" not in b3.pos and "최대 보유" in b3.closed[-1].exit_reason, b3.closed[-1].exit_reason
 print("✅ 일봉 스윙 시험 통과")
+
+# 8) 실적 발표 다루기
+ec = c["earnings"]
+today = dt.date(2026, 11, 2)                       # 월요일
+base = {"code": "X", "name": "x", "setup": "dip", "close": 100, "stop": 90, "atr": 3, "score": 0, "reason": "r"}
+# 실적 없음 → 그대로
+assert SW.earn_plan(base, today, 100, 90, ec)[0] == "ok"
+# 보유 기간(7거래일) 밖 → 그대로
+far = {**base, "ev": {"earn": "2026-11-20 16:05", "react": "2026-11-23", "gap_avg": 0.08}}
+assert SW.earn_plan(far, today, 100, 90, ec)[0] == "ok"
+# 기간 안 + 전망치 하향 → 안 삼
+dn = {**base, "ev": {"react": "2026-11-04", "gap_avg": 0.08, "eps0q": 0.95, "eps0q_30d": 1.0, "up30": 0, "down30": 5}}
+pl, per, why = SW.earn_plan(dn, today, 100, 90, ec)
+assert pl == "skip" and "내려가" in why, (pl, why)
+# 기간 안 + 전망치 상향 → 들고 감, 1주 위험 = max(손절폭, 평균 갭×2)
+up = {**base, "ev": {"react": "2026-11-04", "gap_avg": 0.08, "eps0q": 1.05, "eps0q_30d": 1.0, "up30": 6, "down30": 0}}
+pl, per, why = SW.earn_plan(up, today, 100, 95, ec)
+assert pl == "hold" and abs(per - 16) < 1e-9, (pl, per)
+assert SW.qty_for(5000, 1.0, 20, 100, 100 - per, None) == 3              # $50 / $16 → 3주 (손절폭 기준이면 10주)
+print("실적:", why)
+assert SW.biz_days(dt.date(2026, 10, 30), dt.date(2026, 11, 2)) == 1 and SW.next_biz(dt.date(2026, 10, 30)) == dt.date(2026, 11, 2)
+
+# 9) 매수 흐름: 전망치 하향 실적주는 건너뛰고, 업종 3종목 넘게 안 삼, 실적 끼면 수량 줄임
+cfg["market"] = "US"
+b4 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+sent.clear()
+prices.update({"T1": 100.0, "T2": 100.0, "T3": 100.0, "T4": 100.0, "T5": 100.0, "T6": 100.0})
+mk = lambda code, ev: {"code": code, "name": code, "setup": "dip", "close": 100, "stop": 92, "atr": 3, "score": 0, "reason": "저점", "ev": ev}
+tech = {"sector": "Technology", "industry": "Software"}
+bot.broker, bot.m, bot.stopped = b4, "US", {}
+bot.risk = SimpleNamespace(kill_switch=lambda: False, halted=None, capital=5000)
+M.now = (lambda f: (lambda m: dt.datetime(2026, 11, 2, 9, 31, tzinfo=M.TZ["US"])))(M.now)
+bot.sw_picks = {"regime": False, "picks": [
+    mk("T1", {**tech, "react": "2026-11-04", "gap_avg": 0.10, "eps0q": 1.0, "eps0q_30d": 1.0, "up30": 3, "down30": 0}),
+    mk("T2", {**tech, "react": "2026-11-04", "gap_avg": 0.10, "eps0q": 0.9, "eps0q_30d": 1.0, "up30": 0, "down30": 4}),
+    mk("T3", {**tech}), mk("T4", {**tech}), mk("T5", {**tech}),
+    mk("T6", {"sector": "Healthcare"})]}
+M.Bot.swing_enter(bot, None)
+assert set(b4.pos) == {"T3", "T4", "T5", "T6"}, list(b4.pos)                # 실적 없는 것 먼저 → 업종 3개 차서 T1 은 업종 한도
+assert any("T2" in m and "내려가" in m for m in sent) or "T2" not in b4.pos
+assert b4.pos["T3"].qty == 6 and b4.pos["T3"].extra["sector"] == "Technology"   # $50 / $8
+# 업종 한도 없을 때 실적 낀 T1 은 작게
+b5 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker = b5
+bot.sw_picks["picks"] = [bot.sw_picks["picks"][0]]
+M.Bot.swing_enter(bot, None)
+assert b5.pos["T1"].qty == 2 and b5.pos["T1"].extra["earn_hold"], b5.pos["T1"].qty   # $50 / $20(갭 10%×2)
+print("매수(실적):", sent[-1])
+
+# 10) 실적 전날: 줄여 사지 않은 종목이 쿠션 없고 갭 위험 크면 정리 / 줄여 산 종목은 들고 감
+p1 = b5.pos["T1"]
+p1.extra.update(earn_react="2026-11-03")
+assert M.Bot.earn_presell(bot, p1, 100.0) is False                           # 살 때 감안해 작게 샀음
+b5.enter("T9", "T9", 100.0, 40, 300.0, 92.0, "x", r=8)
+p9 = b5.pos["T9"]
+p9.extra.update(sw=True, sw_stop0=92.0, earn_react="2026-11-03", earn_gap=0.10)
+assert M.Bot.earn_presell(bot, p9, 101.0) is True and "T9" not in b5.pos       # 40주×$101×20% ≈ $808 > $75
+b5.enter("T8", "T8", 100.0, 40, 300.0, 92.0, "x", r=8)
+p8 = b5.pos["T8"]
+p8.extra.update(sw=True, sw_stop0=92.0, earn_react="2026-11-03", earn_gap=0.10)
+assert M.Bot.earn_presell(bot, p8, 110.0) is False                            # +1R 넘게 벌고 있으면 들고 감
+print("✅ 실적 다루기 시험 통과")

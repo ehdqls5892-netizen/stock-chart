@@ -827,8 +827,17 @@ class Bot:
         have = [p for p in self.broker.pos.values() if p.extra.get("sw") and p.state in ("pending", "open", "closing")]
         slots = c.get("max_pos", 6) - len(have)
         below = set(c.get("below_setups", []))
+        ec = c.get("earnings") or {}
+        today = now(self.m).date()
         cands = [x for x in d["picks"] if x["code"] not in self.broker.pos and x["code"] not in self.stopped
-                 and ((x.get("setup") in below) != bool(d.get("regime")))][: max(0, slots) * 2]
+                 and ((x.get("setup") in below) != bool(d.get("regime")))]
+        # 실적이 보유 기간 안에 없는 종목 먼저 (점수 순서는 유지)
+        cands.sort(key=lambda x: SW.earn_plan(x, today, 100.0, 90.0, ec)[0] != "ok")
+        cands = cands[: max(0, slots) * 3]
+        sec_n = {}
+        for p0 in have:
+            if p0.extra.get("sector"):
+                sec_n[p0.extra["sector"]] = sec_n.get(p0.extra["sector"], 0) + 1
         if slots <= 0 or not cands:
             return 0.0
         try:
@@ -859,9 +868,22 @@ class Bot:
                     continue
             except TossError:
                 pass
-            q = SW.qty_for(cap, c.get("risk_pct", 0.5), c.get("cap_pct", 20), e, stop, None if cash is None else cash - spent)
+            ev = x.get("ev") or {}
+            sec = ev.get("sector")
+            if sec and ec.get("sector_max") and sec_n.get(sec, 0) >= ec["sector_max"]:
+                self.log(f"🧭 {x['name']} 같은 업종({sec}) 이미 {sec_n[sec]}종목이라 안 사요 (한 업종에 몰리지 않게)")
+                continue
+            plan, per, etxt = SW.earn_plan(x, today, e, stop, ec)
+            if plan == "skip":
+                self.notify(f"🧭 {x['name']} 건너뜀 — {etxt}")
+                continue
+            size_stop = e - per
+            q = SW.qty_for(cap, c.get("risk_pct", 0.5), c.get("cap_pct", 20), e, size_stop, None if cash is None else cash - spent)
+            if q < 1 and plan == "hold":
+                self.notify(f"🧭 {x['name']} 건너뜀 — {etxt}: 실적 갭이 커서 1주도 손실 한도를 넘어요")
+                continue
             if q < 1:
-                full = SW.qty_for(cap, c.get("risk_pct", 0.5), c.get("cap_pct", 20), e, stop, None)
+                full = SW.qty_for(cap, c.get("risk_pct", 0.5), c.get("cap_pct", 20), e, size_stop, None)
                 if full >= 1 and cash is not None:
                     self.notify(f"💸 🧭 {x['name']} 계획은 {full}주인데 계좌 매수 가능 금액({money(self.m, max(0, cash - spent))})이 "
                                 f"모자라 절반도 못 사서 건너뛰었어요. 현금을 채우거나 '투자금' 설정을 실제 현금에 맞춰 주세요.")
@@ -875,7 +897,10 @@ class Bot:
                 continue
             base = dt.datetime.now(TZ["KR"]).date() if self.m == "US" else now(self.m).date()
             p.extra.update(sw=True, carry=True, setup="sw_" + x["setup"], sw_kind=x["setup"], sw_stop0=sl, sw_hi=e, sw_days=0,
-                           expire=(base + dt.timedelta(days=c.get("expire_days", 20))).isoformat())
+                           expire=(base + dt.timedelta(days=c.get("expire_days", 20))).isoformat(),
+                           sector=sec, earn_react=ev.get("react"), earn_gap=ev.get("gap_avg"), earn_hold=plan == "hold")
+            if sec:
+                sec_n[sec] = sec_n.get(sec, 0) + 1
             st = self.syms.setdefault(sym, SymState(sym))
             st.name = x["name"]
             if self.stream:
@@ -884,7 +909,8 @@ class Bot:
             spent += e * q
             slots -= 1
             self.notify(f"🧭 스윙 매수 {x['name']} {q}주 ≈ {money(self.m, e)} · 손절 {money(self.m, sl)} "
-                        f"(-{(1 - sl / e) * 100:.1f}%, 손실 한도 투자금의 {c.get('risk_pct', 0.5):g}%)\n산 이유: {x['reason']}")
+                        f"(-{(1 - sl / e) * 100:.1f}%, 손실 한도 투자금의 {c.get('risk_pct', 0.5):g}%)\n산 이유: {x['reason']}"
+                        + SW.ev_text(ev, etxt))
         return spent
 
     def swing_bars(self, sym, last):
@@ -917,6 +943,8 @@ class Bot:
             self.log(f"🧭 {p.name} 일봉이 부족해 오늘 점검은 건너뜀")
             return
         held = int(p.extra.get("sw_days", 0))
+        if Bot.earn_presell(self, p, bars[-1][3]):
+            return
         fee = self.cfg["fees"][self.m]
         cost = (fee["buy_pct"] + fee["sell_pct"] + fee["sell_tax_pct"]) / 100
         new, hi, why, note = SW.daily_check(p.entry, p.sl, p.extra.get("sw_stop0") or p.sl, p.extra.get("sw_hi"), held, bars, c, cost)
@@ -944,6 +972,30 @@ class Bot:
             p.extra["days_held"].append(d)
         self.notify(f"🧭 스윙 점검 {p.name} {held + 1}거래일째 · {money(self.m, close)} ({(close / p.entry - 1) * 100:+.1f}%) "
                     f"· 손절 {money(self.m, p.sl)}" + (f" · {note}" if note else "") + " · 계속 보유")
+
+    def earn_presell(self, p, close) -> bool:
+        """내일이 실적 반응일인데, 살 때 실적을 감안해 줄여 사지 않았고 아직 +1R 수익 쿠션이 없으며
+        실적 갭이 나면 손실이 한도를 넘을 만큼 크면 → 오늘 장 마감 전에 정리."""
+        ec = self.cfg["daily_swing"].get("earnings") or {}
+        r = p.extra.get("earn_react")
+        if not ec.get("enabled") or not r or p.extra.get("earn_hold"):
+            return False
+        try:
+            rd = dt.date.fromisoformat(r)
+        except ValueError:
+            return False
+        if rd != SW.next_biz(now(self.m).date()):
+            return False
+        R = max(p.entry - (p.extra.get("sw_stop0") or p.sl), p.entry * 0.005)
+        gap = float(p.extra.get("earn_gap") or ec.get("default_gap", 0.07))
+        risk = p.qty * close * gap * ec.get("gap_mult", 2) - max(0.0, (close - p.entry) * p.qty)
+        lim = (self.risk.capital or 0) * self.cfg["daily_swing"].get("risk_pct", 1) / 100 * ec.get("presell_x", 1.5)
+        if (close - p.entry) >= R or not lim or risk <= lim:
+            return False
+        why = f"내일 실적 발표 — 갭이 나면 손실이 한도를 넘을 수 있어 미리 정리 (평균 실적 갭 {gap * 100:.0f}%)"
+        self.notify(f"🧭 스윙 정리 {p.name} ({(close / p.entry - 1) * 100:+.1f}%) — {why}")
+        self.broker.flatten(p.symbol, f"스윙 정리: {why}", close)
+        return True
 
     def load_stopped(self):
         """최근 N일 안에 손실로 판 종목 → 다시 사지 않음 (같은 종목에 연달아 손절 방지, 예: 코세스 이틀 연속)."""
