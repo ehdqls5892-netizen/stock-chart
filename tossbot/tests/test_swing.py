@@ -204,7 +204,7 @@ b6 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
 bot.broker = b6
 bot.sw_picks = {"date": "2026-10-30", "regime": False, "picks": [mk("T6", {"sector": "Healthcare"})]}
 M.Bot.swing_enter(bot, None, "open")
-assert list(b6.pos) == ["T6"] and b6.pos["T6"].qty == 6, list(b6.pos)        # 금요일 후보는 1% 그대로
+assert list(b6.pos) == ["T6"] and b6.pos["T6"].qty == 9, list(b6.pos)        # 금요일 후보: 시가 매수, 1.5%
 # 12) 치명적 악재 뉴스 / 시장보다 크게 뛴 갭
 import bot.news as N
 xml = """<rss><channel>
