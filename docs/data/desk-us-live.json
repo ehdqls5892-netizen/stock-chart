@@ -1,31 +1,33 @@
 {
  "market": "us",
- "date": "2026-10-27",
- "updatedAt": "2026-10-27T19:53+00:00",
- "plans": {},
+ "date": "2026-11-02",
+ "updatedAt": "2026-11-02T16:16+00:00",
+ "plans": {
+  "TSLA": {
+   "name": "테슬라",
+   "stop": 384.89,
+   "entryLow": 397.15,
+   "entryHigh": 409.41,
+   "t1": 415.38,
+   "src": "장중 1순위",
+   "t2": 450.0,
+   "score": 54
+  }
+ },
  "watch": [
-  "SOFI",
-  "KO",
-  "UPS",
-  "GOOG",
-  "BA",
-  "XYL",
-  "PNR",
-  "BE",
-  "VLO",
-  "TSLA",
-  "INTC",
-  "CRDO",
-  "ALAB",
-  "AVGO",
-  "AMD",
-  "CLS",
-  "V",
-  "STX",
-  "HOOD",
-  "DELL",
+  "MRVL",
+  "ORCL",
+  "ECHO",
+  "RIVN",
+  "FIGS",
+  "HCA",
   "NVDA",
-  "META"
+  "AMZN",
+  "TSLA",
+  "LITE",
+  "COHR",
+  "AAPL",
+  "PLTR"
  ],
  "earn_good": {}
 }
