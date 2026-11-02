@@ -98,3 +98,14 @@ fake4 = SimpleNamespace(cfg=cfg, m="KR", risk=rk, log=print, notify=lambda m: No
 M.Bot.week_guard(fake4)
 assert rk.halted and "이번 주" in rk.halted, rk.halted
 print("✅ 매수 품질 시험 통과")
+
+# 9) 매수 기록: 계획 수량 vs 체결 수량
+from bot import stats as S3
+rows2 = [{"kind": "buy_sent", "symbol": "010140", "name": "삼성중공업", "opened_at": "2026-10-30T10:01:00", "qty": 120, "reason": "확신도 B · 시초 돌파"},
+         {"kind": "armed", "symbol": "010140", "name": "삼성중공업", "opened_at": "2026-10-30T10:01:00", "qty": 2}]
+with open(d / f"trades-{today}.jsonl", "a", encoding="utf-8") as fp:
+    fp.write("\n" + "\n".join(json.dumps(x, ensure_ascii=False) for x in rows2))
+txt = S3.buys(root, 14, "삼성중공업")
+print(txt)
+assert "계획 120주 → 체결 2주 ⚠️" in txt
+print("✅ 매수 기록 시험 통과")

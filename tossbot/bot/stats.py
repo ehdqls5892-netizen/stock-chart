@@ -163,6 +163,40 @@ def diagnose(root: Path, days: int = 7) -> str:
     return "\n".join(out) if len(out) > 1 else "최근 실전 매매 기록이 없어요"
 
 
+def buys(root: Path, days: int = 14, key: str = "") -> str:
+    """매수 주문 수량(계획) vs 실제 체결 수량 — '왜 이것밖에 안 샀지?' 확인용."""
+    out = [f"🧾 최근 {days}일 매수 기록 (계획 → 체결)" + (f" · '{key}'" if key else "")]
+    since = dt.date.today() - dt.timedelta(days=days)
+    for mk, nm in (("KR", "🇰🇷"), ("US", "🇺🇸")):
+        d = root / "logs" / "live" / mk
+        sent, armed = {}, {}
+        for f in sorted(d.glob("trades-*.jsonl")) if d.exists() else []:
+            try:
+                if dt.date.fromisoformat(f.stem[7:]) < since:
+                    continue
+            except ValueError:
+                continue
+            for line in f.read_text(encoding="utf-8").splitlines():
+                try:
+                    r = json.loads(line)
+                except ValueError:
+                    continue
+                k = (r.get("symbol"), r.get("opened_at"))
+                if r.get("kind") == "buy_sent":
+                    sent[k] = r
+                elif r.get("kind") == "armed":
+                    armed[k] = r
+        for k, r in sent.items():
+            if key and key not in (r.get("name") or "") and key.upper() != str(r.get("symbol")).upper():
+                continue
+            a = armed.get(k)
+            got = a.get("qty") if a else "체결 안 됨"
+            mark = "" if a and a.get("qty") == r.get("qty") else " ⚠️"
+            out.append(f"{nm} {str(r.get('opened_at'))[5:16]} {r.get('name')} 계획 {r.get('qty')}주 → 체결 {got}{'주' if a else ''}{mark}"
+                       f" · {(r.get('reason') or '')[:30]}")
+    return "\n".join(out) if len(out) > 1 else "매수 기록이 없어요"
+
+
 def recent_pnl(root: Path, market: str, days: int) -> tuple:
     tr = merge(load(root, market, days, "live"))
     return len(tr), sum(float(r.get("pnl") or 0) for r in tr)

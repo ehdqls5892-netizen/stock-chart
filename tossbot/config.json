@@ -293,7 +293,8 @@
     "poll_sec": 2,
     "entry_order": "MARKET",
     "trail_update_sec": 15,
-    "rest_per_sec": 8
+    "rest_per_sec": 8,
+    "partial_wait_sec": 150
   },
   "carry": {
     "enabled": true,

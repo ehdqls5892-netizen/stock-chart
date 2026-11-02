@@ -788,7 +788,14 @@ class LiveBroker(BaseBroker):
                     ex = o.get("execution") or {}
                     filled = int(f(ex.get("filledQuantity"), 0) or 0)
                     st = o.get("status")
-                    if st == "FILLED" or (filled > 0 and t - p.buy_sent_at > self.cfg["live"]["buy_timeout_sec"]):
+                    # 일부만 체결된 경우(변동성완화장치 VI 단일가 등)는 바로 나머지를 취소하지 않고 더 기다림
+                    wait = self.cfg["live"]["buy_timeout_sec"]
+                    if 0 < filled < p.qty * 0.9:
+                        wait = max(wait, self.cfg["live"].get("partial_wait_sec", 150))
+                    if st == "FILLED" or (filled > 0 and t - p.buy_sent_at > wait):
+                        if filled < p.qty:
+                            p.extra["want_qty"] = p.qty
+                            self.notify(f"⚠️ {p.name} 일부만 체결: 계획 {p.qty}주 중 {filled}주 ({int(wait)}초 기다린 뒤 나머지 취소)")
                         if st != "FILLED":
                             try:
                                 self.api.cancel_order(p.buy_order_id)

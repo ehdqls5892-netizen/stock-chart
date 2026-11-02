@@ -284,6 +284,11 @@ class TelegramControl:
             return self.send(self.etf_fn(t) if getattr(self, "etf_fn", None) else "이 기능을 쓸 수 없어요")
         if t in ("스윙", "🧭 스윙", "/swing"):
             return self.send(self.swing_text())
+        if t.startswith("매수기록") or t.startswith("매수 기록"):
+            from pathlib import Path
+            from .stats import buys
+            key = t.replace("매수 기록", "").replace("매수기록", "").strip()
+            return self.send(buys(Path(__file__).resolve().parent.parent, 14, key))
         if t.startswith("진단") or t.startswith("🔍"):
             from pathlib import Path
             from .stats import diagnose
