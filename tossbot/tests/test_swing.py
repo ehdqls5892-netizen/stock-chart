@@ -110,7 +110,14 @@ bot.sw_picks = {"regime": False, "picks": [
     {"code": "AAA", "name": "저점주", "setup": "dip", "close": 101, "stop": 94, "atr": 2, "score": -5, "reason": "하락장 저점 매수"},
     {"code": "BBB", "name": "신고가주", "setup": "hi52", "close": 50, "stop": 47, "atr": 1, "score": 3, "reason": "52주 신고가"}]}
 M.Bot.swing_enter(bot, None)
+assert not b3.pos and "장 마감 15분 전" in sent[-1], sent[-1]        # 저점 매수는 시가에 안 삼
+api.candles = lambda sym, iv, n: [{"timestamp": dt.datetime.now(M.TZ["US"]).isoformat(), "closePrice": "99", "highPrice": "102", "lowPrice": "93"}]
+M.Bot.swing_enter(bot, None, "close")
+assert not b3.pos and "손절선" in sent[-1], sent[-1]                   # 장중 손절선(94) 아래까지 밀렸음 → 안 삼
+api.candles = lambda sym, iv, n: [{"timestamp": dt.datetime.now(M.TZ["US"]).isoformat(), "closePrice": "99", "highPrice": "102", "lowPrice": "97"}]
+M.Bot.swing_enter(bot, None, "close")
 assert list(b3.pos) == ["AAA"], list(b3.pos)
+assert b3.pos["AAA"].extra.get("carry_done")
 p = b3.pos["AAA"]
 assert p.extra["sw_kind"] == "dip"
 p.extra["sw_days"] = 3
@@ -160,7 +167,7 @@ bot.sw_picks = {"regime": False, "picks": [
     mk("T2", {**tech, "react": "2026-11-04", "gap_avg": 0.10, "eps0q": 0.9, "eps0q_30d": 1.0, "up30": 0, "down30": 4}),
     mk("T3", {**tech}), mk("T4", {**tech}), mk("T5", {**tech}),
     mk("T6", {"sector": "Healthcare"})]}
-M.Bot.swing_enter(bot, None)
+M.Bot.swing_enter(bot, None, "close")
 assert set(b4.pos) == {"T3", "T4", "T5", "T6"}, list(b4.pos)                # 실적 없는 것 먼저 → 업종 3개 차서 T1 은 업종 한도
 assert any("T2" in m and "내려가" in m for m in sent) or "T2" not in b4.pos
 assert b4.pos["T3"].qty == 6 and b4.pos["T3"].extra["sector"] == "Technology"   # $50 / $8
@@ -168,7 +175,7 @@ assert b4.pos["T3"].qty == 6 and b4.pos["T3"].extra["sector"] == "Technology"   
 b5 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
 bot.broker = b5
 bot.sw_picks["picks"] = [bot.sw_picks["picks"][0]]
-M.Bot.swing_enter(bot, None)
+M.Bot.swing_enter(bot, None, "close")
 assert b5.pos["T1"].qty == 2 and b5.pos["T1"].extra["earn_hold"], b5.pos["T1"].qty   # $50 / $20(갭 10%×2)
 print("매수(실적):", sent[-1])
 

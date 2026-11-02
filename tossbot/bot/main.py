@@ -817,7 +817,8 @@ class Bot:
         self.log(msg)
         self.notify(msg)
 
-    def swing_enter(self, cash) -> float:
+    def swing_enter(self, cash, when: str = "open") -> float:
+        """when: open(장 시작 직후) / close(장 마감 15분 전, 그날 흐름을 보고) — 방식별로 config entry_at."""
         d, c = self.sw_picks or {}, self.cfg["daily_swing"]
         if not d.get("picks"):
             return 0.0
@@ -829,8 +830,14 @@ class Bot:
         below = set(c.get("below_setups", []))
         ec = c.get("earnings") or {}
         today = now(self.m).date()
+        at = c.get("entry_at") or {}
         cands = [x for x in d["picks"] if x["code"] not in self.broker.pos and x["code"] not in self.stopped
                  and ((x.get("setup") in below) != bool(d.get("regime")))]
+        later = [x for x in cands if at.get(x.get("setup"), "open") != when]
+        cands = [x for x in cands if at.get(x.get("setup"), "open") == when]
+        if when == "open" and later and slots > 0:
+            self.notify(f"🧭 저점 매수 후보 {len(later)}개({', '.join(x['name'] for x in later[:5])})는 장 시작 직후 말고 "
+                        f"장 마감 15분 전에 오늘 흐름을 보고 살게요. 장중에 손절선까지 밀리면 안 사요.")
         # 실적이 보유 기간 안에 없는 종목 먼저 (점수 순서는 유지)
         cands.sort(key=lambda x: SW.earn_plan(x, today, 100.0, 90.0, ec)[0] != "ok")
         cands = cands[: max(0, slots) * 3]
@@ -856,6 +863,14 @@ class Bot:
             if stop >= e * 0.995:
                 self.log(f"🧭 {x['name']} 손절선({money(self.m, stop)}) 근처·아래로 열려서 안 사요")
                 continue
+            if when == "close":
+                try:
+                    lo = min(r[2] for r in self.swing_bars(sym, e)[-1:])
+                except Exception:
+                    lo = e
+                if lo <= stop:
+                    self.notify(f"🧭 {x['name']} 오늘 장중 손절선({money(self.m, stop)})까지 밀려서 안 사요 (저가 {money(self.m, lo)})")
+                    continue
             if e > x["close"] * (1 + c.get("max_gap_pct", 10) / 100):
                 self.log(f"🧭 {x['name']} 어제 종가보다 {(e / x['close'] - 1) * 100:.0f}% 넘게 올라 열려서 안 쫓아가요")
                 continue
@@ -899,6 +914,8 @@ class Bot:
             p.extra.update(sw=True, carry=True, setup="sw_" + x["setup"], sw_kind=x["setup"], sw_stop0=sl, sw_hi=e, sw_days=0,
                            expire=(base + dt.timedelta(days=c.get("expire_days", 20))).isoformat(),
                            sector=sec, earn_react=ev.get("react"), earn_gap=ev.get("gap_avg"), earn_hold=plan == "hold")
+            if when == "close":
+                p.extra["carry_done"] = today.isoformat()      # 방금 샀으니 오늘 일봉 점검·정리 대상 아님
             if sec:
                 sec_n[sec] = sec_n.get(sec, 0) + 1
             st = self.syms.setdefault(sym, SymState(sym))
@@ -1506,6 +1523,18 @@ class Bot:
                         self.pre_close_alert(flatten_t)
                     except Exception as e:
                         self.log(f"장 마감 전 알림 오류: {e}")
+                # 저점 매수 등 '장 마감 무렵 매수' 방식: 그날 장중 흐름을 본 뒤 정리 시각에 삼
+                if (self.sw_picks and getattr(self, "sw_close_done", "") != today and not self.stop_req and n >= flatten_t
+                        and n < flatten_t + dt.timedelta(minutes=10)
+                        and any(v == "close" for v in (swc.get("entry_at") or {}).values())):
+                    self.sw_close_done = today
+                    cash = self.fresh_cash(cash, force=True)
+                    try:
+                        spent = self.swing_enter(cash, "close")
+                        if cash is not None:
+                            cash -= spent
+                    except Exception as e:
+                        self.log(f"🧭 스윙 마감 매수 오류: {e}")
                 # 장 마감 전 정리
                 if n >= flatten_t:
                     for sym, p in list(self.broker.pos.items()):

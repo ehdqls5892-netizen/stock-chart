@@ -89,6 +89,12 @@ def simulate(sigs, S, ev_all, mode, P):
             if i is None or code in pos or len(pos) >= P["maxpos"]:
                 continue
             e = s["o"][i]
+            ent = P.get("entry", "open")
+            if ent != "open":                         # 장 마감 무렵에 사기 (그날 흐름을 보고)
+                if s["l"][i] <= stop or (ent == "close_green" and s["c"][i] < s["o"][i]) \
+                        or (ent == "close_hold" and s["c"][i] < s["c"][i - 1] * (1 - 0.0)):
+                    continue
+                e = s["c"][i]
             if stop >= e * 0.995:
                 continue
             ev = ev_all.get(code, [])
@@ -124,7 +130,7 @@ def simulate(sigs, S, ev_all, mode, P):
                 continue
             cash -= q * e * (1 + cost / 2)
             pos[code] = {"q": q, "e": e, "stop": stop, "R": per, "d0": d, "i0": i, "li": i, "hi": e, "kind": kind,
-                         "plan": plan, "eq0": eq, "within": within, "strong": strong}
+                         "plan": plan, "eq0": eq, "within": within, "strong": strong, "skip_day": d if ent != "open" else None}
         pend = []
         for code in list(pos):
             p = pos[code]
@@ -133,6 +139,8 @@ def simulate(sigs, S, ev_all, mode, P):
             if i is None:
                 continue
             p["li"] = i
+            if p.get("skip_day") == d:
+                continue
             X = EXIT[p["kind"]]
             ev = ev_all.get(code, [])
 
@@ -205,6 +213,14 @@ def main():
     P = {"dates": dates, "maxpos": 6, "risk": a.risk, "cap": 0.2}
     names = {"A": "A 무시(지금)", "B": "B 실적 있으면 안 삼", "C": "C 안 삼+보유도 전날 팖", "D": "D 사고 전날 팖",
              "E": "E 강하면 보유·아니면 전날 팖", "F": "F 강하면 보유·아니면 안 삼", "G": "G 전부 보유(갭 기준 크기)"}
+    import os
+    if os.environ.get("ENTRY"):
+        for ent in ("open", "close", "close_green", "close_hold"):
+            for kind in ("hi52", "dip", None):
+                sg = [x for x in sigs if kind is None or x[4] == kind]
+                tr, cv, _ = simulate(sg, S, ev, "G", {**P, "entry": ent})
+                print(B.report(f"{ent} {kind or '합계'}", [t[:6] for t in tr], cv)[0], flush=True)
+        return
     for m in "ABCDEFG":
         tr, cv, thru = simulate(sigs, S, ev, m, P)
         line, _ = B.report(names[m], [t[:6] for t in tr], cv)
