@@ -109,3 +109,15 @@ txt = S3.buys(root, 14, "삼성중공업")
 print(txt)
 assert "계획 120주 → 체결 2주 ⚠️" in txt
 print("✅ 매수 기록 시험 통과")
+
+# 10) 현금은 실제 계좌로 다시 맞춤 (판 돈이 돌아온 것 반영)
+import time as _t
+calls = []
+fb = SimpleNamespace(m="KR", _cash_track=True, _cash_t=0.0,
+                     api=SimpleNamespace(buying_power=lambda cur: calls.append(cur) or {"cashBuyingPower": "10132484"}))
+assert M.Bot.fresh_cash(fb, 33000) == 10132484 and calls == ["KRW"]
+assert M.Bot.fresh_cash(fb, 5000) == 5000 and len(calls) == 1            # 20초 안엔 다시 안 물어봄
+assert M.Bot.fresh_cash(fb, 5000, force=True) == 10132484                # 스윙·ETF 매수 직전엔 꼭 확인
+fb._cash_track = False
+assert M.Bot.fresh_cash(fb, None, force=True) is None                     # 미장 자동 환전 모드는 그대로
+print("✅ 현금 다시 맞추기 시험 통과")

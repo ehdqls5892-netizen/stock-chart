@@ -643,6 +643,21 @@ class Bot:
         self.risk.halted = f"계좌 낙폭 한도로 멈춤 ({lock}) — 텔레그램 '재개'로 다시 시작"
 
     # ───────── 성적 나쁜 매수 방식 자동 끄기 ─────────
+    def fresh_cash(self, cash, force=False):
+        """계좌의 실제 매수 가능 금액으로 다시 맞춤 (20초에 한 번).
+        예전엔 장 시작 때 한 번 읽고 살 때마다 빼기만 해서, 판 돈이 돌아와도 반영이 안 됐음
+        → 오후엔 '현금이 3만 원 남았다'고 착각해 2주만 산 일이 있었음 (삼성중공업 10/30)."""
+        if not getattr(self, "_cash_track", False):
+            return cash
+        if not force and time.time() - getattr(self, "_cash_t", 0) < 20:
+            return cash
+        try:
+            v = f((self.api.buying_power("KRW" if self.m == "KR" else "USD") or {}).get("cashBuyingPower"))
+            self._cash_t = time.time()
+            return v if v is not None else cash
+        except TossError:
+            return cash
+
     # ───────── 장기 ETF 모으기 (매달 첫 거래일) ─────────
     def etf_buy(self, n, cash) -> float:
         c = self.cfg.get("etf_long", {})
@@ -1138,6 +1153,8 @@ class Bot:
                     cash = None
             except TossError as e:
                 self.log(f"매수 가능 금액 조회 실패: {e}")
+        self._cash_track = cash is not None          # 현금을 실제 계좌로 맞춰 가며 쓰는지 (미장 자동 환전이면 안 씀)
+        self._cash_t = time.time()
 
         self.build_universe()
         self.refresh_bars(list(dict.fromkeys(self.universe + list(self.broker.pos))))
@@ -1173,6 +1190,7 @@ class Bot:
                 if (etc.get("enabled") and getattr(self, "etf_done", "") != today and not self.stop_req and n < no_entry_t
                         and n >= self.open_t + dt.timedelta(minutes=etc.get("delay_min", 10))):
                     self.etf_done = today
+                    cash = self.fresh_cash(cash, force=True)
                     try:
                         spent = self.etf_buy(n, cash)
                         if cash is not None:
@@ -1183,6 +1201,7 @@ class Bot:
                 if (self.sw_picks and self.sw_done != today and not self.stop_req and n < no_entry_t
                         and n >= self.open_t + dt.timedelta(minutes=swc.get("entry_delay_min", 1))):
                     self.sw_done = today
+                    cash = self.fresh_cash(cash, force=True)
                     try:
                         spent = self.swing_enter(cash)
                         if cash is not None:
@@ -1231,6 +1250,8 @@ class Bot:
                                 self.log(f"🌧 시장 전체가 약해요(최근 15분 평균 {mk:+.1f}%) → 실적 서프라이즈 말고는 새로 안 사요")
                             cands = [x for x in cands if x[1] in self.ctx.get("earn_good", {})]
                         cands.sort(key=lambda x: -x[0])          # 여러 종목이 동시에 신호 → 가장 센 것부터
+                        if cands:
+                            cash = self.fresh_cash(cash)
                         for _, sym, sig in cands:
                             st = self.syms[sym]
                             same = self.same_group(sym)
