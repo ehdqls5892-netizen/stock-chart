@@ -1,7 +1,7 @@
 {
  "market": "us",
  "date": "2026-11-02",
- "updatedAt": "2026-11-02T18:51+00:00",
+ "updatedAt": "2026-11-02T19:51+00:00",
  "plans": {
   "AMZN": {
    "name": "아마존",
@@ -14,17 +14,19 @@
   }
  },
  "watch": [
-  "INTC",
+  "IDXX",
+  "EVGO",
+  "TEM",
   "MRVL",
   "ORCL",
-  "IDXX",
-  "UAL",
-  "MPWR",
+  "INTC",
   "AMZN",
   "XOM",
+  "UAL",
   "AAPL",
   "PLTR",
-  "LITE"
+  "LITE",
+  "MPWR"
  ],
  "earn_good": {}
 }
