@@ -37,14 +37,17 @@ def load_picks(url: str, market: str, session_date: dt.date, log=print) -> dict 
     return d
 
 
-def qty_for(capital: float, risk_pct: float, cap_pct: float, entry: float, stop: float, cash: float | None) -> int:
+def qty_for(capital: float, risk_pct: float, cap_pct: float, entry: float, stop: float, cash: float | None,
+            min_fill: float = 0.5) -> int:
     """손절 시 손실 = 투자금의 risk_pct%, 한 종목 최대 cap_pct%, 현금 안에서."""
     per = entry - stop
     if per <= 0 or entry <= 0 or not capital:
         return 0
     q = min(capital * risk_pct / 100 / per, capital * cap_pct / 100 / entry)
-    if cash is not None:
-        q = min(q, cash * 0.97 / entry)
+    if cash is not None and cash * 0.97 / entry < q:
+        if cash * 0.97 / entry < q * min_fill:
+            return 0                   # 현금이 모자라 계획 수량의 절반도 못 사면 안 삼 (몇 주짜리 의미 없는 매수 방지)
+        q = cash * 0.97 / entry
     return int(q)
 
 

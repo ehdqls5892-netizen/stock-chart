@@ -118,13 +118,18 @@ class Risk:
             min_amt = self.capital * self.c.get("min_position_pct", 8) / 100
         else:
             budget, max_loss, min_amt = self.c["budget_per_trade"], self.c["max_loss_per_trade"], 0
+        self.last_skip = None
+        cash_cut = cash is not None and cash * 0.95 < budget
         if cash is not None:
             budget = min(budget, cash * 0.95)
         q1 = int(budget // price)
         per = max(price - stop_exec, price * 0.002) + price * cost_rate
         q2 = int(max_loss // per)
         q = max(0, min(q1, q2))
-        if q and q * price < min_amt and q1 > q:   # 너무 조금만 사지는 경우(손절폭이 아주 넓음)는 건너뜀
+        if q and q * price < min_amt:
+            # 너무 조금만 사지는 경우는 건너뜀: 손절 폭이 아주 넓거나, 계좌 현금이 모자라 1~2주만 사지는 경우
+            # (예전엔 현금 부족이면 2주짜리 매수도 했음 → 이익이 나도 몇백 원)
+            self.last_skip = "cash" if cash_cut else "small"
             return 0
         if q < self.c.get("min_qty", 1):            # 1주만 살 수 있으면 안 삼 (나눠 익절이 안 되고 수익도 작음)
             return 0

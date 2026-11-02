@@ -772,7 +772,12 @@ class Bot:
                 pass
             q = SW.qty_for(cap, c.get("risk_pct", 0.5), c.get("cap_pct", 20), e, stop, None if cash is None else cash - spent)
             if q < 1:
-                self.log(f"🧭 {x['name']} 살 수 있는 수량이 0주 (손절 폭 대비 투자금 부족)")
+                full = SW.qty_for(cap, c.get("risk_pct", 0.5), c.get("cap_pct", 20), e, stop, None)
+                if full >= 1 and cash is not None:
+                    self.notify(f"💸 🧭 {x['name']} 계획은 {full}주인데 계좌 매수 가능 금액({money(self.m, max(0, cash - spent))})이 "
+                                f"모자라 절반도 못 사서 건너뛰었어요. 현금을 채우거나 '투자금' 설정을 실제 현금에 맞춰 주세요.")
+                else:
+                    self.log(f"🧭 {x['name']} 살 수 있는 수량이 0주 (손절 폭 대비 투자금 부족)")
                 continue
             sl = round_tick(self.m, stop, "down")
             p = self.broker.enter(sym, x["name"], e, q, round_tick(self.m, e * 3, "up"), sl,
@@ -1121,7 +1126,10 @@ class Bot:
                 self.log(f"매수 가능 금액: {money(self.m, cash or 0)}")
                 need = self.risk.capital or self.cfg["risk"][self.m].get("budget_per_trade", 0)
                 if self.m == "KR" and cash is not None and self.risk.capital and cash < self.risk.capital:
-                    self.log(f"계좌의 매수 가능 금액이 오늘 투자금보다 적어요 → {money(self.m, cash)} 안에서만 사요")
+                    msg = f"계좌의 매수 가능 금액({money(self.m, cash)})이 투자금 설정({money(self.m, self.risk.capital)})보다 적어요 → 그 안에서만 사요"
+                    self.log(msg)
+                    if cash < self.risk.capital * 0.5:
+                        self.notify("⚠️ " + msg + ". 현금이 모자라면 신호가 나도 건너뛰어요 (몇 주짜리 매수는 안 함).")
                 if self.risk.capital:
                     need = min(need, self.risk.available(self.broker.invested()) or 0)   # 이미 산(들고 온) 금액은 빼고 비교
                 if self.m == "US" and (cash or 0) < need:
@@ -1246,6 +1254,10 @@ class Bot:
                             qty = self.risk.qty_for(est, sl_exec, cash, (fee["buy_pct"] + fee["sell_pct"] + fee["sell_tax_pct"]) / 100,
                                                     self.broker.invested(), w)
                             if qty < 1:
+                                if getattr(self.risk, "last_skip", None) == "cash" and getattr(self, "_cash_note", "") != today:
+                                    self._cash_note = today
+                                    self.notify(f"💸 {st.name or sym} 매수 신호가 났지만 계좌 매수 가능 금액({money(self.m, cash or 0)})이 "
+                                                f"모자라 몇 주밖에 못 사서 건너뛰었어요. 현금을 채우거나 '투자금' 설정을 실제 현금에 맞춰 주세요.")
                                 continue
                             why = (f"확신도 {sig['grade']}(비중 {w:g}배) · " if sig.get("grade") else "") + sig["reason"]
                             p = self.broker.enter(sym, st.name or sym, st.last, qty, tp, sl, why, r=R, atr=a)

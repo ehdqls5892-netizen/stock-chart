@@ -26,6 +26,15 @@ r.perf_mult = 0.5
 q2 = r.qty_for(10000, 9700, None)
 assert 0 < q2 <= q1 / 2 + 1, (q1, q2)
 
+# 2-1) 현금이 모자라 몇 주만 사지는 경우는 안 삼 (예: 삼성중공업 2주)
+r.perf_mult = 1.0
+assert r.qty_for(15800, 15300, 33000) == 0 and r.last_skip == "cash", r.qty_for(15800, 15300, 33000)
+assert r.qty_for(15800, 15300, None) >= 10                             # 현금 충분하면 정상 수량 (투자금 100만 기준 18주)
+import bot.swing as SW
+assert SW.qty_for(10_000_000, 0.5, 20, 10000, 9500, 300_000) == 0      # 계획 100주인데 29주만 → 안 삼
+assert SW.qty_for(10_000_000, 0.5, 20, 10000, 9500, 700_000) == 67     # 절반 넘게는 삼
+r.perf_mult = 0.5
+
 # 3) 나눠 익절 + 마지막 매도 = 한 매매
 root = Path(tempfile.mkdtemp())
 d = root / "logs" / "live" / "KR"
