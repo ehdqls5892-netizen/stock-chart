@@ -227,3 +227,53 @@ def red_flags(name: str, market: str, days: int = 2, get=None) -> list[str]:
         if any(k in tl for k in RED[market]):
             out.append(t)
     return out[:3]
+
+
+# ── 미장: SEC EDGAR 공식 공시로 치명적 악재 확인 (무료, 키 없음 — 연락처가 든 User-Agent 필요) ─────────────
+# 8-K 항목: 1.03 파산·회생, 3.01 상장폐지·상장 요건 미달 통보, 4.02 과거 재무제표 신뢰 불가(회계 문제)
+# 서류: NT 10-Q / NT 10-K (정기 보고서 제때 못 냄), 25-NSE (상장폐지)
+SEC_ITEMS = {"1.03": "파산·회생 신청", "3.01": "상장폐지·상장 요건 미달 통보", "4.02": "과거 재무제표 신뢰 불가(회계 문제)"}
+SEC_FORMS = {"NT 10-Q": "분기 보고서 지연", "NT 10-K": "연간 보고서 지연", "25-NSE": "상장폐지"}
+_CIK: dict = {"t": 0, "map": {}}
+
+
+def _sec_get(url, get=None):
+    import os
+    import requests
+    ua = os.getenv("SEC_UA", "").strip()
+    if not ua and not get:
+        return None                               # 연락처 없으면 SEC 가 막음 → 확인 안 함(뉴스 확인만)
+    get = get or (lambda u: requests.get(u, timeout=10, headers={"User-Agent": ua, "Accept-Encoding": "gzip"}))
+    r = get(url)
+    return r.json() if r.status_code == 200 else None
+
+
+def sec_flags(symbol: str, days: int = 3, get=None, today: dt.date | None = None) -> list[str]:
+    """최근 days 일 안 SEC 공시 중 치명적 악재. 연결 실패·설정 없음이면 [] (매매는 그대로)."""
+    try:
+        if time.time() - _CIK["t"] > 86400 or not _CIK["map"]:
+            js = _sec_get("https://www.sec.gov/files/company_tickers.json", get)
+            if js:
+                _CIK["map"] = {str(v["ticker"]).upper(): int(v["cik_str"]) for v in js.values()}
+                _CIK["t"] = time.time()
+        cik = _CIK["map"].get(symbol.upper().replace(".", "-"))
+        if not cik:
+            return []
+        sub = _sec_get(f"https://data.sec.gov/submissions/CIK{cik:010d}.json", get)
+        if not sub:
+            return []
+        rec = (sub.get("filings") or {}).get("recent") or {}
+        since = ((today or dt.date.today()) - dt.timedelta(days=days)).isoformat()
+        out = []
+        for form, fd, items in zip(rec.get("form", []), rec.get("filingDate", []), rec.get("items", [""] * len(rec.get("form", [])))):
+            if fd < since:
+                break
+            if form in SEC_FORMS:
+                out.append(f"SEC 공시 {fd} {form}: {SEC_FORMS[form]}")
+            if form.startswith("8-K"):
+                for it in str(items or "").split(","):
+                    if it.strip() in SEC_ITEMS:
+                        out.append(f"SEC 공시 {fd} 8-K {it.strip()}: {SEC_ITEMS[it.strip()]}")
+        return out[:3]
+    except Exception:
+        return []

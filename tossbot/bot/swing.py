@@ -137,12 +137,23 @@ def rev_state(ev: dict) -> tuple[str, str]:
     return "flat", txt
 
 
-def earn_plan(x: dict, today: dt.date, entry: float, stop: float, ec: dict) -> tuple[str, float, str]:
+def in_kr_season(today: dt.date, ec: dict) -> bool:
+    """국장 실적 시즌(분기 끝난 뒤 한 달쯤) 안인지. 국장은 실적일 자료가 비어 있는 경우가 많아 시즌으로 보수적으로 판단."""
+    md = today.strftime("%m-%d")
+    return any(a <= md <= b for a, b in ec.get("kr_season") or [])
+
+
+def earn_plan(x: dict, today: dt.date, entry: float, stop: float, ec: dict, market: str = "US") -> tuple[str, float, str]:
     """매수 전 실적 점검 → (결정, 수량 계산용 1주 위험, 설명).
     결정: ok(실적 없음) / hold(실적 끼고 들고 감, 실적 갭 기준으로 작게) / skip(안 삼)."""
     ev = x.get("ev") or {}
     per = entry - stop
     react = ev.get("react")
+    if ec.get("enabled") and not react and market == "KR" and in_kr_season(today, ec):
+        gap = float(ev.get("gap_avg") or ec.get("kr_season_gap", 0.08))
+        per2 = max(per, entry * gap * ec.get("gap_mult", 2))
+        return "hold", per2, (f"국장 실적 시즌인데 실적일을 몰라서 실적이 있다고 보고 수량 줄임 "
+                              f"(갭 {gap * 100:.0f}%의 {ec.get('gap_mult', 2):g}배가 나도 손실 한도 안)")
     if not ec.get("enabled") or not react:
         return "ok", per, ("실적일 모름" if ec.get("enabled") and x.get("setup") in ("hi52", "dip") and not ev.get("earn") else "")
     try:

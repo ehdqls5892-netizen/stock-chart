@@ -12,6 +12,7 @@ from bot.broker import PaperBroker
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 c = cfg["daily_swing"]
 c["red_flag_news"] = False          # 시험에선 인터넷 뉴스 안 봄 (아래 12번에서 따로 시험)
+KS = c["earnings"].pop("kr_season")  # 국장 실적 시즌 규칙은 날짜에 따라 달라져서 14번에서 따로 시험
 assert cfg["strategy"]["intraday"] is False and c["enabled"]
 
 # 1) 수량: 손실 한도 0.5%·한 종목 20%·현금 안
@@ -237,4 +238,41 @@ assert not b8.pos and "마감 15분 전" in sent[-1], sent[-1]
 api.candles = lambda sym, iv, n: [{"timestamp": dt.datetime.now(M.TZ["KR"]).isoformat(), "closePrice": "10000", "highPrice": "10100", "lowPrice": "9800"}]
 M.Bot.swing_enter(bot, None, "close")
 assert list(b8.pos) == ["111111"] and b8.pos["111111"].extra["sector"] == "Industrials", list(b8.pos)
+# 14) SEC 공시 악재 / 국장 실적 시즌 / 판단표 미리 보기
+subs = {"filings": {"recent": {"form": ["8-K", "4", "8-K", "NT 10-Q"], "filingDate": ["2026-11-02", "2026-11-01", "2026-10-31", "2026-10-01"],
+                               "items": ["4.02,9.01", "", "5.02", ""]}}}
+def sec_get(u):
+    js = {"0": {"cik_str": 1234, "ticker": "ACME"}} if "company_tickers" in u else subs
+    return SimpleNamespace(status_code=200, json=lambda: js)
+N._CIK.update(t=0, map={})
+fl = N.sec_flags("ACME", get=sec_get, today=dt.date(2026, 11, 2))
+assert fl == ["SEC 공시 2026-11-02 8-K 4.02: 과거 재무제표 신뢰 불가(회계 문제)"], fl          # 5.02(임원 변경)·오래된 NT 10-Q 는 안 걸림
+assert N.sec_flags("NOPE", get=sec_get) == []
+ec["kr_season"] = KS
+kr = {"code": "1", "name": "x", "setup": "ep", "close": 100, "stop": 95, "ev": {}}
+pl, per, why = SW.earn_plan(kr, dt.date(2026, 11, 3), 100, 95, ec, "KR")
+assert pl == "hold" and abs(per - 16) < 1e-9 and "시즌" in why, (pl, per, why)
+assert SW.earn_plan(kr, dt.date(2026, 12, 3), 100, 95, ec, "KR")[0] == "ok"
+assert SW.earn_plan(kr, dt.date(2026, 11, 3), 100, 95, ec, "US")[0] == "ok"
+# 미리 보기: 새 후보가 나오면 한 번만, 지난 장 후보면 안 보냄
+root = Path(tempfile.mkdtemp())
+sent.clear()
+pv = SimpleNamespace(cfg=cfg, m="US", api=api, risk=SimpleNamespace(kill_switch=lambda: False, halted=None, capital=5000),
+                     stopped={}, syms={}, stream=None, universe=[], log=print, notify=sent.append, sw_picks=None, broker=None,
+                     dir=root, mode="live", open_t=dt.datetime(2026, 11, 3, 9, 30, tzinfo=M.TZ["US"]))
+pv.swing_on = lambda: ["hi52", "dip"]
+pv.load_stopped = lambda: setattr(pv, "stopped", {})
+pv.swing_table_text = lambda: M.Bot.swing_table_text(pv)
+pk = {"date": "2026-10-30", "regime": False, "index": {"close": 100, "ma50": 110}, "picks": [mk("T6", {"sector": "Healthcare"})]}
+orig_lp = SW.load_picks
+SW.load_picks = lambda *a, **k: json.loads(json.dumps(pk))
+M.Bot.swing_preview(pv)
+assert not sent, sent                                     # 금요일 후보 → 화요일 장엔 지난 것
+pk["date"] = "2026-11-02"
+M.Bot.swing_preview(pv)
+assert len(sent) == 1 and "미리 보기" in sent[0] and "T6" in sent[0] and pv.broker is None, sent
+M.Bot.swing_preview(pv)
+assert len(sent) == 1                                     # 한 번만
+SW.load_picks = orig_lp
+print(sent[0])
 print("✅ 실적 다루기 시험 통과")

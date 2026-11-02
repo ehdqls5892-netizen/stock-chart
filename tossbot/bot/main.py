@@ -812,6 +812,13 @@ class Bot:
             msg = f"🧭 스윙: {d['date']} 신호 종목 없음 (시장 국면 좋음 · {name} 50일선 위)"
         else:
             msg = self.swing_table_text()
+            pv = getattr(self, "_pv_table", None)
+            if pv is not None and getattr(self, "_pv_sent", "") == self.open_t.date().isoformat():
+                now_t = {r[0]["code"]: r[1] for r in getattr(self, "sw_table", [])}
+                names = {x["code"]: x["name"] for x in d["picks"]}
+                diff = [f"{names.get(k, k)}: {pv.get(k, '없음')} → {now_t.get(k, '없음')}" for k in set(pv) | set(now_t)
+                        if pv.get(k) != now_t.get(k)]
+                msg += ("\n🔁 미리 보기와 달라진 점: " + " / ".join(diff)) if diff else "\n✅ 미리 보기와 같아요"
         self.log(msg)
         self.notify(msg)
 
@@ -822,6 +829,41 @@ class Bot:
         if str(d.get("date", "")) < str(c.get("entry_at_since", "")):
             return "open"
         return (c.get("entry_at") or {}).get(x.get("setup"), "open")
+
+    def swing_preview(self):
+        """장 시작 전 대기 중: 다음 장 후보(picks.json)가 새로 만들어졌으면 판단표를 한 번 미리 보냄.
+        주문·계좌 변경 없음 (보유 종목은 저장된 상태 파일을 읽기만)."""
+        if not self.swing_on() or os.getenv("TOSSBOT_OFFLINE") == "1":
+            return
+        key = self.open_t.date().isoformat()
+        if getattr(self, "_pv_sent", "") == key:
+            return
+        c = self.cfg["daily_swing"]
+        d = SW.load_picks(c["picks_url"], self.m, self.open_t.date(), lambda *a: None)
+        if not d:
+            return
+        try:
+            if SW.next_biz(dt.date.fromisoformat(d["date"])) < self.open_t.date():
+                return                                       # 아직 지난 장 후보 → 새 후보 나올 때까지 기다림
+        except (KeyError, ValueError):
+            return
+        on, below = set(self.swing_on()), set(c.get("below_setups", []))
+        d["picks"] = [x for x in d.get("picks", []) if x.get("setup") in on and ((x.get("setup") in below) != bool(d.get("regime")))]
+        old_b, old_p = getattr(self, "broker", None), self.sw_picks
+        tmp = PaperBroker(self.m, self.cfg, self.dir, lambda *a: None, lambda *a: None)
+        tmp.restore()
+        try:
+            self.broker, self.sw_picks = tmp, d
+            self.load_stopped()
+            txt = self.swing_table_text() if d["picks"] else (
+                f"🧭 {d['date']} 종가 기준 새로 살 후보 없음 (시장 {'좋음' if d.get('regime') else '나쁨'})")
+            self._pv_table = {r[0]["code"]: r[1] for r in getattr(self, "sw_table", [])}
+        finally:
+            self.broker, self.sw_picks = old_b, old_p
+        self._pv_sent = key
+        when = self.open_t.strftime("%m/%d %H:%M")
+        self.notify(f"📋 [미리 보기] 다음 장({when} {'한국' if self.m == 'KR' else '뉴욕'} 시간) 매수 판단표\n{txt}\n"
+                    f"→ 장 시작 몇 분 전에 최종 판단표를 다시 보내요. 그사이 바뀌는 건 보유 종목 변화(손절 등)뿐이에요.")
 
     def swing_table_text(self) -> str:
         """장 전 판단표: 어제 종가로 매수 기준 ①~⑦을 그대로 적용한 결과. 당일엔 시가·장중 손절선·현금만 결과를 바꿀 수 있음."""
@@ -890,7 +932,7 @@ class Bot:
             self.notify(f"🧭 스윙 후보 {len(later)}개({', '.join(x['name'] for x in later[:5])})는 장 시작 직후 말고 "
                         f"장 마감 15분 전에 오늘 흐름을 보고 살게요. 장중에 손절선까지 밀리면 안 사요.")
         # 실적이 보유 기간 안에 없는 종목 먼저 (점수 순서는 유지)
-        cands.sort(key=lambda x: SW.earn_plan(x, today, 100.0, 90.0, ec)[0] != "ok")
+        cands.sort(key=lambda x: SW.earn_plan(x, today, 100.0, 90.0, ec, self.m)[0] != "ok")
         cands = cands if dry else cands[: max(0, slots) * 3]
         sec_n = {}
         for p0 in have:
@@ -942,8 +984,10 @@ class Bot:
                 continue
             if c.get("red_flag_news", True) and not getattr(self, "_offline", False):
                 try:
-                    from .news import red_flags
-                    rf = red_flags(x["name"], self.m)
+                    from .news import red_flags, sec_flags
+                    if c.get("sec_user_agent"):
+                        os.environ.setdefault("SEC_UA", c["sec_user_agent"])
+                    rf = (sec_flags(sym) if self.m == "US" else []) + red_flags(x["name"], self.m)
                 except Exception:
                     rf = []
                 if rf:
@@ -964,7 +1008,7 @@ class Bot:
             if sec and ec.get("sector_max") and sec_n.get(sec, 0) >= ec["sector_max"]:
                 skip(x, f"같은 업종({sec}) 이미 {sec_n[sec]}종목 (한 업종 최대 {ec['sector_max']})")
                 continue
-            plan, per, etxt = SW.earn_plan(x, today, e, stop, ec)
+            plan, per, etxt = SW.earn_plan(x, today, e, stop, ec, self.m)
             if plan == "skip":
                 skip(x, etxt, loud=True)
                 continue
@@ -1342,10 +1386,17 @@ class Bot:
             self.log(f"장 시작까지 {int(w // 3600)}시간 {int(w % 3600 // 60)}분 기다려요. 이 창(화면)을 켜 둔 채로 두세요.")
             self.phase = f"장 시작 기다리는 중 ({self.open_t.strftime('%m/%d %H:%M')} {'한국' if self.m == 'KR' else '뉴욕'} 시간 시작)"
             end = time.time() + max(0, w)
+            next_pv = 0.0
             while time.time() < end:
                 if self.stop_req:
                     self.log("장 시작 전에 종료했어요.")
                     return
+                if time.time() >= next_pv:                   # 다음 장 후보가 나오면 판단표를 미리 보냄 (10분마다 확인)
+                    next_pv = time.time() + 600
+                    try:
+                        self.swing_preview()
+                    except Exception as e:
+                        self.log(f"🧭 판단표 미리 보기 오류: {e}")
                 time.sleep(min(1.0, end - time.time()) if end > time.time() else 0)
 
         self.broker = (LiveBroker(self.api, self.m, self.cfg, self.dir, self.log, self.notify) if live
