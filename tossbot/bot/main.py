@@ -811,15 +811,59 @@ class Bot:
         elif not d["picks"]:
             msg = f"🧭 스윙: {d['date']} 신호 종목 없음 (시장 국면 좋음 · {name} 50일선 위)"
         else:
-            msg = (f"🧭 스윙 후보 {len(d['picks'])}개 ({d['date']} 종가 기준 · 장 시작 {c.get('entry_delay_min', 1)}분 뒤 매수 시도):\n"
-                   + "\n".join(f"- {x['name']} {money(self.m, x['close'])} · 손절 {money(self.m, x['stop'])} · {x['reason']}"
-                               for x in d["picks"][:8]))
+            msg = self.swing_table_text()
         self.log(msg)
         self.notify(msg)
 
-    def swing_enter(self, cash, when: str = "open") -> float:
-        """when: open(장 시작 직후) / close(장 마감 15분 전, 그날 흐름을 보고) — 방식별로 config entry_at."""
+    def swing_timing(self, x, d=None) -> str:
+        """이 후보를 언제 사나: entry_at 은 entry_at_since(신호 날짜) 이후 신호부터 적용 — 이미 알린 후보의 시점은 안 바꿈."""
+        c = self.cfg["daily_swing"]
+        d = d if d is not None else (self.sw_picks or {})
+        if str(d.get("date", "")) < str(c.get("entry_at_since", "")):
+            return "open"
+        return (c.get("entry_at") or {}).get(x.get("setup"), "open")
+
+    def swing_table_text(self) -> str:
+        """장 전 판단표: 어제 종가로 매수 기준 ①~⑦을 그대로 적용한 결과. 당일엔 시가·장중 손절선·현금만 결과를 바꿀 수 있음."""
         d, c = self.sw_picks or {}, self.cfg["daily_swing"]
+        try:
+            Bot.swing_enter(self, None, dry=True)
+        except Exception as e:
+            self.log(f"🧭 판단표 오류: {e}")
+        rows = getattr(self, "sw_table", [])
+        when = {"open": "장 시작 1분 뒤", "close": "장 마감 15분 전"}
+        ix = d.get("index") or {}
+        out = [f"🧭 스윙 매수 판단표 ({d.get('date')} 종가 기준 · 시장 {'좋음' if d.get('regime') else '나쁨'} "
+               f"{ix.get('close')} vs 50일선 {ix.get('ma50')}) — 후보 {len(d.get('picks', []))}개"]
+        for st, icon in (("매수", "✅ 매수 예정"), ("예비", "⏭ 예비 (예정 종목이 시가 조건에 걸리면 순서대로)")):
+            g = [r for r in rows if r[1] == st]
+            if g:
+                out.append(icon)
+                for x, _, why, q in g:
+                    out.append(f"- {x['name']} ≈{q}주 × {money(self.m, x['close'])} · 손절 {money(self.m, x['stop'])} "
+                               f"· {when.get(Bot.swing_timing(self, x, d), '')} · {x['reason']}" + (f" · {why}" if why else ""))
+        g = [r for r in rows if r[1] == "탈락"]
+        if g:
+            out.append("❌ 안 삼")
+            out += [f"- {x['name']}: {why}" for x, _, why, q in g[:12]]
+            if len(g) > 12:
+                out.append(f"- 그 밖 {len(g) - 12}개")
+        out.append("당일엔 시가가 손절선 아래·10% 넘게 갭, (마감 매수는) 장중 손절선 닿음, 현금 부족일 때만 결과가 달라져요.")
+        return "\n".join(out)
+
+    def swing_enter(self, cash, when: str = "open", dry: bool = False) -> float:
+        """when: open(장 시작 직후) / close(장 마감 15분 전, 그날 흐름을 보고) — 방식별로 config entry_at.
+        dry: 주문 없이 어제 종가로 같은 판단을 해서 판단표(self.sw_table)만 만듦 — 장 전에 미리 알리는 용도."""
+        d, c = self.sw_picks or {}, self.cfg["daily_swing"]
+        table = self.sw_table = []
+
+        def skip(x, why, loud=False):
+            if dry:
+                table.append((x, "탈락", why, 0))
+            elif loud:
+                self.notify(f"🧭 {x['name']} 건너뜀 — {why}")
+            else:
+                self.log(f"🧭 {x['name']} 안 사요 — {why}")
         if not d.get("picks"):
             return 0.0
         if self.risk.kill_switch() or self.risk.halted:
@@ -830,40 +874,51 @@ class Bot:
         below = set(c.get("below_setups", []))
         ec = c.get("earnings") or {}
         today = now(self.m).date()
-        at = c.get("entry_at") or {}
-        cands = [x for x in d["picks"] if x["code"] not in self.broker.pos and x["code"] not in self.stopped
-                 and ((x.get("setup") in below) != bool(d.get("regime")))]
-        later = [x for x in cands if at.get(x.get("setup"), "open") != when]
-        cands = [x for x in cands if at.get(x.get("setup"), "open") == when]
+        cands = []
+        for x in d["picks"]:
+            if (x.get("setup") in below) == bool(d.get("regime")):
+                continue
+            if x["code"] in self.broker.pos:
+                skip(x, "이미 보유 중")
+            elif x["code"] in self.stopped:
+                skip(x, "최근 손절한 종목 (며칠 재매수 금지)")
+            else:
+                cands.append(x)
+        later = [] if dry else [x for x in cands if Bot.swing_timing(self, x, d) != when]
+        cands = cands if dry else [x for x in cands if Bot.swing_timing(self, x, d) == when]
         if when == "open" and later and slots > 0:
             self.notify(f"🧭 저점 매수 후보 {len(later)}개({', '.join(x['name'] for x in later[:5])})는 장 시작 직후 말고 "
                         f"장 마감 15분 전에 오늘 흐름을 보고 살게요. 장중에 손절선까지 밀리면 안 사요.")
         # 실적이 보유 기간 안에 없는 종목 먼저 (점수 순서는 유지)
         cands.sort(key=lambda x: SW.earn_plan(x, today, 100.0, 90.0, ec)[0] != "ok")
-        cands = cands[: max(0, slots) * 3]
+        cands = cands if dry else cands[: max(0, slots) * 3]
         sec_n = {}
         for p0 in have:
             if p0.extra.get("sector"):
                 sec_n[p0.extra["sector"]] = sec_n.get(p0.extra["sector"], 0) + 1
-        if slots <= 0 or not cands:
+        if (slots <= 0 and not dry) or not cands:
             return 0.0
-        try:
-            px = {x.get("symbol"): f(x.get("lastPrice")) for x in (self.api.prices([x["code"] for x in cands]) or [])}
-        except TossError as e:
-            self.log(f"🧭 스윙 시세 조회 실패: {e}")
-            return 0.0
+        if dry:
+            px, cash = {x["code"]: float(x["close"]) for x in cands}, None
+        else:
+            try:
+                px = {x.get("symbol"): f(x.get("lastPrice")) for x in (self.api.prices([x["code"] for x in cands]) or [])}
+            except TossError as e:
+                self.log(f"🧭 스윙 시세 조회 실패: {e}")
+                return 0.0
         cap = self.risk.capital or 0
         spent = 0.0
+        alt = 0
         for x in cands:
-            if slots <= 0:
+            if slots <= 0 and not dry:
                 break
             sym, e, stop = x["code"], px.get(x["code"]), float(x["stop"])
             if not e:
                 continue
             if stop >= e * 0.995:
-                self.log(f"🧭 {x['name']} 손절선({money(self.m, stop)}) 근처·아래로 열려서 안 사요")
+                skip(x, f"손절선({money(self.m, stop)}) 근처·아래로 열림")
                 continue
-            if when == "close":
+            if when == "close" and not dry:
                 try:
                     lo = min(r[2] for r in self.swing_bars(sym, e)[-1:])
                 except Exception:
@@ -872,30 +927,31 @@ class Bot:
                     self.notify(f"🧭 {x['name']} 오늘 장중 손절선({money(self.m, stop)})까지 밀려서 안 사요 (저가 {money(self.m, lo)})")
                     continue
             if e > x["close"] * (1 + c.get("max_gap_pct", 10) / 100):
-                self.log(f"🧭 {x['name']} 어제 종가보다 {(e / x['close'] - 1) * 100:.0f}% 넘게 올라 열려서 안 쫓아가요")
+                skip(x, f"어제 종가보다 {(e / x['close'] - 1) * 100:.0f}% 넘게 올라 열려서 안 쫓아감")
                 continue
             try:
                 info = (self.api.stocks([sym]) or [{}])[0]
                 if LEV.search(info.get("name") or "") or str(info.get("securityType") or "STOCK") not in ("STOCK", "FOREIGN_STOCK", "DEPOSITARY_RECEIPT"):
+                    skip(x, "레버리지·인버스·ETF 등 일반 주식 아님")
                     continue
                 if any(w.get("warningType") in BAD_WARNINGS and not w.get("endDate") for w in (self.api.warnings(sym) or [])):
-                    self.log(f"🧭 {x['name']} 투자경고·거래정지 등 경고가 있어 안 사요")
+                    skip(x, "투자경고·거래정지 등 경고")
                     continue
             except TossError:
                 pass
             ev = x.get("ev") or {}
             sec = ev.get("sector")
             if sec and ec.get("sector_max") and sec_n.get(sec, 0) >= ec["sector_max"]:
-                self.log(f"🧭 {x['name']} 같은 업종({sec}) 이미 {sec_n[sec]}종목이라 안 사요 (한 업종에 몰리지 않게)")
+                skip(x, f"같은 업종({sec}) 이미 {sec_n[sec]}종목 (한 업종 최대 {ec['sector_max']})")
                 continue
             plan, per, etxt = SW.earn_plan(x, today, e, stop, ec)
             if plan == "skip":
-                self.notify(f"🧭 {x['name']} 건너뜀 — {etxt}")
+                skip(x, etxt, loud=True)
                 continue
             size_stop = e - per
             q = SW.qty_for(cap, c.get("risk_pct", 0.5), c.get("cap_pct", 20), e, size_stop, None if cash is None else cash - spent)
             if q < 1 and plan == "hold":
-                self.notify(f"🧭 {x['name']} 건너뜀 — {etxt}: 실적 갭이 커서 1주도 손실 한도를 넘어요")
+                skip(x, f"{etxt}: 실적 갭이 커서 1주도 손실 한도를 넘음", loud=True)
                 continue
             if q < 1:
                 full = SW.qty_for(cap, c.get("risk_pct", 0.5), c.get("cap_pct", 20), e, size_stop, None)
@@ -903,7 +959,17 @@ class Bot:
                     self.notify(f"💸 🧭 {x['name']} 계획은 {full}주인데 계좌 매수 가능 금액({money(self.m, max(0, cash - spent))})이 "
                                 f"모자라 절반도 못 사서 건너뛰었어요. 현금을 채우거나 '투자금' 설정을 실제 현금에 맞춰 주세요.")
                 else:
-                    self.log(f"🧭 {x['name']} 살 수 있는 수량이 0주 (손절 폭 대비 투자금 부족)")
+                    skip(x, f"수량 0주 (1주 손절폭 {money(self.m, e - size_stop)}가 손실 한도보다 큼)")
+                continue
+            if dry:
+                if slots > 0:
+                    table.append((x, "매수", etxt, q))
+                    slots -= 1
+                    if sec:
+                        sec_n[sec] = sec_n.get(sec, 0) + 1
+                elif alt < 3:
+                    table.append((x, "예비", etxt, q))
+                    alt += 1
                 continue
             sl = round_tick(self.m, stop, "down")
             p = self.broker.enter(sym, x["name"], e, q, round_tick(self.m, e * 3, "up"), sl,

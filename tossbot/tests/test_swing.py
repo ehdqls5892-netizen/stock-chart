@@ -106,7 +106,7 @@ b3 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
 bot.broker, bot.m = b3, "US"
 cfg["market"] = "US"
 prices.update({"AAA": 100.0, "BBB": 50.0})
-bot.sw_picks = {"regime": False, "picks": [
+bot.sw_picks = {"date": "2026-11-02", "regime": False, "picks": [
     {"code": "AAA", "name": "저점주", "setup": "dip", "close": 101, "stop": 94, "atr": 2, "score": -5, "reason": "하락장 저점 매수"},
     {"code": "BBB", "name": "신고가주", "setup": "hi52", "close": 50, "stop": 47, "atr": 1, "score": 3, "reason": "52주 신고가"}]}
 M.Bot.swing_enter(bot, None)
@@ -162,12 +162,19 @@ tech = {"sector": "Technology", "industry": "Software"}
 bot.broker, bot.m, bot.stopped = b4, "US", {}
 bot.risk = SimpleNamespace(kill_switch=lambda: False, halted=None, capital=5000)
 M.now = (lambda f: (lambda m: dt.datetime(2026, 11, 2, 9, 31, tzinfo=M.TZ["US"])))(M.now)
-bot.sw_picks = {"regime": False, "picks": [
+bot.sw_picks = {"date": "2026-11-02", "regime": False, "picks": [
     mk("T1", {**tech, "react": "2026-11-04", "gap_avg": 0.10, "eps0q": 1.0, "eps0q_30d": 1.0, "up30": 3, "down30": 0}),
     mk("T2", {**tech, "react": "2026-11-04", "gap_avg": 0.10, "eps0q": 0.9, "eps0q_30d": 1.0, "up30": 0, "down30": 4}),
     mk("T3", {**tech}), mk("T4", {**tech}), mk("T5", {**tech}),
     mk("T6", {"sector": "Healthcare"})]}
+bot.swing_enter = lambda *a, **k: M.Bot.swing_enter(bot, *a, **k)
+bot.swing_timing = lambda *a: M.Bot.swing_timing(bot, *a)
+tbl = M.Bot.swing_table_text(bot)
+print(tbl)
+assert "✅ 매수 예정" in tbl and "T3" in tbl and "T2" in tbl and "같은 업종" in tbl and not b4.pos, tbl   # 판단표는 주문 안 함
+plan_names = [r[0]["code"] for r in bot.sw_table if r[1] == "매수"]
 M.Bot.swing_enter(bot, None, "close")
+assert set(b4.pos) == set(plan_names), (plan_names, list(b4.pos))          # 판단표와 실제 매수가 같음
 assert set(b4.pos) == {"T3", "T4", "T5", "T6"}, list(b4.pos)                # 실적 없는 것 먼저 → 업종 3개 차서 T1 은 업종 한도
 assert any("T2" in m and "내려가" in m for m in sent) or "T2" not in b4.pos
 assert b4.pos["T3"].qty == 6 and b4.pos["T3"].extra["sector"] == "Technology"   # $50 / $8
@@ -191,4 +198,10 @@ b5.enter("T8", "T8", 100.0, 40, 300.0, 92.0, "x", r=8)
 p8 = b5.pos["T8"]
 p8.extra.update(sw=True, sw_stop0=92.0, earn_react="2026-11-03", earn_gap=0.10)
 assert M.Bot.earn_presell(bot, p8, 110.0) is False                            # +1R 넘게 벌고 있으면 들고 감
+# 11) 이미 알린 후보(entry_at_since 이전 신호)는 원래대로 장 시작 때 삼
+b6 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker = b6
+bot.sw_picks = {"date": "2026-10-30", "regime": False, "picks": [mk("T6", {"sector": "Healthcare"})]}
+M.Bot.swing_enter(bot, None, "open")
+assert list(b6.pos) == ["T6"], list(b6.pos)
 print("✅ 실적 다루기 시험 통과")

@@ -420,6 +420,7 @@
     "cap_pct": 20,
     "max_pos": 6,
     "entry_delay_min": 1,
+  "entry_at_since": "2026-11-02",
   "entry_at": {"dip": "close", "_note": "저점 매수는 장 마감 15분 전에 그날 흐름을 보고 삼(장중 손절선 닿으면 안 삼). 백테스트(tools/earnbt.py ENTRY=1): 시가 매수 +15%·낙폭 14% → 마감 매수 +26%·낙폭 13%. 신고가 매수는 시가가 훨씬 나음(+100% vs +32%)"},
     "max_gap_pct": 10,
     "be_after_R": 1,
