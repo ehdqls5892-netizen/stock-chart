@@ -909,6 +909,13 @@ class Bot:
         cap = self.risk.capital or 0
         spent = 0.0
         alt = 0
+        mgap = None                      # 기록용: 지수(SPY) 개장 갭 — 1월 점검 때 '지수 급등 출발 날 신고가 매수 건너뛰기' 검증
+        if not dry and self.m == "US" and (d.get("index") or {}).get("close"):
+            try:
+                sp = f(((self.api.prices(["SPY"]) or [{}])[0]).get("lastPrice"))
+                mgap = round(sp / float(d["index"]["close"]) - 1, 4) if sp else None
+            except Exception:
+                mgap = None
         for x in cands:
             if slots <= 0 and not dry:
                 break
@@ -979,7 +986,8 @@ class Bot:
             base = dt.datetime.now(TZ["KR"]).date() if self.m == "US" else now(self.m).date()
             p.extra.update(sw=True, carry=True, setup="sw_" + x["setup"], sw_kind=x["setup"], sw_stop0=sl, sw_hi=e, sw_days=0,
                            expire=(base + dt.timedelta(days=c.get("expire_days", 20))).isoformat(),
-                           sector=sec, earn_react=ev.get("react"), earn_gap=ev.get("gap_avg"), earn_hold=plan == "hold")
+                           sector=sec, earn_react=ev.get("react"), earn_gap=ev.get("gap_avg"), earn_hold=plan == "hold",
+                           mkt_gap=mgap, entry_when=when)
             if when == "close":
                 p.extra["carry_done"] = today.isoformat()      # 방금 샀으니 오늘 일봉 점검·정리 대상 아님
             if sec:
