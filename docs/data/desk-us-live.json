@@ -1,18 +1,33 @@
 {
  "market": "us",
  "date": "2026-11-03",
- "updatedAt": "2026-11-03T15:51+00:00",
- "plans": {},
+ "updatedAt": "2026-11-03T16:52+00:00",
+ "plans": {
+  "AMD": {
+   "name": "AMD",
+   "stop": 461.71,
+   "entryLow": 477.55,
+   "entryHigh": 493.4,
+   "t1": 496.81,
+   "src": "장중 1순위",
+   "score": 63
+  }
+ },
  "watch": [
-  "LSCC",
-  "FISV",
+  "AMD",
+  "INTC",
+  "MDGL",
+  "RVTY",
   "DT",
   "ZBRA",
-  "AON",
-  "BE",
-  "NET",
-  "SIRI",
-  "AMD",
+  "EL",
+  "CLX",
+  "MAR",
+  "IDA",
+  "INDB",
+  "VLY",
+  "NVDA",
+  "LSCC",
   "AEHR"
  ],
  "earn_good": {}
