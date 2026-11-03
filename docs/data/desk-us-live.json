@@ -1,7 +1,7 @@
 {
  "market": "us",
  "date": "2026-11-03",
- "updatedAt": "2026-11-03T19:53+00:00",
+ "updatedAt": "2026-11-03T20:53+00:00",
  "plans": {
   "PLTR": {
    "name": "팔란티어",
@@ -14,19 +14,21 @@
   }
  },
  "watch": [
-  "IT",
+  "MU",
+  "FISV",
   "AEHR",
-  "FN",
-  "HUT",
+  "IT",
+  "SYY",
+  "LITE",
+  "VRTX",
+  "LHX",
+  "TEM",
+  "IBTA",
   "AON",
-  "BE",
-  "NET",
-  "SIRI",
   "AMD",
   "NVDA",
-  "SMCI",
-  "LSCC",
-  "ORCL"
+  "FN",
+  "LSCC"
  ],
  "earn_good": {}
 }
