@@ -211,10 +211,13 @@ import bot.news as N
 xml = """<rss><channel>
 <item><title>CrowdStrike upgraded to Buy at Deutsche Bank - Investing.com</title><source>Investing.com</source><pubDate>Mon, 02 Nov 2026 12:00:00 GMT</pubDate></item>
 <item><title>Acme Corp announces $500 million public offering - Reuters</title><source>Reuters</source><pubDate>Mon, 02 Nov 2026 11:00:00 GMT</pubDate></item>
+<item><title>Hewlett Packard Enterprise closes Juniper deal after DOJ settlement - Reuters</title><source>Reuters</source><pubDate>Mon, 02 Nov 2026 11:00:00 GMT</pubDate></item>
+<item><title>CrowdStrike fraud detection and accounting tools - Forbes</title><source>Forbes</source><pubDate>Mon, 02 Nov 2026 11:00:00 GMT</pubDate></item>
 <item><title>Other Co faces SEC probe - WSJ</title><source>WSJ</source><pubDate>Mon, 02 Nov 2026 11:00:00 GMT</pubDate></item>
 </channel></rss>"""
 fake_get = lambda u: SimpleNamespace(status_code=200, text=xml)
-assert N.red_flags("CrowdStrike Holdings, Inc.", "US", get=fake_get) == []
+assert N.red_flags("CrowdStrike Holdings, Inc.", "US", get=fake_get) == []           # 'fraud detection'·'accounting' 은 악재 아님
+assert N.red_flags("Hewlett Packard Enterprise", "US", get=fake_get) == []            # 법무부(DOJ) 합의 기사도 악재 아님
 assert N.red_flags("Acme Corp", "US", get=fake_get) == ["Acme Corp announces $500 million public offering"]
 assert N.red_flags("Acme", "US", get=lambda u: (_ for _ in ()).throw(OSError("x"))) == []     # 연결 실패 → 매매 그대로
 b7 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)

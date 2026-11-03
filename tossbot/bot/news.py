@@ -193,11 +193,16 @@ class NewsWatch:
 # 백테스트로 검증할 수 없는 보호용 규칙: 밤사이 회사 존립·주주가치를 크게 흔드는 뉴스(유상증자·거래정지·회계·당국 조사·파산)가
 # 최근 2일 안에 나왔으면 신호가 좋아도 안 삼. 하향·실적 부진 같은 흔한 악재는 저점 매수의 대상이라 거르지 않음.
 RED = {
-    "US": ["stock offering", "share offering", "public offering", "secondary offering", "dilution", "trading halt", "halted",
-           "sec probe", "sec investigation", "doj", "subpoena", "fraud", "accounting", "restate", "restatement",
-           "bankruptcy", "chapter 11", "delist", "going concern", "short seller", "short report", "ceo resigns", "cfo resigns"],
-    "KR": ["유상증자", "거래정지", "횡령", "배임", "분식", "감사의견", "상장폐지", "관리종목", "회생", "파산", "압수수색",
-           "전환사채 발행", "최대주주 변경", "불성실공시"],
+    # 한 단어(예: accounting·fraud·doj·halted)는 '사기 탐지 보안 회사', '법무부 반독점 심사' 같은 평범한 기사에도 걸려서
+    # 좋은 종목을 빼 버림 (11/2 밤 Everpure·HPE·NetApp 미매수 의심) → 회사가 당사자인 구체적 표현만
+    "US": ["announces public offering", "million public offering", "billion public offering", "public offering of",
+           "secondary offering", "prices public offering", "proposed public offering",
+           "at-the-market offering", "trading halted", "halts trading", "files for bankruptcy", "chapter 11", "delisting notice",
+           "receives delisting", "going concern", "restate financial", "restatement of", "accounting irregularit",
+           "sec charges", "sec investigation into", "subpoena from", "fraud charges", "charged with fraud",
+           "short seller report", "short report on", "ceo resigns", "cfo resigns", "auditor resigns"],
+    "KR": ["유상증자 결정", "유상증자 발표", "거래정지", "횡령", "배임", "분식회계", "감사의견 거절", "감사의견 한정", "상장폐지",
+           "관리종목 지정", "회생절차", "파산", "압수수색", "불성실공시"],
 }
 
 
