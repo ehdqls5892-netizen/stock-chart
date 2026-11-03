@@ -803,6 +803,7 @@ class Bot:
         d["picks"] = [x for x in d.get("picks", []) if x.get("setup") in on
                       and ((x.get("setup") in below) != bool(d.get("regime")))]
         self.sw_picks = d
+        self.sw_regime = d.get("regime")                 # 추가 매수 판단용 (시장 좋을 때만)
         ix = d.get("index") or {}
         name = "코스피" if self.m == "KR" else "S&P500(SPY)"
         if not d.get("regime") and not d["picks"]:
@@ -1102,6 +1103,11 @@ class Bot:
         p.extra["sw_hi"] = hi
         p.extra["sw_days"] = held + 1
         close = bars[-1][3]
+        if not why:
+            try:
+                Bot.swing_add_on(self, p, bars, close)
+            except Exception as e:
+                self.log(f"🧭 추가 매수 판단 오류 {p.name}: {e}")
         if why:
             self.notify(f"🧭 스윙 정리 {p.name} ({held + 1}거래일째, {(close / p.entry - 1) * 100:+.1f}%) — {why}")
             self.broker.flatten(p.symbol, f"스윙 정리: {why}", close)
@@ -1123,6 +1129,86 @@ class Bot:
             p.extra["days_held"].append(d)
         self.notify(f"🧭 스윙 점검 {p.name} {held + 1}거래일째 · {money(self.m, close)} ({(close / p.entry - 1) * 100:+.1f}%) "
                     f"· 손절 {money(self.m, p.sl)}" + (f" · {note}" if note else "") + " · 계속 보유")
+
+    def adopt_holdings(self):
+        """계좌에 있는데 로봇 관리 목록에 없는 종목(예전에 산 뒤 관리가 끊긴 것)을 스윙 방식으로 이어받아 계속 관리.
+        손절선 = 지금가 − 3×ATR (수익이 1×ATR 넘게 나 있으면 최소 본전), 이후 매일 장 마감 15분 전 일봉 점검
+        (손절선 따라 올리기·10일선 깨지면 익절/정리·조건 맞으면 한 번 추가 매수). 장기 ETF·ETF·레버리지는 제외."""
+        c = self.cfg["daily_swing"]
+        ac = c.get("adopt") or {}
+        if not ac.get("enabled") or not hasattr(self.broker, "api"):
+            return
+        items = (self.api.holdings() or {}).get("items", [])
+        etf_codes = {x[0] for x in ((self.cfg.get("etf_long") or {}).get("list") or {}).get(self.m, [])}
+        skip = set(ac.get("exclude") or [])
+        for h in items:
+            sym = str(h.get("symbol") or "")
+            mk = h.get("marketCountry") or ("KR" if sym[:1].isdigit() else "US")
+            qty = int(f(h.get("quantity"), 0) or 0)
+            avg = f(h.get("averagePurchasePrice")) or f(h.get("averagePrice"))
+            if mk != self.m or qty <= 0 or not avg or sym in self.broker.pos or sym in etf_codes or sym in skip:
+                continue
+            name = h.get("name") or sym
+            try:
+                info = (self.api.stocks([sym]) or [{}])[0]
+                name = info.get("name") or name
+                if LEV.search(name) or str(info.get("securityType") or "STOCK") not in ("STOCK", "FOREIGN_STOCK", "DEPOSITARY_RECEIPT"):
+                    continue
+            except TossError:
+                pass
+            last = f(h.get("lastPrice")) or avg
+            bars = self.swing_bars(sym, last)
+            a = SW.atr([b[1] for b in bars], [b[2] for b in bars], [b[3] for b in bars]) if len(bars) > 21 else None
+            a = a or last * 0.04
+            fee = self.cfg["fees"][self.m]
+            cost = (fee["buy_pct"] + fee["sell_pct"] + fee["sell_tax_pct"]) / 100
+            stop = last - ac.get("stop_atr", 3) * a
+            if last - avg >= a:
+                stop = max(stop, avg * (1 + cost))               # 수익 중이면 최소 본전은 지킴
+            sl = round_tick(self.m, stop, "down")
+            from .broker import Position
+            p = Position(sym, name, qty, avg, round_tick(self.m, avg * 3, "up"), sl, "계좌 보유 이어받기 (스윙 관리)",
+                         now(self.m).isoformat(timespec="seconds"), state="open")
+            base = dt.datetime.now(TZ["KR"]).date() if self.m == "US" else now(self.m).date()
+            p.extra.update(sw=True, carry=True, setup="sw_adopt", sw_kind="adopt", adopted=True,
+                           sw_stop0=round(avg - ac.get("stop_atr", 3) * a, 4), sw_hi=max(last, avg), sw_days=0,
+                           expire=(base + dt.timedelta(days=c.get("expire_days", 20))).isoformat())
+            self.broker.pos[sym] = p
+            try:
+                self.broker._arm_exit(p)
+            except Exception as e:
+                self.log(f"🧭 {name} 손절 주문 걸기 실패: {e}")
+            self.broker.save_state()
+            st = self.syms.setdefault(sym, SymState(sym))
+            st.name = name
+            self.notify(f"🧭 계좌에 있던 {name} {qty}주(평균 {money(self.m, avg)}, 지금 {(last / avg - 1) * 100:+.1f}%)를 "
+                        f"로봇 관리로 이어받았어요 · 손절선 {money(self.m, sl)}"
+                        f"{' (본전 이상)' if sl >= avg else ''} · 매일 장 마감 15분 전 일봉으로 '더 들고 갈지/익절할지/추가 매수할지' 판단해요")
+
+    def swing_add_on(self, p, bars, close) -> bool:
+        """수익 중인 스윙 종목에 한 번만 추가 매수(불타기): +1R 이상 · 20일 종가 신고가 · 시장 좋음 → 지금 수량의 절반.
+        백테스트(국장 2년·미장 10년): 이 조건만 두 시장 모두 칼마비율 개선(2.63→2.85, 0.65→0.72). 다른 조건은 나빠지거나 들쭉날쭉."""
+        ac = self.cfg["daily_swing"].get("add_on") or {}
+        if not ac.get("enabled") or p.extra.get("added") or p.extra.get("add_oid") or getattr(self, "sw_regime", None) is not True:
+            return False
+        closes = [b[3] for b in bars]
+        if len(closes) < 22:
+            return False
+        R = max(p.entry - (p.extra.get("sw_stop0") or p.sl), p.entry * 0.005)
+        if close < p.entry + ac.get("min_R", 1) * R or close < max(closes[-21:-1]):
+            return False
+        cap = self.risk.capital or 0
+        q = int(p.qty * ac.get("frac", 0.5))
+        if cap:
+            q = min(q, int(cap * self.cfg["daily_swing"].get("cap_pct", 20) / 100 * ac.get("cap_x", 1.5) / close) - p.qty)
+        if q < 1:
+            return False
+        p.extra["added"] = True
+        before = p.qty
+        self.broker.add(p, q, close, f"🧭 추가 매수: +{(close / p.entry - 1) * 100:.1f}% · 20일 신고가 마감 · 시장 좋음")
+        self.notify(f"🧭 추가 매수 {p.name} {q}주 ≈ {money(self.m, close)} (갖고 있던 {before}주에 더함) — 수익 중·20일 신고가·시장 좋음 "
+                    f"· 손절선 {money(self.m, p.sl)} (본전 이상이면 추가분도 손실 작음)")
+        return True
 
     def earn_presell(self, p, close) -> bool:
         """내일이 실적 반응일인데, 살 때 실적을 감안해 줄여 사지 않았고 아직 +1R 수익 쿠션이 없으며
@@ -1415,6 +1501,10 @@ class Bot:
         self.broker.restore()
         if live:
             self.broker.verify_carried()
+            try:
+                self.adopt_holdings()
+            except Exception as e:
+                self.log(f"🧭 계좌 보유 이어받기 오류: {e}")
         self.setup_gate()
         self.perf_size()
         self.week_guard()

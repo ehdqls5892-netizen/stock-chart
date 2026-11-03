@@ -346,8 +346,8 @@ class BaseBroker:
                 continue
             if p.state not in ("pending", "open", "closing"):
                 continue
-            if not same_day and not p.extra.get("carry"):
-                continue
+            if not same_day and not (p.extra.get("carry") or p.extra.get("locked")):
+                continue                       # 잠근 종목은 장 마감 처리 전에 껐다 켜져도 이어받음 (예전엔 빠져서 관리가 끊김)
             if not same_day and p.state != "open":
                 continue
             p.last_check = 0

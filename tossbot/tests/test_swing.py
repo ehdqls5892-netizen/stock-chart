@@ -279,3 +279,44 @@ assert len(sent) == 1                                     # 한 번만
 SW.load_picks = orig_lp
 print(sent[0])
 print("✅ 실적 다루기 시험 통과")
+
+# 15) 계좌 보유 이어받기 + 추가 매수(불타기)
+cfg["market"] = "KR"
+bk = PaperBroker("KR", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bk.api = object()
+armed = []
+bk._arm_exit = lambda p: armed.append(p.symbol)
+sent.clear()
+kd0 = dt.date.today() - dt.timedelta(days=40)
+up_bars = [{"timestamp": dt.datetime.combine(kd0 + dt.timedelta(days=i), dt.time(15, 30), M.TZ["KR"]).isoformat(),
+            "closePrice": str(4000 + i * 40), "highPrice": str(4050 + i * 40), "lowPrice": str(3950 + i * 40)} for i in range(38)]
+hold_items = [{"symbol": "000001", "name": "피앤에스로보틱스", "marketCountry": "KR", "quantity": "122", "averagePurchasePrice": "4522", "lastPrice": "5510"},
+              {"symbol": "069500", "name": "KODEX 200", "marketCountry": "KR", "quantity": "5", "averagePurchasePrice": "50000", "lastPrice": "51000"},
+              {"symbol": "AAPL", "name": "Apple", "marketCountry": "US", "quantity": "1", "averagePurchasePrice": "200", "lastPrice": "210"}]
+ka = SimpleNamespace(holdings=lambda: {"items": hold_items}, stocks=lambda s: [{"name": "피앤에스로보틱스", "securityType": "STOCK"}],
+                     candles=lambda sym, iv, n: up_bars, prices=lambda s: [], warnings=lambda s: [])
+kb = SimpleNamespace(cfg=cfg, m="KR", broker=bk, api=ka, risk=SimpleNamespace(capital=10_000_000), syms={}, log=print, notify=sent.append)
+kb.swing_bars = lambda sym, last: M.Bot.swing_bars(kb, sym, last)
+M.Bot.adopt_holdings(kb)
+assert list(bk.pos) == ["000001"] and armed == ["000001"], list(bk.pos)            # ETF·미장 종목은 안 이어받음
+pa = bk.pos["000001"]
+assert pa.qty == 122 and pa.entry == 4522 and pa.extra["sw"] and pa.sl >= 4522, (pa.sl,)  # 수익 중 → 손절선 최소 본전
+print(sent[-1])
+M.Bot.adopt_holdings(kb)
+assert len(sent) == 1                                                                # 두 번 이어받지 않음
+# 추가 매수: 시장 나쁨이면 안 함 / 좋으면 절반, 한 번만
+kb.sw_regime = False
+bars_now = M.Bot.swing_bars(kb, "000001", 5600)
+assert M.Bot.swing_add_on(kb, pa, bars_now, 5600) is False
+kb.sw_regime = True
+assert M.Bot.swing_add_on(kb, pa, bars_now, 5600) is True and pa.qty == 183, pa.qty  # 122 + 61
+assert M.Bot.swing_add_on(kb, pa, bars_now, 5700) is False                          # 한 번만
+print(sent[-1])
+# 잠근 종목은 다음 날 다시 켜도 이어받음
+from bot.broker import Position
+bl = PaperBroker("KR", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+lp = Position("000002", "잠금주", 10, 1000, 3000, 900, "x", "x", state="open", extra={"locked": True})
+(bl.dir / "state.json").write_text(json.dumps({"date": "2026-10-01", "positions": [lp.__dict__]}), encoding="utf-8")
+bl.restore()
+assert "000002" in bl.pos, "잠근 종목이 빠짐"
+print("✅ 계좌 보유 이어받기·추가 매수 시험 통과")
