@@ -1,21 +1,19 @@
 {
  "market": "us",
  "date": "2026-11-03",
- "updatedAt": "2026-11-03T14:51+00:00",
+ "updatedAt": "2026-11-03T15:51+00:00",
  "plans": {},
  "watch": [
   "LSCC",
-  "AEHR",
   "FISV",
   "DT",
+  "ZBRA",
+  "AON",
+  "BE",
   "NET",
   "SIRI",
-  "AON",
-  "RIVN",
   "AMD",
-  "NVDA",
-  "MRVL",
-  "INTC"
+  "AEHR"
  ],
  "earn_good": {}
 }
