@@ -797,21 +797,10 @@ class Bot:
         d = SW.load_picks(c["picks_url"], self.m, self.open_t.date(), self.log)
         if not d:
             return
-        on = set(self.swing_on())
-        below = set(c.get("below_setups", []))
-        # 상승 국면엔 추세 방식만, 하락 국면엔 저점 매수 방식만
-        d["picks"] = [x for x in d.get("picks", []) if x.get("setup") in on
-                      and ((x.get("setup") in below) != bool(d.get("regime")))]
+        Bot.split_picks(self, d)
         self.sw_picks = d
         self.sw_regime = d.get("regime")                 # 추가 매수 판단용 (시장 좋을 때만)
-        ix = d.get("index") or {}
-        name = "코스피" if self.m == "KR" else "S&P500(SPY)"
-        if not d.get("regime") and not d["picks"]:
-            msg = (f"🧭 스윙: {name} 가 50일선 아래(하락 국면 · {ix.get('close')} < {ix.get('ma50')}) → 오늘은 새로 안 사요. "
-                   f"보유분 손절·점검만 해요." + (" (하락장 저점 매수 신호도 없음)" if below & on else ""))
-        elif not d["picks"]:
-            msg = f"🧭 스윙: {d['date']} 신호 종목 없음 (시장 국면 좋음 · {name} 50일선 위)"
-        else:
+        if True:
             msg = self.swing_table_text()
             pv = getattr(self, "_pv_table", None)
             if pv is not None and getattr(self, "_pv_sent", "") == self.open_t.date().isoformat():
@@ -848,16 +837,14 @@ class Bot:
                 return                                       # 아직 지난 장 후보 → 새 후보 나올 때까지 기다림
         except (KeyError, ValueError):
             return
-        on, below = set(self.swing_on()), set(c.get("below_setups", []))
-        d["picks"] = [x for x in d.get("picks", []) if x.get("setup") in on and ((x.get("setup") in below) != bool(d.get("regime")))]
+        Bot.split_picks(self, d)
         old_b, old_p = getattr(self, "broker", None), self.sw_picks
         tmp = PaperBroker(self.m, self.cfg, self.dir, lambda *a: None, lambda *a: None)
         tmp.restore()
         try:
             self.broker, self.sw_picks = tmp, d
             self.load_stopped()
-            txt = self.swing_table_text() if d["picks"] else (
-                f"🧭 {d['date']} 종가 기준 새로 살 후보 없음 (시장 {'좋음' if d.get('regime') else '나쁨'})")
+            txt = self.swing_table_text()
             self._pv_table = {r[0]["code"]: r[1] for r in getattr(self, "sw_table", [])}
         finally:
             self.broker, self.sw_picks = old_b, old_p
@@ -865,6 +852,13 @@ class Bot:
         when = self.open_t.strftime("%m/%d %H:%M")
         self.notify(f"📋 [미리 보기] 다음 장({when} {'한국' if self.m == 'KR' else '뉴욕'} 시간) 매수 판단표\n{txt}\n"
                     f"→ 장 시작 몇 분 전에 최종 판단표를 다시 보내요. 그사이 바뀌는 건 보유 종목 변화(손절 등)뿐이에요.")
+
+    def split_picks(self, d):
+        """후보를 '오늘 시장 상태에서 쓰는 방식'(picks)과 '시장 상태 때문에 쉬는 방식'(_off)으로 나눔 — 판단표에 둘 다 보여 줌."""
+        on, below = set(self.swing_on()), set(self.cfg["daily_swing"].get("below_setups", []))
+        allp = [x for x in d.get("picks", []) if x.get("setup") in on]
+        d["picks"] = [x for x in allp if (x.get("setup") in below) != bool(d.get("regime"))]
+        d["_off"] = [x for x in allp if x not in d["picks"]]
 
     def swing_table_text(self) -> str:
         """장 전 판단표: 어제 종가로 매수 기준 ①~⑦을 그대로 적용한 결과. 당일엔 시가·장중 손절선·현금만 결과를 바꿀 수 있음."""
@@ -885,6 +879,15 @@ class Bot:
                 for x, _, why, q in g:
                     out.append(f"- {x['name']} ≈{q}주 × {money(self.m, x['close'])} · 손절 {money(self.m, x['stop'])} "
                                f"· {when.get(Bot.swing_timing(self, x, d), '')} · {x['reason']}" + (f" · {why}" if why else ""))
+        if not d.get("picks"):
+            out.append("✅ 매수 예정: 없음")
+        off = d.get("_off") or []
+        if off:
+            nm = "코스피" if self.m == "KR" else "S&P500"
+            why = (f"{nm}가 50일선 아래(하락 국면)라 이 방식은 쉼" if not d.get("regime")
+                   else f"{nm}가 50일선 위(상승 국면)라 저점 매수는 쉼")
+            out.append(f"⏸ 시장 상태 때문에 안 삼 ({why}): " + ", ".join(x["name"] for x in off[:10])
+                       + (f" 외 {len(off) - 10}개" if len(off) > 10 else ""))
         g = [r for r in rows if r[1] == "탈락"]
         if g:
             out.append("❌ 안 삼")
