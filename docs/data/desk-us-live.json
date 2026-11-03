@@ -1,34 +1,21 @@
 {
  "market": "us",
- "date": "2026-11-02",
- "updatedAt": "2026-11-02T20:51+00:00",
- "plans": {
-  "TSLA": {
-   "name": "테슬라",
-   "stop": 384.89,
-   "entryLow": 396.17,
-   "entryHigh": 407.46,
-   "t1": 415.38,
-   "src": "장중 1순위",
-   "t2": 450.0,
-   "score": 59
-  }
- },
+ "date": "2026-11-03",
+ "updatedAt": "2026-11-03T14:51+00:00",
+ "plans": {},
  "watch": [
-  "INTC",
-  "ORCL",
-  "IDXX",
-  "TATT",
-  "XPEV",
-  "EL",
-  "OKTA",
-  "LITE",
+  "LSCC",
+  "AEHR",
+  "FISV",
+  "DT",
+  "NET",
+  "SIRI",
+  "AON",
+  "RIVN",
+  "AMD",
+  "NVDA",
   "MRVL",
-  "UAL",
-  "XOM",
-  "AAPL",
-  "PLTR",
-  "MPWR"
+  "INTC"
  ],
  "earn_good": {}
 }
