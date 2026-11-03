@@ -1,32 +1,27 @@
 {
  "market": "us",
  "date": "2026-11-03",
- "updatedAt": "2026-11-03T16:52+00:00",
+ "updatedAt": "2026-11-03T17:52+00:00",
  "plans": {
-  "AMD": {
-   "name": "AMD",
-   "stop": 461.71,
-   "entryLow": 477.55,
-   "entryHigh": 493.4,
-   "t1": 496.81,
+  "PLTR": {
+   "name": "팔란티어",
+   "stop": 169.34,
+   "entryLow": 171.68,
+   "entryHigh": 174.01,
+   "t1": 182.97,
    "src": "장중 1순위",
-   "score": 63
+   "score": 47
   }
  },
  "watch": [
   "AMD",
-  "INTC",
-  "MDGL",
-  "RVTY",
-  "DT",
-  "ZBRA",
-  "EL",
-  "CLX",
-  "MAR",
-  "IDA",
-  "INDB",
-  "VLY",
+  "SMCI",
+  "ANET",
+  "IT",
+  "BE",
+  "TWLO",
   "NVDA",
+  "ORCL",
   "LSCC",
   "AEHR"
  ],
