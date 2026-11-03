@@ -1,28 +1,31 @@
 {
  "market": "us",
  "date": "2026-11-03",
- "updatedAt": "2026-11-03T17:52+00:00",
+ "updatedAt": "2026-11-03T18:51+00:00",
  "plans": {
   "PLTR": {
    "name": "팔란티어",
    "stop": 169.34,
-   "entryLow": 171.68,
-   "entryHigh": 174.01,
+   "entryLow": 171.32,
+   "entryHigh": 173.3,
    "t1": 182.97,
    "src": "장중 1순위",
-   "score": 47
+   "score": 46
   }
  },
  "watch": [
   "AMD",
-  "SMCI",
-  "ANET",
   "IT",
-  "BE",
-  "TWLO",
-  "NVDA",
-  "ORCL",
   "LSCC",
+  "FISV",
+  "FN",
+  "ZBRA",
+  "NET",
+  "SIRI",
+  "AON",
+  "NVDA",
+  "SMCI",
+  "ORCL",
   "AEHR"
  ],
  "earn_good": {}
