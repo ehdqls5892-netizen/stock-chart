@@ -186,3 +186,82 @@ def ev_text(ev: dict, etxt: str) -> str:
     if ev.get("sector"):
         parts.append(f"업종 {ev.get('industry') or ev['sector']}")
     return ("\n📅 " + " · ".join(parts)) if parts else ""
+
+
+# ── 보유 종목 브리핑: 오늘 봉·거래량·애널리스트·실적일·수급·뉴스 ─────────────────────────────
+def load_estimates(url: str, market: str, today: dt.date, log=print) -> dict:
+    """GitHub 'estimates' 브랜치의 하루 치 컨센서스 CSV(코드 → 행). 오늘 것이 없으면 5일 전까지 거슬러 감."""
+    import csv
+    import io
+    import requests
+    for k in range(6):
+        d = (today - dt.timedelta(days=k)).isoformat()
+        try:
+            r = requests.get(url.format(m=market.lower(), d=d), timeout=20)
+        except Exception:
+            continue
+        if r.status_code == 200 and r.text.strip():
+            rows = {}
+            for row in csv.DictReader(io.StringIO(r.text)):
+                code = str(row.get("code") or "")
+                if market == "KR" and code.isdigit():
+                    code = code.zfill(6)
+                rows[code] = row
+            return rows
+    log("📋 컨센서스 자료를 못 받았어요 (브리핑에서 애널리스트 정보 빠짐)")
+    return {}
+
+
+def _num(x):
+    try:
+        v = float(x)
+        return None if v != v else v
+    except (TypeError, ValueError):
+        return None
+
+
+def brief_text(market: str, bars: list, last: float, est: dict | None, earn_react: str | None, news: list[str],
+               today: dt.date, money=lambda v: f"{v:,.2f}") -> str:
+    """bars: [(날짜, 시가, 고가, 저가, 종가, 거래량)] 오래된 것부터, 마지막이 오늘(장중이면 지금까지)."""
+    parts = []
+    if len(bars) >= 2:
+        _, o, h, l, c, v = bars[-1]
+        c = last or c
+        prev = bars[-2][4]
+        day = (c / prev - 1) * 100 if prev else 0
+        candle = "양봉" if c >= o else "음봉"
+        rng = h - l
+        pos = "고가 근처 마감" if rng and (c - l) / rng >= 0.7 else "저가 근처" if rng and (c - l) / rng <= 0.3 else ""
+        vols = [b[5] for b in bars[-21:-1] if b[5]]
+        vx = v / (sum(vols) / len(vols)) if vols and v else None
+        parts.append(f"오늘 {candle} {day:+.1f}%" + (f"·{pos}" if pos else "") + (f" · 거래량 평소 {vx:.1f}배" if vx else ""))
+        if len(bars) >= 20:
+            ma20 = sum(b[4] for b in bars[-20:]) / 20
+            parts.append(f"20일선 {'위' if c >= ma20 else '아래'}({(c / ma20 - 1) * 100:+.1f}%)")
+    est = est or {}
+    if market == "US":
+        tg, rec, n = _num(est.get("targetMeanPrice")), _num(est.get("recommendationMean")), _num(est.get("numberOfAnalystOpinions"))
+        if tg and last:
+            parts.append(f"애널리스트 {int(n) if n else '?'}명 목표가 평균 {money(tg)} ({(tg / last - 1) * 100:+.0f}%)"
+                         + (f"·의견 {rec:.1f}(1=강력매수, 5=매도)" if rec else ""))
+        e0, e30 = _num(est.get("eps_0q_current")), _num(est.get("eps_0q_30daysAgo"))
+        if e0 is not None and e30:
+            parts.append(f"이번 분기 이익 전망 30일간 {(e0 - e30) / abs(e30) * 100:+.1f}%")
+    else:
+        tg, rec = _num(est.get("cs_priceTargetMean")), _num(est.get("cs_recommMean"))
+        if tg and last:
+            parts.append(f"증권사 목표가 평균 {money(tg)} ({(tg / last - 1) * 100:+.0f}%)" + (f"·의견 {rec:.1f}(5=강력매수)" if rec else ""))
+        fo, og = _num(est.get("foreignerPureBuyQuant")), _num(est.get("organPureBuyQuant"))
+        if fo is not None or og is not None:
+            parts.append(f"전날 외국인 {fo or 0:+,.0f}주·기관 {og or 0:+,.0f}주")
+    if earn_react:
+        try:
+            rd = dt.date.fromisoformat(earn_react)
+            if rd >= today:
+                parts.append(f"다음 실적 반응일 {rd.month}/{rd.day} ({biz_days(today, rd)}거래일 뒤)")
+        except ValueError:
+            pass
+    out = "📊 " + " · ".join(parts) if parts else ""
+    if news:
+        out += "\n📰 " + " / ".join(t[:90] for t in news[:3])
+    return out

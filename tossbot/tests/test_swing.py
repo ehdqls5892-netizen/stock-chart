@@ -12,6 +12,8 @@ from bot.broker import PaperBroker
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 c = cfg["daily_swing"]
 c["red_flag_news"] = False          # 시험에선 인터넷 뉴스 안 봄 (아래 12번에서 따로 시험)
+c["brief_news"] = False
+c["estimates_url"] = ""
 KS = c["earnings"].pop("kr_season")  # 국장 실적 시즌 규칙은 날짜에 따라 달라져서 14번에서 따로 시험
 assert cfg["strategy"]["intraday"] is False and c["enabled"]
 
@@ -320,3 +322,22 @@ lp = Position("000002", "잠금주", 10, 1000, 3000, 900, "x", "x", state="open"
 bl.restore()
 assert "000002" in bl.pos, "잠근 종목이 빠짐"
 print("✅ 계좌 보유 이어받기·추가 매수 시험 통과")
+
+# 16) 보유 종목 브리핑: 오늘 봉·거래량·20일선·애널리스트·실적일·뉴스
+import bot.swing as SW3
+bd = [(dt.date(2026, 10, 1) + dt.timedelta(days=i), 100, 102, 98, 100, 1000.0) for i in range(25)]
+bd.append((dt.date(2026, 11, 4), 96, 105, 95, 104, 3000.0))           # 오늘: 양봉 +4%, 거래량 3배
+txt = SW3.brief_text("US", bd, 104, {"targetMeanPrice": "130", "recommendationMean": "1.8", "numberOfAnalystOpinions": "29",
+                                     "eps_0q_current": "1.05", "eps_0q_30daysAgo": "1.0"},
+                     "2026-11-25", ["Dell rebounds on AI backlog", "Intel warns on PCs"], dt.date(2026, 11, 4), lambda v: f"${v:,.2f}")
+print(txt)
+assert "양봉 +4.0%" in txt and "거래량 평소 3.0배" in txt and "목표가 평균 $130.00 (+25%)" in txt and "+5.0%" in txt
+assert "11/25" in txt and "Dell rebounds" in txt and "20일선 위" in txt
+kt = SW3.brief_text("KR", bd, 104, {"cs_priceTargetMean": "120", "cs_recommMean": "4.0", "foreignerPureBuyQuant": "-1000",
+                                    "organPureBuyQuant": "2500"}, None, [], dt.date(2026, 11, 4), lambda v: f"{v:,.0f}원")
+assert "증권사 목표가 평균 120원 (+15%)" in kt and "외국인 -1,000주" in kt and "기관 +2,500주" in kt, kt
+assert SW3.brief_text("US", [], 0, None, None, [], dt.date(2026, 11, 4)) == ""
+xmlb = """<rss><channel><item><title>Dell rebounds on AI backlog - Reuters</title><source>Reuters</source><pubDate>Tue, 03 Nov 2026 12:00:00 GMT</pubDate></item>
+<item><title>Intel warns on PCs - WSJ</title><source>WSJ</source><pubDate>Tue, 03 Nov 2026 10:00:00 GMT</pubDate></item></channel></rss>"""
+assert N.recent_news("Dell Technologies Inc.", "US", get=lambda u: SimpleNamespace(status_code=200, text=xmlb)) == ["Dell rebounds on AI backlog"]
+print("✅ 보유 종목 브리핑 시험 통과")

@@ -173,6 +173,29 @@ def _file_positions(mk: str) -> list:
     return [d for d in st.get("positions", []) if d.get("state") == "open"]
 
 
+def briefs() -> str:
+    """텔레그램 '📰 분석': 로봇이 관리하는 보유 종목마다 지금 상황(오늘 봉·거래량·애널리스트·실적일·뉴스)."""
+    from .main import Bot
+    out = ["📰 보유 종목 지금 상황 (판단 재료 — 자동 매매 규칙은 따로)"]
+    for mk, b in (STATE.get("bots") or {}).items():
+        br = getattr(b, "broker", None)
+        if not br:
+            continue
+        for p in list(br.pos.values()):
+            if p.state != "open" or p.extra.get("etf_long"):
+                continue
+            st = b.syms.get(p.symbol) if getattr(b, "syms", None) else None
+            last = st.last if st and st.last else None
+            try:
+                txt = Bot.hold_brief(b, p, last)
+            except Exception as e:
+                txt = f"(브리핑 실패: {e})"
+            px = last or p.entry
+            out.append(f"\n{'🇰🇷' if mk == 'KR' else '🇺🇸'} {p.name} {p.qty}주 · 산 값 {M.money(mk, p.entry)} → {M.money(mk, px)} "
+                       f"({(px / p.entry - 1) * 100:+.1f}%) · 손절선 {M.money(mk, p.sl)}\n{txt}")
+    return "\n".join(out) if len(out) > 1 else "로봇이 관리하는 보유 종목이 없어요"
+
+
 def holdings() -> list:
     """로봇이 관리하는 보유 종목 (국장·미장 함께)."""
     out = []

@@ -19,7 +19,7 @@ import requests
 KB = {"keyboard": [[{"text": "📊 상태"}, {"text": "💵 투자금"}],
                    [{"text": "▶️ 연습 시작"}, {"text": "🔴 실전 시작"}],
                    [{"text": "📦 보유종목"}, {"text": "🧭 스윙"}, {"text": "🏦 ETF"}],
-                   [{"text": "📈 성적"}, {"text": "📜 기록"}]],
+                   [{"text": "📈 성적"}, {"text": "📰 분석"}, {"text": "📜 기록"}]],
       "resize_keyboard": True, "is_persistent": True}
 
 
@@ -282,6 +282,15 @@ class TelegramControl:
             return self.send("확인 시간이 지났어요. 다시 '재개' 를 보내 주세요.")
         if t.upper().startswith("ETF") or t.startswith("🏦"):
             return self.send(self.etf_fn(t) if getattr(self, "etf_fn", None) else "이 기능을 쓸 수 없어요")
+        if t in ("분석", "📰 분석", "/brief"):
+            from . import app as A
+            self.send("📰 보유 종목 지금 상황을 모으는 중이에요 (종목마다 몇 초)…", kb=False)
+            txt = A.briefs()
+            while txt:
+                cut = txt[:3800].rfind("\n") if len(txt) > 3800 else len(txt)
+                self.send(txt[:cut])
+                txt = txt[cut:].lstrip("\n")
+            return
         if t in ("스윙", "🧭 스윙", "/swing"):
             return self.send(self.swing_text())
         if t.startswith("단타기록") or t.startswith("단타 기록") or t.startswith("👻"):

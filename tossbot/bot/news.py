@@ -282,3 +282,31 @@ def sec_flags(symbol: str, days: int = 3, get=None, today: dt.date | None = None
         return out[:3]
     except Exception:
         return []
+
+
+def recent_news(name: str, market: str, days: int = 2, n: int = 3, get=None) -> list[str]:
+    """보유 종목 브리핑용: 최근 days 일 그 종목 이름이 들어간 뉴스 제목 n개. 연결 실패면 []."""
+    import requests
+    get = get or (lambda u: requests.get(u, timeout=8, headers={"User-Agent": "Mozilla/5.0 (tossbot news)"}))
+    nm = _norm_us(name) if market == "US" else name
+    q = f'"{nm}" when:{days}d'
+    url = (f"https://news.google.com/rss/search?q={quote(q)}&hl=ko&gl=KR&ceid=KR:ko" if market == "KR"
+           else f"https://news.google.com/rss/search?q={quote(q)}&hl=en-US&gl=US&ceid=US:en")
+    try:
+        r = get(url)
+        if r.status_code != 200:
+            return []
+        items = NewsWatch.parse(NewsWatch.__new__(NewsWatch), r.text)
+    except Exception:
+        return []
+    key = nm if market == "KR" else nm.lower().split()[0]
+    out = []
+    for it in sorted(items, key=lambda x: x["pub"] or dt.datetime.min.replace(tzinfo=dt.timezone.utc), reverse=True):
+        t = it["title"]
+        if key and key not in (t if market == "KR" else t.lower()):
+            continue
+        if t not in out:
+            out.append(t)
+        if len(out) >= n:
+            break
+    return out

@@ -1112,7 +1112,12 @@ class Bot:
             except Exception as e:
                 self.log(f"🧭 추가 매수 판단 오류 {p.name}: {e}")
         if why:
-            self.notify(f"🧭 스윙 정리 {p.name} ({held + 1}거래일째, {(close / p.entry - 1) * 100:+.1f}%) — {why}")
+            try:
+                brief = Bot.hold_brief(self, p, close)
+            except Exception:
+                brief = ""
+            self.notify(f"🧭 스윙 정리 {p.name} ({held + 1}거래일째, {(close / p.entry - 1) * 100:+.1f}%) — {why}"
+                        + (f"\n{brief}" if brief else ""))
             self.broker.flatten(p.symbol, f"스윙 정리: {why}", close)
             return
         new = round_tick(self.m, new, "down")
@@ -1130,8 +1135,14 @@ class Bot:
         d = now(self.m).date().isoformat()
         if d not in p.extra.setdefault("days_held", []):
             p.extra["days_held"].append(d)
+        try:
+            brief = Bot.hold_brief(self, p, close)
+        except Exception as e:
+            brief = ""
+            self.log(f"🧭 브리핑 오류 {p.name}: {e}")
         self.notify(f"🧭 스윙 점검 {p.name} {held + 1}거래일째 · {money(self.m, close)} ({(close / p.entry - 1) * 100:+.1f}%) "
-                    f"· 손절 {money(self.m, p.sl)}" + (f" · {note}" if note else "") + " · 계속 보유")
+                    f"· 손절 {money(self.m, p.sl)}" + (f" · {note}" if note else "") + " · 계속 보유"
+                    + (f"\n{brief}" if brief else ""))
 
     def adopt_holdings(self):
         """계좌에 있는데 로봇 관리 목록에 없는 종목(예전에 산 뒤 관리가 끊긴 것)을 스윙 방식으로 이어받아 계속 관리.
@@ -1212,6 +1223,36 @@ class Bot:
         self.notify(f"🧭 추가 매수 {p.name} {q}주 ≈ {money(self.m, close)} (갖고 있던 {before}주에 더함) — 수익 중·20일 신고가·시장 좋음 "
                     f"· 손절선 {money(self.m, p.sl)} (본전 이상이면 추가분도 손실 작음)")
         return True
+
+    def hold_brief(self, p, last=None) -> str:
+        """보유 종목의 지금 상황: 오늘 봉·거래량·20일선·애널리스트 목표가·이익 전망·(국장)외국인·기관·실적일·최근 뉴스.
+        매일 장 마감 15분 전 점검 알림과 텔레그램 '분석' 에 붙음 (판단 재료 — 자동 매매 규칙은 따로)."""
+        c = self.cfg["daily_swing"]
+        today = now(self.m).date()
+        bars = []
+        try:
+            for cd in self.api.candles(p.symbol, "1d", 30) or []:
+                t = parse_ts(cd.get("timestamp"), self.m)
+                cl = f(cd.get("closePrice"))
+                if t and cl:
+                    bars.append((t.date(), f(cd.get("openPrice")) or cl, f(cd.get("highPrice")) or cl, f(cd.get("lowPrice")) or cl,
+                                 cl, f(cd.get("volume"), 0.0) or 0.0))
+        except Exception:
+            pass
+        bars.sort(key=lambda b: b[0])
+        if getattr(self, "_est_day", None) != today and c.get("estimates_url"):
+            self._est = SW.load_estimates(c["estimates_url"], self.m, today, self.log)
+            self._est_day = today
+        est = (getattr(self, "_est", None) or {}).get(p.symbol)
+        news = []
+        if c.get("brief_news", True) and os.getenv("TOSSBOT_OFFLINE") != "1":
+            try:
+                from .news import recent_news
+                news = recent_news(p.name, self.m)
+            except Exception:
+                news = []
+        last = last or (bars[-1][4] if bars else p.entry)
+        return SW.brief_text(self.m, bars, last, est, p.extra.get("earn_react"), news, today, lambda v: money(self.m, v))
 
     def earn_presell(self, p, close) -> bool:
         """내일이 실적 반응일인데, 살 때 실적을 감안해 줄여 사지 않았고 아직 +1R 수익 쿠션이 없으며
