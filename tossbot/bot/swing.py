@@ -234,7 +234,8 @@ def brief_text(market: str, bars: list, last: float, est: dict | None, earn_reac
         pos = "고가 근처 마감" if rng and (c - l) / rng >= 0.7 else "저가 근처" if rng and (c - l) / rng <= 0.3 else ""
         vols = [b[5] for b in bars[-21:-1] if b[5]]
         vx = v / (sum(vols) / len(vols)) if vols and v else None
-        parts.append(f"오늘 {candle} {day:+.1f}%" + (f"·{pos}" if pos else "") + (f" · 거래량 평소 {vx:.1f}배" if vx else ""))
+        lbl = "오늘" if bars[-1][0] == today else f"{bars[-1][0].month}/{bars[-1][0].day}"
+        parts.append(f"{lbl} {candle} {day:+.1f}%" + (f"·{pos}" if pos else "") + (f" · 거래량 평소 {vx:.1f}배" if vx else ""))
         if len(bars) >= 20:
             ma20 = sum(b[4] for b in bars[-20:]) / 20
             parts.append(f"20일선 {'위' if c >= ma20 else '아래'}({(c / ma20 - 1) * 100:+.1f}%)")

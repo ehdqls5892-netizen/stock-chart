@@ -879,6 +879,8 @@ class Bot:
                 for x, _, why, q in g:
                     out.append(f"- {x['name']} ≈{q}주 × {money(self.m, x['close'])} · 손절 {money(self.m, x['stop'])} "
                                f"· {when.get(Bot.swing_timing(self, x, d), '')} · {x['reason']}" + (f" · {why}" if why else ""))
+                    if x.get("_brief"):
+                        out.append("   " + x["_brief"].replace("\n", "\n   "))
         if not d.get("picks"):
             out.append("✅ 매수 예정: 없음")
         off = d.get("_off") or []
@@ -1032,6 +1034,15 @@ class Bot:
                 else:
                     skip(x, f"수량 0주 (1주 손절폭 {money(self.m, e - size_stop)}가 손실 한도보다 큼)")
                 continue
+            try:
+                bad, btxt, warn = Bot.cand_check(self, x, e)
+            except Exception as ex:
+                bad, btxt, warn = None, "", []
+                self.log(f"🧭 {x['name']} 종합 점검 오류: {ex}")
+            if bad:
+                skip(x, bad, loud=True)
+                continue
+            x["_brief"] = btxt + (("\n⚠️ " + " · ".join(warn)) if warn else "")
             if dry:
                 if slots > 0:
                     table.append((x, "매수", etxt, q))
@@ -1065,7 +1076,7 @@ class Bot:
             slots -= 1
             self.notify(f"🧭 스윙 매수 {x['name']} {q}주 ≈ {money(self.m, e)} · 손절 {money(self.m, sl)} "
                         f"(-{(1 - sl / e) * 100:.1f}%, 손실 한도 투자금의 {rp:g}%)\n산 이유: {x['reason']}"
-                        + SW.ev_text(ev, etxt))
+                        + SW.ev_text(ev, etxt) + (f"\n{x['_brief']}" if x.get("_brief") else ""))
         return spent
 
     def swing_bars(self, sym, last):
@@ -1224,14 +1235,10 @@ class Bot:
                     f"· 손절선 {money(self.m, p.sl)} (본전 이상이면 추가분도 손실 작음)")
         return True
 
-    def hold_brief(self, p, last=None) -> str:
-        """보유 종목의 지금 상황: 오늘 봉·거래량·20일선·애널리스트 목표가·이익 전망·(국장)외국인·기관·실적일·최근 뉴스.
-        매일 장 마감 15분 전 점검 알림과 텔레그램 '분석' 에 붙음 (판단 재료 — 자동 매매 규칙은 따로)."""
-        c = self.cfg["daily_swing"]
-        today = now(self.m).date()
+    def daily_full(self, sym) -> list:
         bars = []
         try:
-            for cd in self.api.candles(p.symbol, "1d", 30) or []:
+            for cd in self.api.candles(sym, "1d", 30) or []:
                 t = parse_ts(cd.get("timestamp"), self.m)
                 cl = f(cd.get("closePrice"))
                 if t and cl:
@@ -1240,10 +1247,63 @@ class Bot:
         except Exception:
             pass
         bars.sort(key=lambda b: b[0])
+        return bars
+
+    def est_row(self, sym):
+        c = self.cfg["daily_swing"]
+        today = now(self.m).date()
         if getattr(self, "_est_day", None) != today and c.get("estimates_url"):
             self._est = SW.load_estimates(c["estimates_url"], self.m, today, self.log)
             self._est_day = today
-        est = (getattr(self, "_est", None) or {}).get(p.symbol)
+        return (getattr(self, "_est", None) or {}).get(sym)
+
+    def cand_check(self, x, price) -> tuple:
+        """매수 직전 후보 종합 점검 → (안 살 이유 또는 None, 브리핑 글, 주의 목록).
+        보는 것: 신호 난 날·오늘 봉과 거래량, 20일선, 애널리스트 목표가·의견·이익 전망, 실적일, (국장) 외국인·기관, 최근 뉴스."""
+        c = self.cfg["daily_swing"]
+        ev = x.get("ev") or {}
+        est = Bot.est_row(self, x["code"]) or {}
+        if self.m == "US" and not est.get("targetMeanPrice") and ev.get("tgt_up") is not None:
+            est = {**est, "targetMeanPrice": x["close"] * (1 + ev["tgt_up"]), "recommendationMean": ev.get("rec"),
+                   "numberOfAnalystOpinions": ev.get("n_analysts"), "eps_0q_current": ev.get("eps0q"), "eps_0q_30daysAgo": ev.get("eps0q_30d")}
+        news = []
+        if c.get("brief_news", True) and os.getenv("TOSSBOT_OFFLINE") != "1":
+            try:
+                from .news import recent_news
+                news = recent_news(x["name"], self.m)
+            except Exception:
+                news = []
+        bars = Bot.daily_full(self, x["code"])
+        txt = SW.brief_text(self.m, bars, price, est, ev.get("react"), news, now(self.m).date(), lambda v: money(self.m, v))
+        warn, why = [], None
+        n = SW._num
+        if self.m == "US":
+            tg, rec = n(est.get("targetMeanPrice")), n(est.get("recommendationMean"))
+            bad_rec = rec is not None and rec >= 3.0
+        else:
+            tg, rec = n(est.get("cs_priceTargetMean")), n(est.get("cs_recommMean"))
+            bad_rec = rec is not None and rec <= 3.0
+            fo, og = n(est.get("foreignerPureBuyQuant")), n(est.get("organPureBuyQuant"))
+            if fo is not None and og is not None and fo < 0 and og < 0:
+                warn.append("외국인·기관 동반 순매도")
+        if tg and price and tg < price:
+            warn.append(f"애널리스트 평균 목표가({money(self.m, tg)})가 지금 가격보다 낮음")
+            if tg < price * (1 - c.get("tgt_below_pct", 5) / 100) and bad_rec:
+                why = f"애널리스트 평균 목표가가 지금보다 {(1 - tg / price) * 100:.0f}% 낮고 의견도 중립 이하"
+        rv, _ = SW.rev_state(ev)
+        if rv == "down":
+            warn.append("이익 전망 하향 중")
+        if bars and len(bars) >= 2 and bars[-1][0] == now(self.m).date() and price < bars[-1][1] * 0.97:
+            warn.append("오늘 시가보다 3% 넘게 밀리는 중")
+        return why, txt, warn
+
+    def hold_brief(self, p, last=None) -> str:
+        """보유 종목의 지금 상황: 오늘 봉·거래량·20일선·애널리스트 목표가·이익 전망·(국장)외국인·기관·실적일·최근 뉴스.
+        매일 장 마감 15분 전 점검 알림과 텔레그램 '분석' 에 붙음 (판단 재료 — 자동 매매 규칙은 따로)."""
+        c = self.cfg["daily_swing"]
+        today = now(self.m).date()
+        bars = Bot.daily_full(self, p.symbol)
+        est = Bot.est_row(self, p.symbol)
         news = []
         if c.get("brief_news", True) and os.getenv("TOSSBOT_OFFLINE") != "1":
             try:

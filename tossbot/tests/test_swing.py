@@ -341,3 +341,20 @@ xmlb = """<rss><channel><item><title>Dell rebounds on AI backlog - Reuters</titl
 <item><title>Intel warns on PCs - WSJ</title><source>WSJ</source><pubDate>Tue, 03 Nov 2026 10:00:00 GMT</pubDate></item></channel></rss>"""
 assert N.recent_news("Dell Technologies Inc.", "US", get=lambda u: SimpleNamespace(status_code=200, text=xmlb)) == ["Dell rebounds on AI backlog"]
 print("✅ 보유 종목 브리핑 시험 통과")
+
+# 17) 매수 직전 종합 점검: 목표가가 지금보다 낮고 의견도 나쁘면 안 삼 / 주의는 표시
+cfg["market"] = "US"
+cb = SimpleNamespace(cfg=cfg, m="US", api=SimpleNamespace(candles=lambda *a: []), log=print)
+cb._est_day, cb._est = M.now("US").date(), {"BAD": {"targetMeanPrice": "80", "recommendationMean": "3.4"},
+                                              "OK": {"targetMeanPrice": "95", "recommendationMean": "1.9"}}
+why, txt, warn = M.Bot.cand_check(cb, {"code": "BAD", "name": "Bad", "close": 100, "ev": {}}, 100)
+assert why and "목표가" in why, why
+why, txt, warn = M.Bot.cand_check(cb, {"code": "OK", "name": "Ok", "close": 100, "ev": {}}, 100)
+assert why is None and any("목표가" in w for w in warn) and "목표가 평균 $95.00 (-5%)" in txt, (why, warn, txt)
+cfg["market"] = "KR"
+ck = SimpleNamespace(cfg=cfg, m="KR", api=SimpleNamespace(candles=lambda *a: []), log=print)
+ck._est_day, ck._est = M.now("KR").date(), {"111111": {"cs_priceTargetMean": "15000", "cs_recommMean": "4.0",
+                                                       "foreignerPureBuyQuant": "-10", "organPureBuyQuant": "-5"}}
+why, txt, warn = M.Bot.cand_check(ck, {"code": "111111", "name": "가", "close": 10000, "ev": {}}, 10000)
+assert why is None and "외국인·기관 동반 순매도" in warn and "+50%" in txt, (warn, txt)
+print("✅ 매수 직전 종합 점검 시험 통과")
