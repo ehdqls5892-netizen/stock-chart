@@ -1,30 +1,36 @@
 {
  "market": "us",
  "date": "2026-11-04",
- "updatedAt": "2026-11-04T14:51+00:00",
- "plans": {},
+ "updatedAt": "2026-11-04T15:51+00:00",
+ "plans": {
+  "AMD": {
+   "name": "AMD",
+   "stop": 461.71,
+   "entryLow": 483.9,
+   "entryHigh": 496.81,
+   "t1": 538.05,
+   "src": "장중 1순위",
+   "t2": 640.21,
+   "score": 72
+  }
+ },
  "watch": [
-  "AMD",
-  "DDOG",
-  "MCD",
+  "ANET",
   "UBER",
-  "XYZ",
-  "TSLA",
-  "DJT",
+  "MCD",
+  "DDOG",
   "FSLR",
-  "EW",
-  "FTNT",
-  "FISV",
-  "NET",
-  "NVTS",
-  "ZBRA",
-  "TRNS",
+  "DJT",
+  "TSLA",
   "DJI",
   "SPX",
   "IXIC",
+  "AMD",
   "RUN",
   "ENPH",
-  "ANET"
+  "DUOL",
+  "DOX",
+  "FIS"
  ],
  "earn_good": {}
 }
