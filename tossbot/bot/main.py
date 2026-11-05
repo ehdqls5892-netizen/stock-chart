@@ -957,6 +957,7 @@ class Bot:
         cap = self.risk.capital or 0
         spent = 0.0
         alt = 0
+        planned_r = 0.0                   # 판단표(dry)에서 앞서 '매수 예정'으로 잡은 종목들의 손실 한도 합
         mgap = None                      # 기록용: 지수(SPY) 개장 갭 — 1월 점검 때 '지수 급등 출발 날 신고가 매수 건너뛰기' 검증
         if not dry and self.m == "US" and (d.get("index") or {}).get("close"):
             try:
@@ -1034,6 +1035,13 @@ class Bot:
                 else:
                     skip(x, f"수량 0주 (1주 손절폭 {money(self.m, e - size_stop)}가 손실 한도보다 큼)")
                 continue
+            mr = c.get("max_open_risk_pct")
+            if mr and cap:
+                open_r = sum(max(0.0, pp.entry - pp.sl) * pp.qty for pp in self.broker.pos.values()
+                             if pp.extra.get("sw") and pp.state in ("pending", "open")) + planned_r
+                if open_r + (e - round_tick(self.m, stop, "down")) * q > cap * mr / 100:
+                    skip(x, f"스윙 전체 열린 손실(손절선까지)이 투자금의 {mr:g}%를 넘게 됨 (지금 {money(self.m, open_r)})", loud=not dry)
+                    continue
             try:
                 bad, btxt, warn = Bot.cand_check(self, x, e)
             except Exception as ex:
@@ -1045,6 +1053,7 @@ class Bot:
             x["_brief"] = btxt + (("\n⚠️ " + " · ".join(warn)) if warn else "")
             if dry:
                 if slots > 0:
+                    planned_r += (e - round_tick(self.m, stop, "down")) * q
                     table.append((x, "매수", etxt, q))
                     slots -= 1
                     if sec:

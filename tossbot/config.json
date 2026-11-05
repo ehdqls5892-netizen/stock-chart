@@ -411,8 +411,7 @@
         "ep"
       ],
       "US": [
-        "hi52",
-        "dip"
+        "hi52"
       ]
     },
     "picks_url": "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/swingpicks-{m}/picks.json",
@@ -420,6 +419,7 @@
   "risk_by_setup": {"dip": 0.5}, "risk_by_setup_since": "2026-10-30",
   "_risk_note": "2026-11-03 저점 매수 0.5%로 낮춤: 10년 자료의 기간 밖(2017~2024) 검증에서 저점 매수는 연 +0.5~1.2%·낙폭 15~19%로 우위 거의 없음, 1.5%는 낙폭 25%. (이전: 2026-11-02 저점 매수만 1.5% (백테스트 마감 매수·추세순: 1% +38%·낙폭 7.1% → 1.5% +58%·낙폭 10.0%). 10/30 신호(11/2 밤 매수)부터 적용",
     "cap_pct": 20,
+  "max_open_risk_pct": 3, "_open_risk_note": "2026-11-05 저점 매수 3종목(같은 보안·AI 하드웨어)이 같은 날 함께 손절(-$198) → 스윙 전체 열린 손실 한도(손절선까지 남은 손실 합계)를 투자금의 3%로 묶음, 한 업종 최대 2종목, 미장 저점 매수 끔(10년 기간 밖 검증에서 우위 없음)",
     "max_pos": 6,
     "entry_delay_min": 1,
   "estimates_url": "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/estimates/{m}/{d}.csv", "brief_news": true, "tgt_below_pct": 5,
@@ -440,7 +440,7 @@
     "expire_days": 20,
     "_note": "백테스트 3년(tools/swingbt.py): 미장 52주 신고가(6종목·위험 0.5%) +51%·낙폭 12%, 국장 재료 갭 +28%·낙폭 12%. 단타(intraday)는 우위가 없어 꺼 둠 / 미장 하락 국면엔 저점 매수(dip): 백테스트 하락 국면만 +12%·낙폭 6% (무작위 +5%). 국장 저점 매수는 무작위보다 못해 안 씀 / 2026-11-02 손실 한도 1%로 상향(주 단위 백테스트: 미장 +113%·낙폭 13%, 국장 +104%·낙폭 16%), 안전장치 계좌 낙폭 15%·주 5%·하루 3%",
     "earnings": {"enabled": true, "window": {"hi52": 10, "dip": 7, "ep": 10}, "gap_mult": 2, "default_gap": 0.07,
-   "skip_if_rev_down": true, "sector_max": 3, "presell_x": 1.5,
+   "skip_if_rev_down": true, "sector_max": 2, "presell_x": 1.5,
    "kr_season": [["01-20", "02-20"], ["04-20", "05-20"], ["07-20", "08-20"], ["10-20", "11-20"]], "kr_season_gap": 0.08,
    "_note": "실적 반응일이 보유 예정 기간 안이면: 전망치 하향 중이면 안 삼, 아니면 '평균 실적 갭×2'가 나도 손실 한도 안으로 수량을 줄여 들고 감. 살 때 감안 안 한 보유 종목은 실적 전날 +1R 쿠션 없고 갭 위험이 한도 1.5배 넘으면 정리. 한 업종 최대 3종목. 백테스트 tools/earnbt.py"},
   "below_setups": [

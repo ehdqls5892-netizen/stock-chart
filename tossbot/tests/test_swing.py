@@ -179,7 +179,7 @@ assert "✅ 매수 예정" in tbl and "T3" in tbl and "T2" in tbl and "같은 �
 plan_names = [r[0]["code"] for r in bot.sw_table if r[1] == "매수"]
 M.Bot.swing_enter(bot, None, "close")
 assert set(b4.pos) == set(plan_names), (plan_names, list(b4.pos))          # 판단표와 실제 매수가 같음
-assert set(b4.pos) == {"T3", "T4", "T5", "T6"}, list(b4.pos)                # 실적 없는 것 먼저 → 업종 3개 차서 T1 은 업종 한도
+assert set(b4.pos) == {"T3", "T4", "T6"}, list(b4.pos)                # 실적 없는 것 먼저 → 업종 2개 차서 T5·T1 은 업종 한도
 assert any("T2" in m and "내려가" in m for m in sent) or "T2" not in b4.pos
 assert b4.pos["T3"].qty == 3 and b4.pos["T3"].extra["sector"] == "Technology"   # 저점 매수 0.5%: $25 / $8
 # 업종 한도 없을 때 실적 낀 T1 은 작게
@@ -358,3 +358,19 @@ ck._est_day, ck._est = M.now("KR").date(), {"111111": {"cs_priceTargetMean": "15
 why, txt, warn = M.Bot.cand_check(ck, {"code": "111111", "name": "가", "close": 10000, "ev": {}}, 10000)
 assert why is None and "외국인·기관 동반 순매도" in warn and "+50%" in txt, (warn, txt)
 print("✅ 매수 직전 종합 점검 시험 통과")
+
+# 18) 스윙 전체 열린 손실 한도 3%: 이미 손절선까지 손실이 큰 종목들을 들고 있으면 새로 안 삼
+cfg["market"] = "US"
+b9 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+for code in ("Q1", "Q2"):
+    pq = b9.enter(code, code, 100.0, 9, 300.0, 92.0, "x", r=8)      # 손절선까지 9주 × $8 = $72 씩
+    pq.state = "open"; pq.extra.update(sw=True)
+bot.broker, bot.m = b9, "US"
+bot.risk = SimpleNamespace(kill_switch=lambda: False, halted=None, capital=5000)
+sent.clear()
+prices.update({"H3": 100.0})
+bot.sw_picks = {"date": "2026-11-05", "regime": True, "index": {"close": 100.0},
+                "picks": [{"code": "H3", "name": "H3", "setup": "hi52", "close": 100, "stop": 95, "atr": 2, "score": 3, "reason": "신고가", "ev": {"sector": "C"}}]}
+M.Bot.swing_enter(bot, None, "open")
+assert "H3" not in b9.pos and any("열린 손실" in m for m in sent), sent           # $144 + 신규 $50 > $150(3%)
+print("✅ 열린 손실 한도 시험 통과")
