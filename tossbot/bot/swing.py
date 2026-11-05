@@ -266,3 +266,98 @@ def brief_text(market: str, bars: list, last: float, est: dict | None, earn_reac
     if news:
         out += "\n📰 " + " / ".join(t[:90] for t in news[:3])
     return out
+
+
+# ── 현재·미래 점수: 지금 차트·거래량·수급·애널리스트·이익 성장·뉴스로 매기는 점수 ──────────────────
+def forward_score(market: str, bars: list, price: float, est: dict | None, ev: dict | None, news_tone: int) -> tuple[int, list]:
+    """(점수, 근거 목록). bars: [(날짜, 시가, 고가, 저가, 종가, 거래량)] 마지막이 가장 최근 봉.
+    차트(양봉·마감 위치·20일선·거래량) / 애널리스트(목표가 여력·의견·이익 전망 방향) / 이익 성장(내년 예상 EPS vs 지난 1년) /
+    (국장) 외국인·기관 / 뉴스 분위기."""
+    sc, why = 0, []
+
+    def add(v, t):
+        nonlocal sc
+        sc += v
+        why.append(("＋" if v > 0 else "－") + t)
+    est, ev = est or {}, ev or {}
+    if len(bars) >= 2:
+        _, o, h, l, c, v = bars[-1]
+        c = price or c
+        rng = h - l
+        if c >= o:
+            add(1, "최근 봉 양봉")
+        else:
+            add(-1, "최근 봉 음봉")
+        if rng and (c - l) / rng >= 0.7:
+            add(1, "고가 근처 마감(매수세 강함)")
+        elif rng and (c - l) / rng <= 0.3:
+            add(-1, "저가 근처 마감(매도세 강함)")
+        vols = [b[5] for b in bars[-21:-1] if b[5]]
+        vx = v / (sum(vols) / len(vols)) if vols and v else None
+        if vx and vx >= 1.5:
+            add(1 if c >= o else -1, f"거래량 평소 {vx:.1f}배{'로 상승' if c >= o else '로 하락'}")
+        if len(bars) >= 20:
+            ma20 = sum(b[4] for b in bars[-20:]) / 20
+            add(1 if c >= ma20 else -1, f"20일선 {'위' if c >= ma20 else '아래'}")
+    n = _num
+    if market == "US":
+        tg, rec = n(est.get("targetMeanPrice")), n(est.get("recommendationMean"))
+        if tg is None and ev.get("tgt_up") is not None and price:
+            tg = price * (1 + ev["tgt_up"])
+        rec = rec if rec is not None else ev.get("rec")
+        if rec is not None:
+            if rec <= 2.0:
+                add(1, f"애널리스트 의견 매수 우세({rec:.1f})")
+            elif rec >= 3.0:
+                add(-1, f"애널리스트 의견 중립 이하({rec:.1f})")
+        fe, te = n(est.get("forwardEps")), n(est.get("trailingEps"))
+        if fe is not None and te and te > 0:
+            g = fe / te - 1
+            if g >= 0.15:
+                add(1, f"이익 성장 예상 {g * 100:+.0f}%")
+            elif g < 0:
+                add(-1, f"이익 감소 예상 {g * 100:+.0f}%")
+        e0, e30 = n(est.get("eps_0q_current")), n(est.get("eps_0q_30daysAgo"))
+        if e0 is None:
+            e0, e30 = ev.get("eps0q"), ev.get("eps0q_30d")
+        if e0 is not None and e30:
+            ch = (e0 - e30) / abs(e30)
+            if ch >= 0.01:
+                add(1, f"이익 전망 상향 중({ch * 100:+.1f}%)")
+            elif ch <= -0.01:
+                add(-1, f"이익 전망 하향 중({ch * 100:+.1f}%)")
+    else:
+        tg, rec = n(est.get("cs_priceTargetMean")), n(est.get("cs_recommMean"))
+        if rec is not None:
+            if rec >= 4.0:
+                add(1, f"증권사 의견 매수 우세({rec:.1f})")
+            elif rec <= 3.0:
+                add(-1, f"증권사 의견 중립 이하({rec:.1f})")
+        fo, og = n(est.get("foreignerPureBuyQuant")), n(est.get("organPureBuyQuant"))
+        if fo is not None and og is not None:
+            if fo > 0 and og > 0:
+                add(1, "외국인·기관 동반 순매수")
+            elif fo < 0 and og < 0:
+                add(-1, "외국인·기관 동반 순매도")
+        ce, le = n(est.get("ti_cnsEps")), n(est.get("ti_eps"))
+        if ce is not None and le and le > 0:
+            g = ce / le - 1
+            if g >= 0.15:
+                add(1, f"이익 성장 예상 {g * 100:+.0f}%")
+            elif g < 0:
+                add(-1, f"이익 감소 예상 {g * 100:+.0f}%")
+    if tg and price:
+        up = tg / price - 1
+        if up >= 0.15:
+            add(1, f"목표가까지 {up * 100:+.0f}% 여력")
+        elif up < 0:
+            add(-1, f"목표가가 지금보다 낮음({up * 100:+.0f}%)")
+    if news_tone > 0:
+        add(1, "최근 기사 호재가 많음")
+    elif news_tone < 0:
+        add(-1, "최근 기사 악재가 많음")
+    return sc, why
+
+
+def grade_of(score: int) -> str:
+    return "A" if score >= 4 else "B" if score >= 2 else "C"

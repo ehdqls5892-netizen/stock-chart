@@ -13,6 +13,7 @@ cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_t
 c = cfg["daily_swing"]
 c["red_flag_news"] = False          # 시험에선 인터넷 뉴스 안 봄 (아래 12번에서 따로 시험)
 c["brief_news"] = False
+c["min_forward_score"] = -99         # 기존 시험은 점수 문턱 없이 (아래 19번에서 따로 시험)
 c["estimates_url"] = ""
 KS = c["earnings"].pop("kr_season")  # 국장 실적 시즌 규칙은 날짜에 따라 달라져서 14번에서 따로 시험
 assert cfg["strategy"]["intraday"] is False and c["enabled"]
@@ -374,3 +375,31 @@ bot.sw_picks = {"date": "2026-11-05", "regime": True, "index": {"close": 100.0},
 M.Bot.swing_enter(bot, None, "open")
 assert "H3" not in b9.pos and any("열린 손실" in m for m in sent), sent           # $144 + 신규 $50 > $150(3%)
 print("✅ 열린 손실 한도 시험 통과")
+
+# 19) 현재·미래 점수
+bars_up = [(dt.date(2026, 10, 1) + dt.timedelta(days=i), 100, 101, 99, 100, 1000.0) for i in range(24)]
+bars_up.append((dt.date(2026, 11, 4), 100, 106, 99.5, 105.5, 2500.0))    # 양봉·고가 근처·거래량 2.5배·20일선 위
+good = {"targetMeanPrice": "130", "recommendationMean": "1.7", "forwardEps": "6", "trailingEps": "5",
+        "eps_0q_current": "1.03", "eps_0q_30daysAgo": "1.0"}
+fs, fw = SW.forward_score("US", bars_up, 105.5, good, {}, 1)
+print(fs, fw)
+assert fs >= 8 and SW.grade_of(fs) == "A", (fs, fw)
+bars_dn = bars_up[:-1] + [(dt.date(2026, 11, 4), 100, 101, 93, 93.5, 2500.0)]  # 음봉·저가 마감·거래량 실린 하락·20일선 아래
+bad = {"targetMeanPrice": "90", "recommendationMean": "3.2", "forwardEps": "4", "trailingEps": "5",
+       "eps_0q_current": "0.95", "eps_0q_30daysAgo": "1.0"}
+fs2, fw2 = SW.forward_score("US", bars_dn, 93.5, bad, {}, -1)
+assert fs2 <= -6 and SW.grade_of(fs2) == "C", (fs2, fw2)
+ks, kw = SW.forward_score("KR", bars_up, 105.5, {"cs_priceTargetMean": "130", "cs_recommMean": "4.0", "foreignerPureBuyQuant": "5",
+                                                  "organPureBuyQuant": "3", "ti_cnsEps": "1200", "ti_eps": "1000"}, {}, 0)
+assert ks >= 7 and any("외국인·기관 동반 순매수" in w for w in kw), (ks, kw)
+# 문턱: 점수 낮으면 안 삼
+cfg["daily_swing"]["min_forward_score"] = 2
+cfg["market"] = "US"
+cz = SimpleNamespace(cfg=cfg, m="US", api=SimpleNamespace(candles=lambda *a: [
+    {"timestamp": dt.datetime.combine(b[0], dt.time(16, 0), M.TZ["US"]).isoformat(), "openPrice": str(b[1]), "highPrice": str(b[2]),
+     "lowPrice": str(b[3]), "closePrice": str(b[4]), "volume": str(b[5])} for b in bars_dn]), log=print)
+cz._est_day, cz._est = M.now("US").date(), {"ZZ": bad}
+why, txt, warn = M.Bot.cand_check(cz, {"code": "ZZ", "name": "Zz", "close": 93.5, "ev": {}}, 93.5)
+assert why and "근거 부족" in why, why
+cfg["daily_swing"]["min_forward_score"] = -99
+print("✅ 현재·미래 점수 시험 통과")

@@ -1072,7 +1072,8 @@ class Bot:
             p.extra.update(sw=True, carry=True, setup="sw_" + x["setup"], sw_kind=x["setup"], sw_stop0=sl, sw_hi=e, sw_days=0,
                            expire=(base + dt.timedelta(days=c.get("expire_days", 20))).isoformat(),
                            sector=sec, earn_react=ev.get("react"), earn_gap=ev.get("gap_avg"), earn_hold=plan == "hold",
-                           mkt_gap=mgap, entry_when=when)
+                           mkt_gap=mgap, entry_when=when, fscore=x.get("_fscore"), fwhy=(x.get("_fwhy") or [])[:10],
+                           grade=SW.grade_of(x["_fscore"]) if x.get("_fscore") is not None else None)
             if when == "close":
                 p.extra["carry_done"] = today.isoformat()      # 방금 샀으니 오늘 일봉 점검·정리 대상 아님
             if sec:
@@ -1285,6 +1286,17 @@ class Bot:
                 news = []
         bars = Bot.daily_full(self, x["code"])
         txt = SW.brief_text(self.m, bars, price, est, ev.get("react"), news, now(self.m).date(), lambda v: money(self.m, v))
+        tone = 0
+        try:
+            from .news import NewsWatch
+            nw = NewsWatch.__new__(NewsWatch)
+            nw.m = self.m
+            tone = sum(NewsWatch.tone(nw, t) for t in news)
+        except Exception:
+            tone = 0
+        fs, fwhy = SW.forward_score(self.m, bars, price, est, ev, tone)
+        x["_fscore"], x["_fwhy"] = fs, fwhy
+        txt = (f"🎯 현재·미래 점수 {fs:+d} ({SW.grade_of(fs)}): " + " ".join(fwhy[:8]) + ("\n" + txt if txt else "")) if fwhy else txt
         warn, why = [], None
         n = SW._num
         if self.m == "US":
@@ -1303,6 +1315,8 @@ class Bot:
         rv, _ = SW.rev_state(ev)
         if rv == "down":
             warn.append("이익 전망 하향 중")
+        if why is None and fwhy and fs < c.get("min_forward_score", 2):
+            why = f"현재·미래 근거 부족 (점수 {fs:+d}, 기준 {c.get('min_forward_score', 2):+d} 이상): " + " ".join(w for w in fwhy if w.startswith("－"))[:120]
         if bars and len(bars) >= 2 and bars[-1][0] == now(self.m).date() and price < bars[-1][1] * 0.97:
             warn.append("오늘 시가보다 3% 넘게 밀리는 중")
         return why, txt, warn
@@ -1322,7 +1336,19 @@ class Bot:
             except Exception:
                 news = []
         last = last or (bars[-1][4] if bars else p.entry)
-        return SW.brief_text(self.m, bars, last, est, p.extra.get("earn_react"), news, today, lambda v: money(self.m, v))
+        txt = SW.brief_text(self.m, bars, last, est, p.extra.get("earn_react"), news, today, lambda v: money(self.m, v))
+        try:
+            from .news import NewsWatch
+            nw = NewsWatch.__new__(NewsWatch)
+            nw.m = self.m
+            fs, fw = SW.forward_score(self.m, bars, last, est, {}, sum(NewsWatch.tone(nw, t) for t in news))
+            if fw:
+                was = p.extra.get("fscore")
+                txt = (f"🎯 현재·미래 점수 {fs:+d} ({SW.grade_of(fs)})" + (f" · 살 때 {was:+d}" if was is not None else "")
+                       + ": " + " ".join(fw[:8]) + ("\n" + txt if txt else ""))
+        except Exception:
+            pass
+        return txt
 
     def earn_presell(self, p, close) -> bool:
         """내일이 실적 반응일인데, 살 때 실적을 감안해 줄여 사지 않았고 아직 +1R 수익 쿠션이 없으며
