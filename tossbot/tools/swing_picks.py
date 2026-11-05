@@ -173,9 +173,14 @@ def build(m, bars, names, idx):
     ix = None
     if idx:
         si = B.prep(idx)
+        # 시장 상태 기준선: 미장 200일선(찾는 기간 17~22·확인 기간 23~26 둘 다 칼마 개선, 50일선은 겨우 넘었다 내렸다 오락가락),
+        # 국장 50일선(국장은 200일선이 더 나빴음)
+        n = 200 if m == "us" else 50
+        mref = B.sma(si["c"], n)
         m50 = B.sma(si["c"], 50)
-        reg = bool(si["c"][-1] > m50[-1])
-        ix = {"close": round(float(si["c"][-1]), 2), "ma50": round(float(m50[-1]), 2), "date": si["d"][-1]}
+        reg = bool(si["c"][-1] > mref[-1])
+        ix = {"close": round(float(si["c"][-1]), 2), "ma50": round(float(mref[-1]), 2), "ma_n": n,
+              "ma50_real": round(float(m50[-1]), 2), "date": si["d"][-1]}
     out = {"market": m.upper(), "date": last, "made": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
            "regime": reg, "index": ix, "universe": len(S), "picks": picks}
     return out

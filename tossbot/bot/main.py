@@ -871,7 +871,7 @@ class Bot:
         when = {"open": "장 시작 1분 뒤", "close": "장 마감 15분 전"}
         ix = d.get("index") or {}
         out = [f"🧭 스윙 매수 판단표 ({d.get('date')} 종가 기준 · 시장 {'좋음' if d.get('regime') else '나쁨'} "
-               f"{ix.get('close')} vs 50일선 {ix.get('ma50')}) — 후보 {len(d.get('picks', []))}개"]
+               f"{ix.get('close')} vs {ix.get('ma_n', 50)}일선 {ix.get('ma50')}) — 후보 {len(d.get('picks', []))}개"]
         for st, icon in (("매수", "✅ 매수 예정"), ("예비", "⏭ 예비 (예정 종목이 시가 조건에 걸리면 순서대로)")):
             g = [r for r in rows if r[1] == st]
             if g:
@@ -886,8 +886,9 @@ class Bot:
         off = d.get("_off") or []
         if off:
             nm = "코스피" if self.m == "KR" else "S&P500"
-            why = (f"{nm}가 50일선 아래(하락 국면)라 이 방식은 쉼" if not d.get("regime")
-                   else f"{nm}가 50일선 위(상승 국면)라 저점 매수는 쉼")
+            mn = (d.get("index") or {}).get("ma_n", 50)
+            why = (f"{nm}가 {mn}일선 아래(하락 국면)라 이 방식은 쉼" if not d.get("regime")
+                   else f"{nm}가 {mn}일선 위(상승 국면)라 저점 매수는 쉼")
             out.append(f"⏸ 시장 상태 때문에 안 삼 ({why}): " + ", ".join(x["name"] for x in off[:10])
                        + (f" 외 {len(off) - 10}개" if len(off) > 10 else ""))
         g = [r for r in rows if r[1] == "탈락"]
