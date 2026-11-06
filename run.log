@@ -1,0 +1,39 @@
+일봉 60/503 · 받음 60
+일봉 120/503 · 받음 120
+일봉 180/503 · 받음 180
+일봉 240/503 · 받음 238
+일봉 300/503 · 받음 298
+일봉 360/503 · 받음 358
+일봉 420/503 · 받음 418
+일봉 480/503 · 받음 477
+일봉 503/503 · 받음 500
+일봉 1/1 · 받음 1
+CPAY {'earn': '2027-02-03 16:00', 'react': '2027-02-04', 'gap_avg': 0.0435, 'gap_max': 0.0861, 'sector': 'Technology', 'industry': 'Software - Infrastructure', 'tgt_up': 0.0121, 'rec': 1.69, 'n_analysts': 15, 'eps0q': 7.43469, 'eps0q_30d': 7.41147, 'up30': 3.0, 'down30': 0.0}
+HUM {'gap_avg': 0.0487, 'gap_max': 0.075, 'sector': 'Healthcare', 'industry': 'Healthcare Plans', 'tgt_up': 0.0724, 'rec': 1.96, 'n_analysts': 24, 'eps0q': -7.86308, 'eps0q_30d': -7.8583, 'up30': 3.0, 'down30': 1.0}
+VTRS {'earn': '2027-02-25 08:00', 'react': '2027-02-25', 'gap_avg': 0.0449, 'gap_max': 0.1762, 'sector': 'Healthcare', 'industry': 'Drug Manufacturers - Specialty & Generic', 'tgt_up': 0.0045, 'rec': 2.0, 'n_analysts': 10, 'eps0q': 0.5935, 'eps0q_30d': 0.59061, 'up30': 3.0, 'down30': 0.0}
+EVRG {'earn': '2027-02-18 08:00', 'react': '2027-02-18', 'gap_avg': 0.0125, 'gap_max': 0.0268, 'sector': 'Utilities', 'industry': 'Utilities - Regulated Electric', 'tgt_up': 0.0354, 'rec': 1.81, 'n_analysts': 14, 'eps0q': 0.43744, 'eps0q_30d': 0.55824, 'up30': 0.0, 'down30': 3.0}
+OKTA {'earn': '2026-12-01 16:00', 'react': '2026-12-02', 'gap_avg': 0.1152, 'gap_max': 0.2361, 'sector': 'Technology', 'industry': 'Software - Infrastructure', 'tgt_up': 0.2728, 'rec': 1.66, 'n_analysts': 43, 'eps0q': 0.93474, 'eps0q_30d': 0.93474, 'up30': 19.0, 'down30': 15.0}
+CRWD {'earn': '2026-12-01 16:00', 'react': '2026-12-02', 'gap_avg': 0.0544, 'gap_max': 0.1008, 'sector': 'Technology', 'industry': 'Software - Infrastructure', 'tgt_up': 0.1455, 'rec': 1.66, 'n_analysts': 50, 'eps0q': 0.31145, 'eps0q_30d': 0.31101, 'up30': 1.0, 'down30': 0.0}
+MPC {'earn': '2027-02-02 08:00', 'react': '2027-02-02', 'gap_avg': 0.0182, 'gap_max': 0.0852, 'sector': 'Energy', 'industry': 'Oil & Gas Refining & Marketing', 'tgt_up': 0.2349, 'rec': 2.39, 'n_analysts': 17, 'eps0q': 24.42075, 'eps0q_30d': 16.97862, 'up30': 14.0, 'down30': 1.0}
+PSX {'earn': '2027-02-03 08:00', 'react': '2027-02-03', 'gap_avg': 0.0101, 'gap_max': 0.0191, 'sector': 'Energy', 'industry': 'Oil & Gas Refining & Marketing', 'tgt_up': 0.1898, 'rec': 2.1, 'n_analysts': 19, 'eps0q': 10.19356, 'eps0q_30d': 7.52552, 'up30': 10.0, 'down30': 1.0}
+VLO {'earn': '2027-01-28 08:00', 'react': '2027-01-28', 'gap_avg': 0.0214, 'gap_max': 0.0421, 'sector': 'Energy', 'industry': 'Oil & Gas Refining & Marketing', 'tgt_up': 0.2325, 'rec': 2.5, 'n_analysts': 19, 'eps0q': 20.00617, 'eps0q_30d': 13.76414, 'up30': 13.0, 'down30': 2.0}
+PANW {'earn': '2026-11-18 16:00', 'react': '2026-11-19', 'gap_avg': 0.0452, 'gap_max': 0.0853, 'sector': 'Technology', 'industry': 'Software - Infrastructure', 'tgt_up': 0.2698, 'rec': 1.69, 'n_analysts': 50, 'eps0q': 0.97062, 'eps0q_30d': 0.97062, 'up30': 32.0, 'down30': 5.0}
+COP {'earn': '2027-02-04 08:00', 'react': '2027-02-04', 'gap_avg': 0.0187, 'gap_max': 0.0431, 'sector': 'Energy', 'industry': 'Oil & Gas E&P', 'tgt_up': 0.1122, 'rec': 1.9, 'n_analysts': 27, 'eps0q': 3.37759, 'eps0q_30d': 2.69104, 'up30': 17.0, 'down30': 2.0}
+NTAP {'earn': '2026-12-01 16:00', 'react': '2026-12-02', 'gap_avg': 0.0875, 'gap_max': 0.2408, 'sector': 'Technology', 'industry': 'Software - Infrastructure', 'tgt_up': 0.2512, 'rec': 2.29, 'n_analysts': 16, 'eps0q': 2.60332, 'eps0q_30d': 2.59962, 'up30': 1.0, 'down30': 0.0}
+NUE {'earn': '2027-01-25 16:00', 'react': '2027-01-26', 'gap_avg': 0.0253, 'gap_max': 0.0676, 'sector': 'Basic Materials', 'industry': 'Steel', 'tgt_up': 0.2078, 'rec': 1.65, 'n_analysts': 16, 'eps0q': 6.05025, 'eps0q_30d': 5.19497, 'up30': 5.0, 'down30': 0.0}
+HPE {'earn': '2026-11-23 16:00', 'react': '2026-11-24', 'gap_avg': 0.1061, 'gap_max': 0.3417, 'sector': 'Technology', 'industry': 'Communication Equipment', 'tgt_up': 0.6127, 'rec': 1.96, 'n_analysts': 21, 'eps0q': 1.27724, 'eps0q_30d': 1.27286, 'up30': 18.0, 'down30': 0.0}
+URI {'earn': '2027-01-27 16:00', 'react': '2027-01-28', 'gap_avg': 0.0559, 'gap_max': 0.1747, 'sector': 'Industrials', 'industry': 'Rental & Leasing Services', 'tgt_up': 0.2253, 'rec': 1.77, 'n_analysts': 21, 'eps0q': 14.29845, 'eps0q_30d': 13.19449, 'up30': 12.0, 'down30': 1.0}
+XOM {'earn': '2027-01-29 08:00', 'react': '2027-01-29', 'gap_avg': 0.012, 'gap_max': 0.0206, 'sector': 'Energy', 'industry': 'Oil & Gas Integrated', 'tgt_up': 0.1073, 'rec': 2.42, 'n_analysts': 21, 'eps0q': 4.12049, 'eps0q_30d': 3.35712, 'up30': 11.0, 'down30': 2.0}
+TXN {'earn': '2027-01-26 16:00', 'react': '2027-01-27', 'gap_avg': 0.0648, 'gap_max': 0.1016, 'sector': 'Technology', 'industry': 'Semiconductors', 'tgt_up': 0.2145, 'rec': 2.03, 'n_analysts': 29, 'eps0q': 2.62037, 'eps0q_30d': 2.28002, 'up30': 21.0, 'down30': 0.0}
+TWLO {'earn': '2027-02-11 16:00', 'react': '2027-02-12', 'gap_avg': 0.1389, 'gap_max': 0.2286, 'sector': 'Technology', 'industry': 'Software - Infrastructure', 'tgt_up': 0.3254, 'rec': 1.61, 'n_analysts': 29, 'eps0q': 1.54202, 'eps0q_30d': 1.48326, 'up30': 1.0, 'down30': 0.0}
+IFF {'earn': '2027-02-10 16:00', 'react': '2027-02-11', 'gap_avg': 0.0519, 'gap_max': 0.1416, 'sector': 'Basic Materials', 'industry': 'Specialty Chemicals', 'tgt_up': 0.1833, 'rec': 1.8, 'n_analysts': 17, 'eps0q': 0.59177, 'eps0q_30d': 0.67384, 'up30': 2.0, 'down30': 1.0}
+TRGP {'earn': '2027-02-18 08:00', 'react': '2027-02-18', 'gap_avg': 0.009, 'gap_max': 0.0186, 'sector': 'Energy', 'industry': 'Oil & Gas Midstream', 'tgt_up': 0.2479, 'rec': 1.36, 'n_analysts': 21, 'eps0q': 2.93784, 'eps0q_30d': 2.95459, 'up30': 1.0, 'down30': 2.0}
+LMT {'earn': '2027-01-26 08:00', 'react': '2027-01-26', 'gap_avg': 0.0446, 'gap_max': 0.082, 'sector': 'Industrials', 'industry': 'Aerospace & Defense', 'tgt_up': 0.1654, 'rec': 2.25, 'n_analysts': 22, 'eps0q': 8.2113, 'eps0q_30d': 8.55091, 'up30': 1.0, 'down30': 15.0}
+OXY {'earn': '2026-11-09 16:00', 'react': '2026-11-10', 'gap_avg': 0.0333, 'gap_max': 0.0644, 'sector': 'Energy', 'industry': 'Oil & Gas E&P', 'tgt_up': 0.2547, 'rec': 2.21, 'n_analysts': 27, 'eps0q': 1.47104, 'eps0q_30d': 1.26408, 'up30': 17.0, 'down30': 1.0}
+일봉 3/3 · 받음 3
+/home/runner/work/stock-chart/stock-chart/tossbot/tools/swing_picks.py:146: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+  last = dv[dv.index >= dv.index[-1] - __import__("pandas").Timedelta(days=365)]
+/home/runner/work/stock-chart/stock-chart/tossbot/tools/swing_picks.py:146: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+  last = dv[dv.index >= dv.index[-1] - __import__("pandas").Timedelta(days=365)]
+/home/runner/work/stock-chart/stock-chart/tossbot/tools/swing_picks.py:146: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+  last = dv[dv.index >= dv.index[-1] - __import__("pandas").Timedelta(days=365)]
