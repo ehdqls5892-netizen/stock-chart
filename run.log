@@ -1,0 +1,24 @@
+국장 후보 2538 → 700
+
+1 Failed download:
+['403870.KQ']: OperationalError('database is locked')
+일봉 60/700 · 받음 58
+일봉 120/700 · 받음 117
+일봉 180/700 · 받음 176
+일봉 240/700 · 받음 234
+일봉 300/700 · 받음 294
+일봉 360/700 · 받음 353
+일봉 420/700 · 받음 411
+일봉 480/700 · 받음 471
+일봉 540/700 · 받음 530
+일봉 600/700 · 받음 590
+일봉 660/700 · 받음 649
+일봉 700/700 · 받음 689
+일봉 1/1 · 받음 1
+일봉 3/3 · 받음 3
+/home/runner/work/stock-chart/stock-chart/tossbot/tools/swing_picks.py:146: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+  last = dv[dv.index >= dv.index[-1] - __import__("pandas").Timedelta(days=365)]
+/home/runner/work/stock-chart/stock-chart/tossbot/tools/swing_picks.py:146: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+  last = dv[dv.index >= dv.index[-1] - __import__("pandas").Timedelta(days=365)]
+/home/runner/work/stock-chart/stock-chart/tossbot/tools/swing_picks.py:146: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+  last = dv[dv.index >= dv.index[-1] - __import__("pandas").Timedelta(days=365)]
