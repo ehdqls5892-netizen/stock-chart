@@ -88,3 +88,18 @@ AL.check("KR", quotes=lambda syms: {"H1": 106.5, "W1": 112.0, "M1": 131.0}, bars
          names=lambda c: {}, now_fn=lambda mk: dt.datetime(2026, 11, 9, 10, 2))
 assert pushed == [], pushed                                                        # 같은 날 같은 단계는 다시 안 옴
 print("✅ 앱 알림 시험 통과")
+
+# 6) 자동 업데이트: 국장(서울 07:30)·미장(뉴욕 08:30) 전 하루 한 번, 주말은 안 함
+import datetime as _dt  # noqa: E402
+AL._upd_done.clear()
+_r = []
+_kst = lambda h, m, d=10: _dt.datetime(2026, 11, d, h, m, tzinfo=_dt.timezone(_dt.timedelta(hours=9))).astimezone(_dt.timezone.utc)
+assert AL.auto_update(_kst(7, 20), run=_r.append) is None and not _r
+AL.auto_update(_kst(7, 31), run=_r.append)
+AL.auto_update(_kst(7, 35), run=_r.append)
+assert _r == ["KR"], _r
+AL.auto_update(_kst(7, 31, 14), run=_r.append)                                  # 토요일
+assert _r == ["KR"]
+AL.auto_update(_dt.datetime(2026, 11, 10, 13, 35, tzinfo=_dt.timezone.utc), run=_r.append)   # 뉴욕 08:35
+assert _r == ["KR", "US"], _r
+print("✅ 자동 업데이트 시험 통과")

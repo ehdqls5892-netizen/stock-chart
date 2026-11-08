@@ -145,6 +145,33 @@ def check(mk: str, quotes=None, bars=None, rankings=None, names=None, now_fn=Non
             break
 
 
+_upd_done: set = set()
+UPDATE_AT = {"KR": ("Asia/Seoul", 7, 30), "US": ("America/New_York", 8, 30)}   # 장 시작 약 1시간 반 전
+
+
+def auto_update(now_utc=None, run=None) -> str | None:
+    """매일 국장·미장 시작 전에 GitHub 새 버전이 있으면 시험 후 적용(없으면 그대로). 사람이 버튼 안 눌러도 됨.
+    적용되면 로봇이 다시 켜지고, 실전이었으면 실전으로 이어서 시작(APP_RESUME) → 장 시작 때 새 후보를 다시 불러옴."""
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    now_utc = now_utc or dt.datetime.now(dt.timezone.utc)
+    for mk, (tz, h, m) in UPDATE_AT.items():
+        t = now_utc.astimezone(ZoneInfo(tz))
+        key = (mk, t.date().isoformat())
+        if t.weekday() >= 5 or key in _upd_done:
+            continue
+        mins = t.hour * 60 + t.minute - (h * 60 + m)
+        if 0 <= mins < 20:
+            _upd_done.add(key)
+            if run:
+                return run(mk)
+            from .telegram_ctl import TelegramControl
+            msg = TelegramControl.update_now(None)
+            print("자동 업데이트 확인", mk, msg)
+            return msg
+    return None
+
+
 _last_nj: dict = {}
 
 
@@ -194,6 +221,10 @@ def _loop():
                 hold_news(mk)
             except Exception:
                 pass
+        try:
+            auto_update()
+        except Exception as e:
+            print("자동 업데이트 오류", e)
         time.sleep(120)
 
 

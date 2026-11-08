@@ -41,7 +41,8 @@ PY
 }
 
 update_github() {   # $1 = force
-  SHA=$(curl -s -m 30 "https://api.github.com/repos/$REPO/commits/main" | .venv/bin/python -c "import json,sys;print(json.load(sys.stdin).get('sha','')[:7])" 2>/dev/null)
+  # 로봇 코드(tossbot 폴더)가 바뀐 마지막 커밋 — 데스크 자료 커밋만 있을 때는 다시 켜지 않음
+  SHA=$(curl -s -m 30 "https://api.github.com/repos/$REPO/commits?path=tossbot&per_page=1" | .venv/bin/python -c "import json,sys;print(json.load(sys.stdin)[0].get('sha','')[:7])" 2>/dev/null)
   [ -z "$SHA" ] && { echo "GitHub 에 연결하지 못했어요"; return 1; }
   if [ "$1" != "force" ] && [ "$(cat .last_sha 2>/dev/null)" = "$SHA" ]; then echo "이미 최신이에요 ($SHA)"; return 0; fi
   T=$(mktemp -d)
