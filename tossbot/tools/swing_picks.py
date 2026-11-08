@@ -154,13 +154,40 @@ def enrich_us(picks, bars, tick=None):
         print(p["code"], ev, file=sys.stderr)
 
 
-def est_old(m, days=28):
+def est_latest(m):
+    """estimates 브랜치의 가장 최근 컨센서스 CSV (오늘~5일 전)."""
+    return est_old(m, days=0, back=6)
+
+
+def desk_codes(m):
+    """주식비서 데스크가 좋게 본 종목: 마감 리포트 가격 계획·관심, 장중 1순위·호재 이슈, 실적 좋음·실적 기대."""
+    import requests
+    base = "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/main/docs/data/desk-{m}-{k}.json"
+    out = []
+    for k in ("report", "live", "earn"):
+        try:
+            d = requests.get(base.format(m=m, k=k), timeout=20).json()
+        except Exception:
+            continue
+        out += list((d.get("plans") or {}))
+        if k == "report":
+            out += (d.get("watch") or [])[:20]
+        if k == "live":
+            out += [c for c, x in (d.get("impact") or {}).items() if (x or {}).get("impact") == "호재"]
+        if k == "earn":
+            out += list((d.get("good") or {}))
+            out += [c for c, x in (d.get("events") or {}).items() if "기대" in str((x or {}).get("bias", ""))]
+    return list(dict.fromkeys(str(c) for c in out))
+
+
+def est_old(m, days=28, back=None):
     """estimates 브랜치에서 약 days 일 전(없으면 가장 오래된 것) 컨센서스 CSV → 코드별 행."""
     import csv
     import requests
     base = "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/estimates/{m}/{d}.csv"
     today = dt.date.today()
-    for k in list(range(days, days + 7)) + list(range(days - 1, 5, -1)):
+    ks = list(range(days, days + back)) if back else list(range(days, days + 7)) + list(range(days - 1, 5, -1))
+    for k in ks:
         d = (today - dt.timedelta(days=k)).isoformat()
         try:
             r = requests.get(base.format(m=m, d=d), timeout=20)
@@ -188,7 +215,7 @@ def _rows(b, n=30):
 STATS: dict = {}       # 전 종목 지금 상태 (앱 데스크 판정용): 차트 점수·장기 하락·1년 고점 대비·3개월·20일선 거리
 
 
-def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
+def scan_now(m, bars, names, idx, tick=None, top=50, keep=20):
     """현재·미래 점수 스캔: 전체 종목을 '지금' 기준으로 점수 매겨 상위 종목을 후보(setup 'fs')로.
     1) 차트(최근 봉 양봉·마감 위치·거래량 실린 상승·20일선·52주 신고가 근처·시장 추세)로 전 종목 1차 점수
     2) 상위 top 개만 애널리스트·이익 성장·실적일·업종(미장 야후) / 증권사 의견·외국인·기관·이익 성장(국장 네이버) 붙여 최종 점수
@@ -198,6 +225,10 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
         si = B.prep(idx)
         m50 = B.sma(si["c"], 50)
         mkt = 1 if si["c"][-1] > m50[-1] else -1
+    try:
+        est_all = est_latest(m)
+    except Exception:
+        est_all = {}
     first = []
     for code, b in bars.items():
         if len(b) < 60:
@@ -215,20 +246,40 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
         if mkt:
             sc += mkt
             why.append("＋시장 상승 추세(지수 50일선 위)" if mkt > 0 else "－시장 하락 추세(지수 50일선 아래)")
+        sc_chart = sc
+        # 1차부터 '앞으로 오를 여지'도 봄: 증권사 평균 목표가까지 남은 폭 ÷ 손절(2×ATR) 폭, 의견
+        e0 = est_all.get(code) or {}
+        tg = SW._num(e0.get("targetMeanPrice") if m == "us" else e0.get("cs_priceTargetMean"))
+        if tg and c and not SW.long_downtrend(r, c):
+            trs0 = [max(r[i][2] - r[i][3], abs(r[i][2] - r[i - 1][4]), abs(r[i][3] - r[i - 1][4])) for i in range(len(r) - 14, len(r))]
+            adj0, t0, _ = SW.rr_score(tg / c - 1, 2 * sum(trs0) / len(trs0) / c)
+            if t0:
+                sc += adj0
+                why.append(t0)
+        rec = SW._num(e0.get("recommendationMean") if m == "us" else e0.get("cs_recommMean"))
+        if rec is not None and ((m == "us" and rec <= 2.0) or (m == "kr" and rec >= 4.0)):
+            sc += 1
+            why.append("＋증권사 의견 매수 우세")
         vols = [x[5] for x in r[-21:-1] if x[5]]
         vx = r[-1][5] / (sum(vols) / len(vols)) if vols and r[-1][5] else 0
         first.append((sc, vx, code, r, why))
         try:
             hi1 = max(x[2] for x in r[-252:])
             ma20 = sum(x[4] for x in r[-20:]) / 20
-            STATS[code] = {"c": sc - mkt, "ld": bool(SW.long_downtrend(r, c)), "dd": round(c / hi1 - 1, 3),
+            STATS[code] = {"c": sc_chart - mkt, "ld": bool(SW.long_downtrend(r, c)), "dd": round(c / hi1 - 1, 3),
                            "r3": round(c / r[-64][4] - 1, 3) if len(r) >= 64 else None, "d20": round(c / ma20 - 1, 3),
                            "close": round(c, 4)}
         except Exception:
             pass
     first.sort(key=lambda t: (-t[0], -t[1]))
+    try:
+        dk = set(desk_codes(m))
+    except Exception:
+        dk = set()
+    pick = first[:top] + [t for t in first[top:] if t[2] in dk][:20]      # 데스크가 좋게 본 종목도 깊게 점검
+    print(f"깊게 점검: 점수 상위 {min(top, len(first))} + 데스크 종목 {len(pick) - min(top, len(first))}", file=sys.stderr)
     cand = []
-    for sc, vx, code, r, why in first[:top]:
+    for sc, vx, code, r, why in pick:
         c = r[-1][4]
         trs = [max(r[i][2] - r[i][3], abs(r[i][2] - r[i - 1][4]), abs(r[i][3] - r[i - 1][4])) for i in range(len(r) - 14, len(r))]
         atr = sum(trs) / len(trs)
