@@ -75,6 +75,18 @@ def enrich_us(picks, bars, tick=None):
         try:
             df = t.get_earnings_dates(limit=12)
             rows = sorted((ts.strftime("%Y-%m-%d %H:%M"), r.get("Reported EPS")) for ts, r in (df if df is not None else []).iterrows())
+            try:                                       # 직전 실적: 예상 대비 서프라이즈 %, 1년 전 같은 분기 대비 EPS
+                past = sorted(((ts.strftime("%Y-%m-%d"), r.get("Reported EPS"), r.get("Surprise(%)"))
+                               for ts, r in df.iterrows() if r.get("Reported EPS") == r.get("Reported EPS")
+                               and r.get("Reported EPS") is not None), reverse=True)
+                if past:
+                    ev["last_earn"] = past[0][0]
+                    if past[0][2] == past[0][2] and past[0][2] is not None:
+                        ev["last_surprise"] = round(float(past[0][2]), 2)
+                    if len(past) >= 5 and past[4][1]:
+                        ev["eps_yoy"] = round(float(past[0][1]) / abs(float(past[4][1])) - 1, 4) if float(past[4][1]) else None
+            except Exception:
+                pass
             fut = [ts for ts, rep in rows if ts[:10] >= today and rep != rep]
             if not fut and tick:                       # 국장: 달력(calendar)에 다음 실적일이 있는 경우
                 try:
@@ -158,8 +170,6 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
         tv = sum(x[4] * x[5] for x in r[-20:]) / 20
         if c < (1000 if m == "kr" else 5) or tv < (3e9 if m == "kr" else 3e7):
             continue
-        if SW.long_downtrend(r, c):
-            continue                                      # 장기 하락 추세 종목은 후보에서 뺌
         sc, why = SW.forward_score(m.upper(), r, c, {}, {}, 0)
         hi = max(x[2] for x in r[-252:])
         if c >= hi * 0.95:
@@ -210,8 +220,14 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
         extra = [w for w in x["_chart"] if "52주" in w or "시장" in w]
         sc += sum(1 if w.startswith("＋") else -1 for w in extra)
         why += extra
+        ld = SW.long_downtrend(x["_rows"], x["close"])
+        if ld:
+            ok, ev_n = SW.turnaround(why)
+            if not ok:
+                continue                                      # 장기 하락 + 실적 반전 근거 부족 → 후보 아님
+            why.append(f"＊장기 하락 중이지만 반전 근거 {ev_n}개")
         x["score"] = sc
-        x["reason"] = f"현재·미래 점수 {sc:+d}: " + " ".join(why[:9])
+        x["reason"] = f"현재·미래 점수 {sc:+d}: " + " ".join(why[:10])
         x.pop("_chart", None)
         x.pop("_rows", None)
         out.append(x)

@@ -427,3 +427,10 @@ M.Bot.swing_daily(bot, pf, 101.5)
 M.Bot.hold_score = orig_hs
 assert "F1" not in bf.pos and "근거가 약해짐" in bf.closed[-1].exit_reason, bf.closed[-1].exit_reason
 print("✅ 현재·미래 점수 방식 시험 통과")
+
+# 21) 장기 하락 종목: 최근 실적·전망 상향·호재 기사 같은 새 근거 포함 2개 이상이면 살 수 있음
+assert SW.turnaround(["＋이익 성장 예상 +34%", "＋외국인·기관 동반 순매수"])[0] is False          # 오래된 전망·수급만: 부족
+assert SW.turnaround(["＋직전 실적 예상치 +12% 상회", "＋외국인·기관 동반 순매수"])[0] is True
+fs3, fw3 = SW.forward_score("US", [], 100, {"last_surprise": 12}, {"eps_yoy": 0.3}, 0)
+assert any("상회" in w for w in fw3) and any("1년 전보다" in w for w in fw3), fw3
+print("✅ 장기 하락 반전 시험 통과")

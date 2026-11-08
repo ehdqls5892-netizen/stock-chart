@@ -362,6 +362,20 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
                 add(1, f"이익 성장 예상 {g * 100:+.0f}%")
             elif g < 0:
                 add(-1, f"이익 감소 예상 {g * 100:+.0f}%")
+    ls = n(est.get("last_surprise"))
+    if ls is None:
+        ls = ev.get("last_surprise")
+    if ls is not None:
+        if ls >= 5:
+            add(1, f"직전 실적 예상치 {ls:+.0f}% 상회")
+        elif ls <= -5:
+            add(-1, f"직전 실적 예상치 {ls:+.0f}% 하회")
+    ey = ev.get("eps_yoy")
+    if ey is not None:
+        if ey >= 0.15:
+            add(1, f"직전 분기 이익 1년 전보다 {ey * 100:+.0f}%")
+        elif ey <= -0.15:
+            add(-1, f"직전 분기 이익 1년 전보다 {ey * 100:+.0f}%")
     if tg and price:
         up = tg / price - 1
         if up >= 0.15 and longdown:
@@ -387,6 +401,26 @@ def long_downtrend(bars: list, price: float | None = None) -> str | None:
     if c < ma200 and c / hi - 1 <= -0.40:
         return f"장기 하락 추세 (1년 고점 대비 {(c / hi - 1) * 100:.0f}%, 200일선 아래) — 단기 반등만 보고 사지 않음"
     return None
+
+
+def turnaround(why: list) -> tuple:
+    """장기 하락 종목도 실적·수급·뉴스로 반전 근거가 2개 이상이면 살 수 있음 → (가능?, 근거 수)."""
+    keys = ("이익 전망 상향", "직전 실적 예상치", "직전 분기 이익", "외국인·기관 동반 순매수", "최근 기사 호재")
+    cnt = 0
+    for w in why:
+        if not w.startswith("＋"):
+            continue
+        if any(k in w for k in keys):
+            cnt += 1
+        elif "이익 성장 예상" in w:
+            try:
+                if float(w.split("예상")[1].strip().rstrip("%").replace("+", "")) >= 30:
+                    cnt += 1
+            except ValueError:
+                pass
+    fresh = any(w.startswith("＋") and any(k in w for k in ("이익 전망 상향", "직전 실적 예상치", "직전 분기 이익", "최근 기사 호재"))
+                for w in why)                         # 오래된 목표가·성장 전망만으론 부족 — 최근 실적·전망 상향·호재 기사 중 하나는 있어야
+    return cnt >= 2 and fresh, cnt
 
 
 def grade_of(score: int) -> str:

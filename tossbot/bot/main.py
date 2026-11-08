@@ -1318,7 +1318,11 @@ class Bot:
             warn.append("이익 전망 하향 중")
         ld = SW.long_downtrend(bars, price)
         if why is None and ld:
-            why = ld
+            ok, nev = SW.turnaround(fwhy)
+            if not ok:
+                why = ld + f" · 실적·수급·뉴스 반전 근거 {nev}개(2개 이상 필요)"
+            else:
+                warn.append(f"장기 하락 중 — 반전 근거 {nev}개로 매수 허용")
         if why is None and fwhy and fs < c.get("min_forward_score", 2):
             why = f"현재·미래 근거 부족 (점수 {fs:+d}, 기준 {c.get('min_forward_score', 2):+d} 이상): " + " ".join(w for w in fwhy if w.startswith("－"))[:120]
         if bars and len(bars) >= 2 and bars[-1][0] == now(self.m).date() and price < bars[-1][1] * 0.97:
