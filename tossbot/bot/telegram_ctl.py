@@ -354,7 +354,13 @@ class TelegramControl:
                 self.offset = r["result"][-1]["update_id"] + 1
         except Exception:
             pass
-        self.send("🤖 로봇 프로그램이 켜졌어요. 아래 버튼으로 조작할 수 있어요.")
+        try:
+            from . import push as PU
+            quiet = PU.prefs().get("telegram") == "off"
+        except Exception:
+            quiet = False
+        if not quiet:
+            self.send("🤖 로봇 프로그램이 켜졌어요. 아래 버튼으로 조작할 수 있어요.")
         while True:
             try:
                 p = {"timeout": 30}

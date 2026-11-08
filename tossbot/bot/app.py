@@ -810,6 +810,22 @@ class H(BaseHTTPRequestHandler):
         self._send(200, json.dumps({"msg": msg}, ensure_ascii=False))
 
 
+def say(tc, text: str):
+    """로봇이 먼저 보내는 소식: 텔레그램 알림을 '안 받기'로 했으면 앱(알림함·푸시)으로만."""
+    from . import push as PU
+    try:
+        off = PU.prefs().get("telegram") == "off"
+    except Exception:
+        off = False
+    if off:
+        try:
+            PU.handle(text)
+        except Exception:
+            pass
+    elif tc is not None and tc.enabled:
+        tc.send(text)
+
+
 def main():
     M.load_env()
     lan = os.getenv("APP_LAN", "0") == "1"
@@ -834,7 +850,7 @@ def main():
     AL.start()                                   # 장중 급등·급락 감시 → 휴대폰 앱 알림
     if tc.enabled:
         tc.start()
-        threading.Thread(target=_briefing_loop, args=(lambda t: tc.send(t),), daemon=True).start()
+        threading.Thread(target=_briefing_loop, args=(lambda t: say(tc, t),), daemon=True).start()
         print("💬 텔레그램으로도 조작할 수 있어요 (봇 채팅방에서 '상태' 를 보내 보세요).")
     if os.getenv("APP_HEADLESS", "0") != "1":
         threading.Timer(1.0, lambda: webbrowser.open(url)).start()
@@ -847,7 +863,7 @@ def main():
             msg = start(mode, True)
             print("재부팅 전 상태로 다시 시작:", msg)
             if tc.enabled:
-                tc.send(f"🔄 서버가 다시 켜져서 {'실전' if mode == 'live' else '연습'} 모드를 이어서 시작했어요. {msg}")
+                say(tc, f"🔄 서버가 다시 켜져서 {'실전' if mode == 'live' else '연습'} 모드를 이어서 시작했어요. {msg}")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

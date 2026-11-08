@@ -29,6 +29,12 @@ import os, sys, requests
 from bot.main import load_env
 load_env()
 t, c = os.getenv("TG_TOKEN"), os.getenv("TG_CHAT")
+try:
+    from bot import push as PU
+    if PU.prefs().get("telegram") == "off":      # 텔레그램 안 받기 → 앱 알림으로만
+        PU.handle(sys.argv[1]); t = None
+except Exception:
+    pass
 if t and c:
     requests.post(f"https://api.telegram.org/bot{t}/sendMessage", json={"chat_id": c, "text": sys.argv[1]}, timeout=15)
 PY

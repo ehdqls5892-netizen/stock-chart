@@ -231,7 +231,7 @@ function vMore(){
     <div class="why">국장은 원, 미장은 달러로 적어요. 이미 산 종목은 그대로예요.</div></div>
   <div class="card"><b>업데이트</b><div class="muted small">GitHub 새 버전을 받아 시험 후 적용해요 (1~2분, 보유 종목은 이어서 관리).</div>
     <div class="btns"><button class="sm pri" onclick="upd()">🆕 지금 업데이트</button></div></div>
-  <div class="card small muted">홈 화면에 추가: 아이폰은 Safari 공유 버튼 → '홈 화면에 추가', 안드로이드는 Chrome 메뉴 → '앱 설치'.<br>알림은 위 🔔 알림 칸에서 켜요 (텔레그램은 짧게 계속 와요).</div>`;
+  <div class="card small muted">홈 화면에 추가: 아이폰은 Safari 공유 버튼 → '홈 화면에 추가', 안드로이드는 Chrome 메뉴 → '앱 설치'.<br>알림은 위 🔔 알림 칸에서 켜요. 텔레그램 알림은 '안 받기'로 끌 수 있어요(버튼 조작은 그대로 돼요).</div>`;
   pushCard();
 }
 function startBot(m){ask(m==="live"?"🔴 실전 시작":"▶️ 연습 시작",m==="live"?"실제 돈으로 주문해요.":"연습 모드로 시작해요.",async()=>{const r=await api("/api/m/start",{mode:m});toast(r.msg);load()})}
@@ -383,7 +383,7 @@ async function pushCard(){
     ${!standalone()&&/iPhone|iPad/.test(navigator.userAgent)?`<div class="veto" style="background:var(--warn-soft);color:var(--warn)">아이폰은 Safari → 공유 → '홈 화면에 추가'로 설치한 앱 안에서만 알림을 켤 수 있어요. 홈 화면 아이콘으로 열어서 다시 눌러 주세요.</div>`:""}
     ${can?`<div class="btns"><button class="sm pri" onclick="enablePush()">${on?"다시 연결":"이 휴대폰으로 알림 받기"}</button><button class="sm" onclick="testPush()">시험 알림</button></div>`:`<div class="why">이 브라우저는 알림을 지원하지 않아요.</div>`}
     <div style="margin-top:10px">${tg("trade","사고팔 때","샀어요 · 팔았어요(이익/손실) · 일부 익절")}${tg("plan","오늘 살 후보","장 시작 전 판단표가 나오면")}${tg("move_hold","보유 종목 급등·급락","+5% · +10% · -5% · -8%")}${tg("move_watch","후보 종목 급등","후보·데스크 종목이 +5% 넘게 오를 때")}${tg("move_market","시장 전체 급등","+15% 넘는 종목 (하루 최대 5개)")}${tg("skip","안 산 이유","후보를 건너뛸 때")}${tg("warn","확인이 필요할 때","주문 실패·로봇 오류")}</div>
-    <div class="row" style="margin-top:8px"><span class="small">텔레그램</span><span class="sp"></span><select onchange="setPref('telegram',this.value)">${[["short","짧게(추천)"],["full","자세히(예전처럼)"],["off","안 받기"]].map(([v,n])=>`<option value="${v}" ${P.telegram===v?"selected":""}>${n}</option>`).join("")}</select></div>
+    <div class="row" style="margin-top:8px"><span class="small">텔레그램</span><span class="sp"></span><select onchange="setPref('telegram',this.value)">${[["off","안 받기 (앱 알림만)"],["short","짧게"],["full","자세히(예전처럼)"]].map(([v,n])=>`<option value="${v}" ${P.telegram===v?"selected":""}>${n}</option>`).join("")}</select></div>
     <div class="why">자잘한 알림(보유 점검 등)은 🔔 알림함에만 쌓여요.</div></div>`;
 }
 async function enablePush(){
