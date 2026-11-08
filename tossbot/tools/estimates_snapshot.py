@@ -95,6 +95,15 @@ def kr_api(code: str, ses, debug=False) -> dict:
         r[f"cs_{k}"] = num(v) if not isinstance(v, (dict, list)) else None
     dt_ = d.get("dealTrendInfos") or []
     if dt_:
+        for k in ("foreignerPureBuyQuant", "organPureBuyQuant"):
+            vals = [num(re.sub(r"[^\d.\-]", "", str(x.get(k))) or None) for x in dt_[:5] if x.get(k) is not None]
+            vals = [v for v in vals if v is not None]
+            if vals:
+                r[k.replace("PureBuyQuant", "5d")] = sum(vals)
+        hr = [num(re.sub(r"[^\d.\-]", "", str(x.get("foreignerHoldRatio"))) or None) for x in dt_[:5] if x.get("foreignerHoldRatio")]
+        hr = [v for v in hr if v is not None]
+        if len(hr) >= 2:
+            r["foreignHoldChg5d"] = round(hr[0] - hr[-1], 3)
         x = dt_[0]
         r["flow_date"] = x.get("bizdate")
         for k in ("foreignerPureBuyQuant", "organPureBuyQuant", "individualPureBuyQuant", "closePrice", "foreignerHoldRatio"):

@@ -434,3 +434,32 @@ assert SW.turnaround(["＋직전 실적 예상치 +12% 상회", "＋외국인·�
 fs3, fw3 = SW.forward_score("US", [], 100, {"last_surprise": 12}, {"eps_yoy": 0.3}, 0)
 assert any("상회" in w for w in fw3) and any("1년 전보다" in w for w in fw3), fw3
 print("✅ 장기 하락 반전 시험 통과")
+
+# 22) 애널리스트 관점 보강: 5일 수급·컨센서스 4주 변화·밸류에이션·공시 영업이익·AI 판독·상관·등급별 크기·목표가 익절
+fs4, fw4 = SW.forward_score("KR", [], 100, {"foreigner5d": 1000, "organ5d": 50, "foreignerPureBuyQuant": -1, "organPureBuyQuant": -1,
+                                           "ti_cnsPer": 70}, {"tgt_chg": 0.08, "eps_chg": -0.05, "op_yoy": 0.45, "op_period": "2026 3분기",
+                                                               "ai": {"adj": 1, "view": "긍정", "catalyst": "수주"}}, 0)
+assert any("최근 5일 외국인·기관 동반 순매수" in w for w in fw4), fw4             # 1일이 아니라 5일 누적으로 봄
+assert any("목표가 4주간 +8%" in w for w in fw4) and any("이익 전망 4주간 -5% 하향" in w for w in fw4), fw4
+assert any("비쌈(PER 70" in w for w in fw4) and any("공시 영업이익" in w for w in fw4) and any("AI 판독" in w for w in fw4), fw4
+fs5, fw5 = SW.forward_score("US", [], 100, {"forwardPE": 12, "forwardEps": 6, "trailingEps": 5}, {}, 0)
+assert any("이익 대비 쌈" in w for w in fw5), fw5
+assert SW.turnaround(["＋목표가 4주간 +8% 상향", "＋이익 성장 예상 +40%"])[0] is True
+assert abs(SW.corr([1, 2, 3, 4], [2, 4, 6, 8]) - 1) < 1e-9 and SW.corr([1, 1], [1, 2]) is None
+assert SW.cons_target("KR", {"cs_priceTargetMean": "52000"}) == 52000 and SW.cons_target("US", {}) is None
+# 목표가 도달 → 절반 익절 + 나머지 본전 이상 손절
+bt = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker = bt
+pt = bt.enter("T1", "T1", 100, 10, 200, 92, "시험")
+pt.extra.update(sw=True, carry=True, sw_days=3, tgt=110.0)
+c["target_take"] = {"enabled": True, "frac": 0.5, "near_pct": 0}
+c["exit_forward_score"] = None
+hist4 = [{"timestamp": (d0 + dt.timedelta(days=i)).isoformat(), "closePrice": str(100 + i * 0.6), "highPrice": str(101 + i * 0.6), "lowPrice": str(99 + i * 0.6)} for i in range(20)]
+api.candles = lambda sym, iv, n: hist4
+M.Bot.hold_score = lambda self, p, last=None: (3, ["＋최근 봉 양봉"], "")
+M.Bot.swing_daily(bot, pt, 111.4)
+M.Bot.hold_score = orig_hs
+assert pt.qty == 5 and pt.extra.get("tgt_done") and pt.sl >= 100, (pt.qty, pt.sl, pt.extra)
+assert bt.closed[-1].exit_reason.startswith("애널리스트 목표가"), bt.closed[-1].exit_reason
+c["exit_forward_score"] = 0
+print("✅ 애널리스트 관점 보강 시험 통과")

@@ -422,6 +422,19 @@ class PaperBroker(BaseBroker):
     def poll(self, now, last_prices):
         pass
 
+    def sell_part(self, p: Position, q: int, price: float, label: str, new_sl: float | None = None) -> bool:
+        """보유 일부만 팔기 (스윙 목표가 도달 등). 최소 1주는 남김."""
+        q = min(int(q), p.qty - 1)
+        if q < 1 or p.state != "open":
+            return False
+        p.qty -= q
+        p.extra["parts"] = int(p.extra.get("parts", 0)) + 1
+        if new_sl:
+            p.sl = max(p.sl, new_sl)
+        self.record_partial(p, q, add_ticks(self.m, price, -1), label)
+        self.save_state()
+        return True
+
     def add(self, p: Position, q: int, price: float, why: str):
         self._added(p, q, add_ticks(self.m, price, 1), "[연습] " + why)
 
@@ -720,6 +733,30 @@ class LiveBroker(BaseBroker):
                 self.save_state()
             except TossError as e:
                 self.log(f"[실전] 손절선 올리기 실패 {p.name}: {e}")
+
+    def sell_part(self, p: Position, q: int, price: float, label: str, new_sl: float | None = None) -> bool:
+        """보유 일부만 시장가로 팔기. 손절 조건주문 수량을 먼저 줄이고, 체결은 poll 에서 기록."""
+        q = min(int(q), p.qty - 1)
+        if q < 1 or p.state != "open" or p.extra.get("partial_oid"):
+            return False
+        remain = p.qty - q
+        sl = max(p.sl, new_sl or p.sl)
+        try:
+            self._modify(p, remain, sl)
+            r = self.api.create_order(p.symbol, "SELL", q, "MARKET", None, "part-" + uuid.uuid4().hex[:24])
+        except TossError as e:
+            self.log(f"[실전] {label} 실패 {p.name}: {e}")
+            try:
+                self._modify(p, p.qty, p.sl)       # 매도 주문이 안 나갔으면 손절 수량 원래대로
+            except TossError:
+                pass
+            return False
+        p.extra["parts"] = int(p.extra.get("parts", 0)) + 1
+        p.extra.update(partial_oid=r["orderId"], partial_q=q, partial_label=label)
+        p.qty, p.sl = remain, sl
+        self.log(f"[실전] {p.name} {label} {q}주 시장가 주문")
+        self.save_state()
+        return True
 
     def add(self, p: Position, q: int, price: float, why: str):
         try:

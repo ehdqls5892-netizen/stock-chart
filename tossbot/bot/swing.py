@@ -349,12 +349,16 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
                 add(1, f"증권사 의견 매수 우세({rec:.1f})")
             elif rec <= 3.0:
                 add(-1, f"증권사 의견 중립 이하({rec:.1f})")
-        fo, og = n(est.get("foreignerPureBuyQuant")), n(est.get("organPureBuyQuant"))
+        f5, o5 = n(est.get("foreigner5d")), n(est.get("organ5d"))
+        if f5 is not None and o5 is not None:
+            fo, og, lab = f5, o5, "최근 5일 "
+        else:
+            fo, og, lab = n(est.get("foreignerPureBuyQuant")), n(est.get("organPureBuyQuant")), ""
         if fo is not None and og is not None:
             if fo > 0 and og > 0:
-                add(1, "외국인·기관 동반 순매수")
+                add(1, f"{lab}외국인·기관 동반 순매수")
             elif fo < 0 and og < 0:
-                add(-1, "외국인·기관 동반 순매도")
+                add(-1, f"{lab}외국인·기관 동반 순매도")
         ce, le = n(est.get("ti_cnsEps")), n(est.get("ti_eps"))
         if ce is not None and le and le > 0:
             g = ce / le - 1
@@ -362,6 +366,43 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
                 add(1, f"이익 성장 예상 {g * 100:+.0f}%")
             elif g < 0:
                 add(-1, f"이익 감소 예상 {g * 100:+.0f}%")
+    # 컨센서스가 최근 4주 동안 어느 쪽으로 움직였나 (우리가 매일 모은 기록 기준)
+    tc = ev.get("tgt_chg")
+    if tc is not None:
+        if tc >= 0.03:
+            add(1, f"목표가 4주간 {tc * 100:+.0f}% 상향")
+        elif tc <= -0.03:
+            add(-1, f"목표가 4주간 {tc * 100:+.0f}% 하향")
+    ec = ev.get("eps_chg")
+    if ec is not None:
+        if ec >= 0.03:
+            add(1, f"이익 전망 4주간 {ec * 100:+.0f}% 상향")
+        elif ec <= -0.03:
+            add(-1, f"이익 전망 4주간 {ec * 100:+.0f}% 하향")
+    # 밸류에이션: 이익 대비 너무 비싸면 감점, 싼데 성장하면 가점
+    if market == "US":
+        pe = n(est.get("forwardPE"))
+        pe = pe if pe is not None else ev.get("fpe")
+        fe, te = n(est.get("forwardEps")) or ev.get("fwd_eps"), n(est.get("trailingEps")) or ev.get("ttm_eps")
+    else:
+        pe = n(est.get("ti_cnsPer")) or n(est.get("ti_per"))
+        fe, te = n(est.get("ti_cnsEps")), n(est.get("ti_eps"))
+    g = (fe / te - 1) if (fe is not None and te and te > 0) else None
+    if pe is not None and pe > 0:
+        peg = pe / (g * 100) if g and g > 0 else None
+        if pe > 60 or (peg is not None and peg > 3):
+            add(-1, f"이익 대비 비쌈(PER {pe:.0f}{f', PEG {peg:.1f}' if peg else ''})")
+        elif pe <= 15 and g is not None and g >= 0.10:
+            add(1, f"이익 대비 쌈(PER {pe:.0f}, 이익 성장 {g * 100:+.0f}%)")
+    oy = ev.get("op_yoy")
+    if oy is not None:
+        if oy >= 0.20:
+            add(1, f"공시 영업이익 전년 대비 {oy * 100:+.0f}%({ev.get('op_period', '')})")
+        elif oy <= -0.20:
+            add(-1, f"공시 영업이익 전년 대비 {oy * 100:+.0f}%({ev.get('op_period', '')})")
+    sp = ev.get("short_pct")
+    if sp is not None and sp >= 0.15:
+        why.append(f"·공매도 비중 {sp * 100:.0f}% (변동성 큼, 점수 없음)")
     ls = n(est.get("last_surprise"))
     if ls is None:
         ls = ev.get("last_surprise")
@@ -384,6 +425,9 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
             add(1, f"목표가까지 {up * 100:+.0f}% 여력")
         elif up < 0:
             add(-1, f"목표가가 지금보다 낮음({up * 100:+.0f}%)")
+    ai = ev.get("ai") or {}
+    if ai.get("adj"):
+        add(int(ai["adj"]), f"AI 판독 {ai.get('view', '')}: {ai.get('catalyst', '')[:50]}")
     if news_tone > 0:
         add(1, "최근 기사 호재가 많음")
     elif news_tone < 0:
@@ -405,7 +449,7 @@ def long_downtrend(bars: list, price: float | None = None) -> str | None:
 
 def turnaround(why: list) -> tuple:
     """장기 하락 종목도 실적·수급·뉴스로 반전 근거가 2개 이상이면 살 수 있음 → (가능?, 근거 수)."""
-    keys = ("이익 전망 상향", "직전 실적 예상치", "직전 분기 이익", "외국인·기관 동반 순매수", "최근 기사 호재")
+    keys = ("이익 전망 상향", "이익 전망 4주간", "목표가 4주간", "이익 대비 쌈", "공시 영업이익 전년 대비 +", "직전 실적 예상치", "직전 분기 이익", "외국인·기관 동반 순매수", "최근 기사 호재")
     cnt = 0
     for w in why:
         if not w.startswith("＋"):
@@ -418,10 +462,28 @@ def turnaround(why: list) -> tuple:
                     cnt += 1
             except ValueError:
                 pass
-    fresh = any(w.startswith("＋") and any(k in w for k in ("이익 전망 상향", "직전 실적 예상치", "직전 분기 이익", "최근 기사 호재"))
+    fresh = any(w.startswith("＋") and any(k in w for k in ("이익 전망 상향", "이익 전망 4주간", "목표가 4주간", "공시 영업이익 전년 대비 +", "직전 실적 예상치", "직전 분기 이익", "최근 기사 호재"))
                 for w in why)                         # 오래된 목표가·성장 전망만으론 부족 — 최근 실적·전망 상향·호재 기사 중 하나는 있어야
     return cnt >= 2 and fresh, cnt
 
 
 def grade_of(score: int) -> str:
     return "A" if score >= 4 else "B" if score >= 2 else "C"
+
+
+def corr(a: list, b: list):
+    n = min(len(a), len(b))
+    if n < 2:
+        return None
+    a, b = a[-n:], b[-n:]
+    ma, mb = sum(a) / n, sum(b) / n
+    va = sum((x - ma) ** 2 for x in a)
+    vb = sum((y - mb) ** 2 for y in b)
+    if not va or not vb:
+        return None
+    return sum((x - ma) * (y - mb) for x, y in zip(a, b)) / (va * vb) ** 0.5
+
+
+def cons_target(market: str, est: dict):
+    """증권사·애널리스트 평균 목표가 (없으면 None)."""
+    return _num((est or {}).get("targetMeanPrice" if market == "US" else "cs_priceTargetMean")) or None

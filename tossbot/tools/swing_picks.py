@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import argparse
+import io
+import os
 import datetime as dt
 import json
 import sys
@@ -122,6 +124,8 @@ def enrich_us(picks, bars, tick=None):
                 ev["rec"] = round(float(info["recommendationMean"]), 2)
             ev["n_analysts"] = info.get("numberOfAnalystOpinions")
             ev["fwd_eps"], ev["ttm_eps"] = info.get("forwardEps"), info.get("trailingEps")
+            ev["fpe"] = info.get("forwardPE")
+            ev["short_pct"] = info.get("shortPercentOfFloat")
         except Exception as e:
             ev["err"] = (ev.get("err", "") + f" info:{type(e).__name__}").strip()
         try:
@@ -140,6 +144,28 @@ def enrich_us(picks, bars, tick=None):
         ev = {k: v for k, v in ev.items() if v is not None and v == v}
         p["ev"] = ev
         print(p["code"], ev, file=sys.stderr)
+
+
+def est_old(m, days=28):
+    """estimates 브랜치에서 약 days 일 전(없으면 가장 오래된 것) 컨센서스 CSV → 코드별 행."""
+    import csv
+    import requests
+    base = "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/estimates/{m}/{d}.csv"
+    today = dt.date.today()
+    for k in list(range(days, days + 7)) + list(range(days - 1, 5, -1)):
+        d = (today - dt.timedelta(days=k)).isoformat()
+        try:
+            r = requests.get(base.format(m=m, d=d), timeout=20)
+        except Exception:
+            continue
+        if r.status_code == 200 and r.text.strip():
+            rows = {}
+            for row in csv.DictReader(io.StringIO(r.text)):
+                c = str(row.get("code") or "")
+                rows[c.zfill(6) if m == "kr" and c.isdigit() else c] = row
+            print(f"컨센서스 비교 기준일 {d} ({len(rows)}종목)", file=sys.stderr)
+            return rows
+    return {}
 
 
 def _rows(b, n=30):
@@ -209,6 +235,27 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
                 x.setdefault("ev", {})["est"] = {k: v for k, v in row.items() if v is not None and k != "code"}
             except Exception as e:
                 print("국장 컨센서스 실패", x["code"], e, file=sys.stderr)
+    # 컨센서스 변화: 우리가 매일 모은 기록(estimates 브랜치)에서 약 4주 전과 비교
+    old = est_old(m)
+    import extra_sources as XS
+    for x in cand:
+        ev = x.setdefault("ev", {})
+        o = old.get(x["code"]) or {}
+        e = ev.get("est") or {}
+        if m == "us":
+            t0, t1 = SW._num(o.get("targetMeanPrice")), (x["close"] * (1 + ev["tgt_up"]) if ev.get("tgt_up") is not None else None)
+        else:
+            t0, t1 = SW._num(o.get("cs_priceTargetMean")), SW._num(e.get("cs_priceTargetMean"))
+            p0, p1 = SW._num(o.get("ti_cnsEps")), SW._num(e.get("ti_cnsEps"))
+            if p0 and p1:
+                ev["eps_chg"] = round(p1 / abs(p0) - 1, 4)
+        if t0 and t1:
+            ev["tgt_chg"] = round(t1 / t0 - 1, 4)
+        if m == "kr":
+            ev.update(XS.dart(x["code"]))
+            nn = XS.naver_news(x["name"])
+            if nn:
+                ev["news"] = nn
     out = []
     for x in cand:
         ev = x.get("ev") or {}
@@ -228,6 +275,20 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
             why.append(f"＊장기 하락 중이지만 반전 근거 {ev_n}개")
         x["score"] = sc
         x["reason"] = f"현재·미래 점수 {sc:+d}: " + " ".join(why[:10])
+        nws = ev.get("news") or []
+        if not nws and os.getenv("ANTHROPIC_API_KEY"):
+            try:
+                from bot.news import recent_news
+                nws = recent_news(x["name"], m.upper(), days=7, n=8)
+            except Exception:
+                nws = []
+        ai = XS.ai_read(m.upper(), x, nws)
+        if ai:
+            ev["ai"] = ai
+            x["score"] = sc = sc + ai["adj"]
+            x["reason"] += f" · AI 판독 {ai['view']}({ai['adj']:+d}): {ai['catalyst']} / 위험: {ai['risk']}"
+        if ev.get("dart_flags"):
+            x["reason"] += " · ⚠️ 최근 공시: " + " · ".join(ev["dart_flags"])
         x.pop("_chart", None)
         x.pop("_rows", None)
         out.append(x)

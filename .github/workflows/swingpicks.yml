@@ -6,7 +6,7 @@ on:
     - cron: "25 22 * * 1-5"   # 미장: 뉴욕 장 마감 뒤
   push:                       # 신호 코드가 바뀌면 국장·미장 후보를 바로 다시 만듦
     branches: [main]
-    paths: ["tossbot/tools/swing_picks.py"]
+    paths: ["tossbot/tools/swing_picks.py", "tossbot/tools/extra_sources.py", "tossbot/bot/swing.py"]
   workflow_dispatch:
     inputs:
       market:
@@ -43,6 +43,12 @@ jobs:
           elif [ "${{ github.event.schedule }}" = "15 9 * * 1-5" ]; then M=kr; else M=us; fi
           echo "m=$M" >> $GITHUB_OUTPUT
       - name: 신호 계산
+        env:                      # 있으면 켜짐, 없으면 건너뜀 (Settings → Secrets and variables → Actions)
+          DART_KEY: ${{ secrets.DART_KEY }}
+          NAVER_ID: ${{ secrets.NAVER_ID }}
+          NAVER_SECRET: ${{ secrets.NAVER_SECRET }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
         run: python tossbot/tools/swing_picks.py ${{ steps.mk.outputs.m }} --out out 2> >(tee out.log >&2)
       - name: 올리기 (swingpicks-<m> 브랜치)
         if: always()

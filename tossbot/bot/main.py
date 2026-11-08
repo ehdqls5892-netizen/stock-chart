@@ -1037,13 +1037,6 @@ class Bot:
                 else:
                     skip(x, f"수량 0주 (1주 손절폭 {money(self.m, e - size_stop)}가 손실 한도보다 큼)")
                 continue
-            mr = c.get("max_open_risk_pct")
-            if mr and cap:
-                open_r = sum(max(0.0, pp.entry - pp.sl) * pp.qty for pp in self.broker.pos.values()
-                             if pp.extra.get("sw") and pp.state in ("pending", "open")) + planned_r
-                if open_r + (e - round_tick(self.m, stop, "down")) * q > cap * mr / 100:
-                    skip(x, f"스윙 전체 열린 손실(손절선까지)이 투자금의 {mr:g}%를 넘게 됨 (지금 {money(self.m, open_r)})", loud=not dry)
-                    continue
             try:
                 bad, btxt, warn = Bot.cand_check(self, x, e)
             except Exception as ex:
@@ -1052,6 +1045,39 @@ class Bot:
             if bad:
                 skip(x, bad, loud=True)
                 continue
+            dfl = ev.get("dart_flags")
+            if dfl:
+                skip(x, "최근 공시 위험: " + " · ".join(dfl), loud=True)
+                continue
+            # 점수 등급별 크기: 근거가 강할수록(A) 더, 애매하면(B) 덜
+            rg = c.get("risk_by_grade") or {}
+            if x.get("_fscore") is not None and rg:
+                g = SW.grade_of(x["_fscore"])
+                if g in rg and rg[g] != rp:
+                    rp = rg[g]
+                    q = SW.qty_for(cap, rp, c.get("cap_pct", 20), e, size_stop, None if cash is None else cash - spent)
+                    if q < 1:
+                        skip(x, f"등급 {g} 손실 한도 {rp:g}%로는 1주도 못 삼")
+                        continue
+            x["_rp"] = rp
+            # 이미 가진 종목과 너무 똑같이 움직이면(60일 수익률 상관 > 기준) 위험이 겹침
+            cm = c.get("max_corr")
+            if cm:
+                try:
+                    hit = Bot.corr_hit(self, sym, cm)
+                except Exception as ex:
+                    hit = None
+                    self.log(f"🧭 {x['name']} 상관 점검 오류: {ex}")
+                if hit:
+                    skip(x, f"보유 중인 {hit[0]}와 움직임이 거의 같음(상관 {hit[1]:.2f}) — 위험이 겹쳐서 건너뜀", loud=True)
+                    continue
+            mr = c.get("max_open_risk_pct")
+            if mr and cap:
+                open_r = sum(max(0.0, pp.entry - pp.sl) * pp.qty for pp in self.broker.pos.values()
+                             if pp.extra.get("sw") and pp.state in ("pending", "open")) + planned_r
+                if open_r + (e - round_tick(self.m, stop, "down")) * q > cap * mr / 100:
+                    skip(x, f"스윙 전체 열린 손실(손절선까지)이 투자금의 {mr:g}%를 넘게 됨 (지금 {money(self.m, open_r)})", loud=not dry)
+                    continue
             x["_brief"] = btxt + (("\n⚠️ " + " · ".join(warn)) if warn else "")
             if dry:
                 if slots > 0:
@@ -1073,7 +1099,7 @@ class Bot:
             p.extra.update(sw=True, carry=True, setup="sw_" + x["setup"], sw_kind=x["setup"], sw_stop0=sl, sw_hi=e, sw_days=0,
                            expire=(base + dt.timedelta(days=c.get("expire_days", 20))).isoformat(),
                            sector=sec, earn_react=ev.get("react"), earn_gap=ev.get("gap_avg"), earn_hold=plan == "hold",
-                           mkt_gap=mgap, entry_when=when, fscore=x.get("_fscore"), fwhy=(x.get("_fwhy") or [])[:10],
+                           mkt_gap=mgap, entry_when=when, risk_pct=x.get("_rp"), tgt=x.get("_tgt"), fscore=x.get("_fscore"), fwhy=(x.get("_fwhy") or [])[:10],
                            grade=SW.grade_of(x["_fscore"]) if x.get("_fscore") is not None else None)
             if when == "close":
                 p.extra["carry_done"] = today.isoformat()      # 방금 샀으니 오늘 일봉 점검·정리 대상 아님
@@ -1138,6 +1164,19 @@ class Bot:
         if not why and xs is not None and fs is not None and fs <= xs and held >= 1:
             why = (f"현재·미래 근거가 약해짐 (점수 {fs:+d} ≤ {xs:+d}): "
                    + " ".join(w for w in fw if w.startswith("－"))[:120])
+        tp_c = c.get("target_take") or {}
+        if not why and tp_c.get("enabled") and not p.extra.get("tgt_done") and p.qty >= 2 and hasattr(self.broker, "sell_part"):
+            try:
+                tgt = SW.cons_target(self.m, Bot.est_row(self, p.symbol) or {}) or p.extra.get("tgt")
+                if tgt and close >= tgt * (1 - tp_c.get("near_pct", 0) / 100):
+                    q = max(1, int(p.qty * tp_c.get("frac", 0.5)))
+                    be = round_tick(self.m, p.entry * (1 + cost), "up")
+                    if self.broker.sell_part(p, q, close, f"애널리스트 목표가({money(self.m, tgt)}) 도달 — 일부 익절", be if close > be else None):
+                        p.extra["tgt_done"] = True
+                        self.notify(f"🎯 {p.name} 증권사 평균 목표가 {money(self.m, tgt)} 도달 → {q}주 익절, 나머지 {p.qty}주는 "
+                                    f"손절선 {money(self.m, p.sl)}(본전 이상)으로 계속 보유")
+            except Exception as e:
+                self.log(f"🧭 목표가 익절 판단 오류 {p.name}: {e}")
         if not why:
             try:
                 Bot.swing_add_on(self, p, bars, close)
@@ -1261,6 +1300,27 @@ class Bot:
         bars.sort(key=lambda b: b[0])
         return bars
 
+    def corr_hit(self, sym, lim, n=60):
+        """새 후보와 보유 스윙 종목의 최근 n일 일간 수익률 상관. 기준 넘는 첫 종목 → (이름, 상관) 또는 None."""
+        held = [pp for pp in self.broker.pos.values() if pp.state in ("pending", "open") and pp.symbol != sym]
+        if not held:
+            return None
+
+        def rets(s_):
+            b = Bot.daily_full(self, s_) or []
+            cl = [r[4] for r in b][-(n + 1):]
+            return [cl[i] / cl[i - 1] - 1 for i in range(1, len(cl)) if cl[i - 1]]
+        a = rets(sym)
+        for pp in held:
+            bb = rets(pp.symbol)
+            k = min(len(a), len(bb))
+            if k < 30:
+                continue
+            r = SW.corr(a[-k:], bb[-k:])
+            if r is not None and r > lim:
+                return (pp.extra.get("name") or pp.symbol, r)
+        return None
+
     def est_row(self, sym):
         c = self.cfg["daily_swing"]
         today = now(self.m).date()
@@ -1297,6 +1357,7 @@ class Bot:
             tone = 0
         fs, fwhy = SW.forward_score(self.m, bars, price, est, ev, tone)
         x["_fscore"], x["_fwhy"] = fs, fwhy
+        x["_tgt"] = SW.cons_target(self.m, est) or (price * (1 + ev["tgt_up"]) if (x.get("ev") or {}).get("tgt_up") is not None and price else None)
         txt = (f"🎯 현재·미래 점수 {fs:+d} ({SW.grade_of(fs)}): " + " ".join(fwhy[:8]) + ("\n" + txt if txt else "")) if fwhy else txt
         warn, why = [], None
         n = SW._num
