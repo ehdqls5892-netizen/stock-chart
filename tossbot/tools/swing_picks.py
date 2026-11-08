@@ -52,6 +52,10 @@ def main():
     except Exception as e:
         print("ETF 상태 계산 실패:", e, file=sys.stderr)
     Path(a.out).mkdir(parents=True, exist_ok=True)
+    try:                                                   # 휴대폰 앱 종목 검색용 이름 목록
+        (Path(a.out) / "names.json").write_text(json.dumps({str(k): str(v) for k, v in names.items()}, ensure_ascii=False), encoding="utf-8")
+    except Exception as e:
+        print("이름 목록 저장 실패:", e, file=sys.stderr)
     (Path(a.out) / "picks.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in out.items() if k != "picks"}, ensure_ascii=False), len(out["picks"]), "picks")
 

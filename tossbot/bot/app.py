@@ -671,7 +671,8 @@ PAGE = (Path(__file__).with_name("app.html")).read_text(encoding="utf-8")
 STATIC = {"/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
           "/sw.js": ("sw.js", "text/javascript; charset=utf-8"),
           "/icon-192.png": ("icon-192.png", "image/png"), "/icon-512.png": ("icon-512.png", "image/png"),
-          "/apple-touch-icon.png": ("icon-180.png", "image/png")}
+          "/apple-touch-icon.png": ("icon-180.png", "image/png"),
+          "/lw-charts.js": ("lw-charts.js", "text/javascript; charset=utf-8")}
 
 
 def lan_ip() -> str:
@@ -754,6 +755,13 @@ class H(BaseHTTPRequestHandler):
                     out = MB.picks(q.get("mk", "KR"))
                 elif u.path == "/api/m/table":
                     out = {"text": MB.table(q.get("mk", "KR"))}
+                elif u.path == "/api/m/desk":
+                    out = MB.desk(q.get("mk", "KR"))
+                elif u.path == "/api/m/search":
+                    out = {"items": MB.search(q.get("q", ""))}
+                elif u.path == "/api/m/stock":
+                    out = MB.stock(q.get("mk", "KR"), q.get("code", ""))
+                    out.pop("_x", None)
                 else:
                     return self._send(404, "{}")
             except Exception as e:

@@ -43,7 +43,7 @@ main{padding:4px 16px calc(84px + env(safe-area-inset-bottom));display:flex;flex
 .why{font-size:12px;color:var(--muted);margin-top:6px}
 .btns{display:flex;gap:8px;margin-top:10px}
 button{font:inherit;font-weight:700;white-space:nowrap;border:0;border-radius:12px;padding:11px 12px;background:var(--line);color:var(--ink);cursor:pointer}
-button.pri{background:var(--blue);color:#fff}button.dan{background:var(--up-soft);color:var(--up)}button.full{width:100%}
+button.pri{background:var(--blue);color:#fff}button.dan{background:var(--up-soft);color:var(--up)}button.wide{width:100%}
 button.sm{padding:8px 10px;font-size:13px;flex:1}
 button:disabled{opacity:.45}
 .seg{display:flex;background:var(--line);border-radius:12px;padding:3px}.seg button{flex:1;background:transparent;padding:8px;border-radius:10px;color:var(--muted)}
@@ -66,18 +66,30 @@ nav button span{font-size:20px;line-height:1}nav button.on{color:var(--ink)}
 .empty{color:var(--muted);text-align:center;padding:18px 0;font-size:14px}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:r 1s linear infinite;vertical-align:-2px}
 @keyframes r{to{transform:rotate(360deg)}}
+.full{position:fixed;inset:0;z-index:8;background:var(--bg);overflow:auto;display:none;padding:calc(env(safe-area-inset-top) + 8px) 16px calc(24px + env(safe-area-inset-bottom))}
+.full .top{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:8px;padding:6px 0 10px;z-index:5}
+.full .top h2{margin:0;font-size:20px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#cv{width:100%;height:300px;position:relative;z-index:0}
+.legend2{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--muted);margin-top:6px}.legend2 i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
+.wl{font-size:13px;padding:3px 0}.wl.p{color:var(--ink)}.wl.n{color:var(--muted)}
+.lad{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px}.lad b{font-weight:700}
+.res button{all:unset;display:flex;gap:8px;align-items:center;width:100%;padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer}
+.nm[onclick]{cursor:pointer}
+
 </style>
 </head>
 <body>
-<header><h1>토스봇</h1><span id="mode" class="badge">…</span><span id="dot" class="dot"></span><span id="upd"></span></header>
+<header><h1>토스봇</h1><span id="mode" class="badge">…</span><span id="dot" class="dot"></span><span id="upd"></span><button class="sm" style="flex:0;padding:6px 10px" onclick="openSearch()">🔍</button></header>
 <main id="v"></main>
 <nav id="nav"></nav>
 <div class="toast" id="toast"></div>
 <div class="sheet" id="sheet"><div class="in"><h3 id="sh-t"></h3><div id="sh-b" class="muted" style="margin-bottom:14px"></div>
   <div class="row"><button class="sp" onclick="closeSheet()">취소</button><button class="sp dan" id="sh-ok">실행</button></div></div></div>
+<div class="full" id="stk"><div class="top"><button class="sm" style="flex:0" onclick="closeFull('stk')">‹ 닫기</button><h2 id="stk-t"></h2></div><div id="stk-b"></div></div>
+<div class="full" id="srch"><div class="top"><button class="sm" style="flex:0" onclick="closeFull('srch')">‹</button><input id="sq" placeholder="종목 이름이나 코드 (예: 삼성전자, 005930, NVDA)" autocomplete="off"></div><div id="sres" class="res"></div></div>
 <script>
 "use strict";
-const TABS=[["home","🏠","홈"],["picks","🧭","후보"],["brief","📰","분석"],["log","📜","기록"],["more","⚙️","설정"]];
+const TABS=[["home","🏠","홈"],["picks","🧭","후보"],["desk","🗂️","데스크"],["brief","📰","분석"],["more","⚙️","설정"]];
 const FL={KR:"🇰🇷",US:"🇺🇸"}, NM={KR:"국장",US:"미장"};
 let tab=localStorageGet("tab")||"home", pmk=localStorageGet("pmk")||"KR", D=null, P={}, T={}, logq="";
 function localStorageGet(k){try{return localStorage.getItem(k)}catch(e){return null}}
@@ -106,10 +118,10 @@ async function load(){
   $("mode").className="badge "+(D.running?(D.mode==="live"?"live":"paper"):"");
   $("mode").textContent=D.running?(D.mode==="live"?"실전":"연습"):"꺼짐";
   $("dot").className="dot"+(D.running?" on":"");
-  if(tab==="home"||tab==="log"||tab==="more")render();
+  if(tab==="home"||tab==="more"||(tab==="brief"&&sub==="log"))render();
 }
 
-function render(){({home:vHome,picks:vPicks,brief:vBrief,log:vLog,more:vMore}[tab]||vHome)()}
+function render(){({home:vHome,picks:vPicks,desk:vDesk,brief:vBrief,log:vLog,more:vMore}[tab]||vHome)()}
 
 function vHome(){
   if(!D){$("v").innerHTML=`<div class="card empty"><span class="spin"></span> 불러오는 중</div>`;return}
@@ -126,7 +138,7 @@ function vHome(){
   h+=`<div class="card"><div class="row"><b>보유 종목</b><span class="sp"></span><button class="sm" style="flex:0" onclick="load()">새로고침</button></div>`;
   if(!hs.length) h+=`<div class="empty">로봇이 관리하는 보유 종목이 없어요</div>`;
   hs.forEach((x,i)=>{const mk=x.market, g=x.grade?`<span class="chip ${x.grade==="유지"?"pos":x.grade==="나쁨"?"neg":"mid"}">${esc(x.grade)}</span>`:"";
-    h+=`<div class="h"><div class="row"><span class="nm">${FL[mk]} ${esc(x.name)}</span><span class="sp"></span><span class="b ${cls(x.pct)}">${pct(x.pct)}</span></div>
+    h+=`<div class="h"><div class="row"><span class="nm" onclick="openStock('${mk}',D.holdings[${i}].symbol)">${FL[mk]} ${esc(x.name)} ›</span><span class="sp"></span><span class="b ${cls(x.pct)}">${pct(x.pct)}</span></div>
       <div style="margin-top:4px">${x.locked?'<span class="chip lock">🔒 잠금</span>':""}${x.swing?'<span class="chip">스윙</span>':""}${g}</div>
       <div class="kv"><span>${x.qty}주</span><span>현재 <b>${money(x.last,mk)}</b></span><span>평가 <b class="${cls(x.pnl)}">${smoney(x.pnl,mk)}</b></span>
       <span>산 값 ${money(x.entry,mk)}</span><span>손절선 ${money(x.sl,mk)}</span>${x.days?`<span>${x.days}일째</span>`:""}</div>
@@ -152,7 +164,7 @@ async function vPicks(){
     <div id="tbl"></div></div>`;
   if(d.error)h+=`<div class="card empty">${esc(d.error)}</div>`;
   h+=`<div class="card">`+((d.picks||[]).map(x=>{const a=x.ai, vw=a?(a.view==="긍정"?"pos":a.view==="부정"?"neg":"mid"):"";
-    return `<div class="pk"><div class="row"><span class="nm b">${esc(x.name)}</span><span class="chip ${x.grade||""}">${x.grade||""} ${x.score>0?"+":""}${x.score??""}</span>
+    return `<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(x.code)}')">${esc(x.name)} ›</span><span class="chip ${x.grade||""}">${x.grade||""} ${x.score>0?"+":""}${x.score??""}</span>
       ${a?`<span class="chip ${vw}">AI ${esc(a.view||"")}${a.adj?` ${a.adj>0?"+":""}${a.adj}`:""}</span>`:""}<span class="sp"></span><span class="small muted">${esc(x.sector||"")}</span></div>
       <div class="kv"><span>종가 <b>${money(x.close,pmk)}</b></span><span>손절 ${money(x.stop,pmk)} (${x.close?((x.stop/x.close-1)*100).toFixed(1):"–"}%)</span>
       ${x.tgt_up!=null?`<span>목표가 여력 ${(x.tgt_up*100).toFixed(0)}%</span>`:""}${x.earn?`<span>실적 ${esc(String(x.earn).slice(0,10))}</span>`:""}</div>
@@ -163,13 +175,17 @@ async function vPicks(){
       ${(x.news||[]).map(n=>`<div class="why">📰 ${esc(n)}</div>`).join("")}</details></div>`}).join("")||`<div class="empty">후보 없음</div>`)+`</div>`;
   $("v").innerHTML=h;
 }
-function setPmk(m){pmk=m;localStorageSet("pmk",m);vPicks()}
+function setPmk(m,dk){pmk=m;localStorageSet("pmk",m);dk?vDesk():vPicks()}
 async function loadTable(){$("tbl").innerHTML=`<div class="why"><span class="spin"></span> 판단표 만드는 중 (종목마다 몇 초)</div>`;
   try{const r=await api("/api/m/table?mk="+pmk);$("tbl").innerHTML=`<pre class="why" style="margin-top:10px">${esc(r.text||r.error)}</pre>`}catch(e){$("tbl").textContent=e.message}}
 
+let sub=localStorageGet("sub")||"rep";
+function setSub(v){sub=v;localStorageSet("sub",v);vBrief()}
 function vBrief(){
+  const seg=`<div class="seg"><button class="${sub==="rep"?"on":""}" onclick="setSub('rep')">📰 보고서</button><button class="${sub==="log"?"on":""}" onclick="setSub('log')">📜 기록</button></div>`;
+  if(sub==="log")return vLog(seg);
   const btn=(k,t)=>`<button class="sm" onclick="runCmd('${k}')">${t}</button>`;
-  let h=`<div class="card"><b>보고서</b><div class="muted small">텔레그램 버튼과 같은 내용이에요. 분석은 종목마다 몇 초 걸려요.</div>
+  let h=seg+`<div class="card"><b>보고서</b><div class="muted small">텔레그램 버튼과 같은 내용이에요. 분석은 종목마다 몇 초 걸려요.</div>
     <div class="btns">${btn("분석","📰 보유 분석")}${btn("성적","📈 성적")}</div><div class="btns">${btn("진단","🔍 진단")}${btn("매수기록","🧾 매수 기록")}${btn("스윙","🧭 스윙")}</div></div>`;
   h+=Object.entries(T).reverse().map(([k,v])=>`<div class="card"><div class="row"><b>${esc(k)}</b><span class="sp"></span><span class="small muted">${esc(v.at)}</span></div>
     ${v.busy?`<div class="why"><span class="spin"></span> 모으는 중…</div>`:v.texts.map(t=>`<pre style="margin-top:8px">${esc(t)}</pre>`).join("")}</div>`).join("");
@@ -179,13 +195,14 @@ async function runCmd(k){delete T[k];T[k]={busy:true,texts:[],at:new Date().toLo
   try{const r=await api("/api/m/cmd",{text:k});T[k]={texts:r.texts||[r.msg],at:T[k].at}}catch(e){T[k]={texts:[e.message],at:T[k].at}}
   if(tab==="brief")vBrief()}
 
-function vLog(){
-  if(!D)return vHome();
+function vLog(seg){
+  seg=seg||"";
+  if(!D){$("v").innerHTML=seg+`<div class="card empty"><span class="spin"></span></div>`;return}
   const re=/매수|매도|체결|익절|손절|건너뜀|안 사요|멈춰|⛔|오류|AI|🧭/;
   let L=(D.log||[]).slice().reverse().filter(x=>logq?x.includes(logq):re.test(x));
-  $("v").innerHTML=`<div class="card"><input id="lq" placeholder="찾기 (종목 이름 등) — 비우면 중요한 것만" value="${esc(logq)}"></div>
+  $("v").innerHTML=seg+`<div class="card"><input id="lq" placeholder="찾기 (종목 이름 등) — 비우면 중요한 것만" value="${esc(logq)}"></div>
     <div class="card">${L.map(x=>`<div class="log">${esc(x)}</div>`).join("")||`<div class="empty">기록 없음 (로봇이 다시 켜지면 그 전 기록은 사라져요)</div>`}</div>`;
-  const q=$("lq");q.oninput=()=>{logq=q.value;clearTimeout(q._t);q._t=setTimeout(()=>{vLog();const n=$("lq");n.focus();n.setSelectionRange(n.value.length,n.value.length)},400)};
+  const q=$("lq");q.oninput=()=>{logq=q.value;clearTimeout(q._t);q._t=setTimeout(()=>{vBrief();const n=$("lq");n.focus();n.setSelectionRange(n.value.length,n.value.length)},400)};
 }
 
 function vMore(){
@@ -208,6 +225,109 @@ function lockAll(){ask("🔒 전부 잠금","보유 종목을 전부 장 마감 
 function resume(){ask("▶️ 재개","계좌 낙폭 한도로 멈춘 매수를 다시 시작해요.",async()=>{const r=await api("/api/m/resume",{});toast(r.msg)})}
 async function setCap(m){const v=$("cap"+m).value.trim();if(!v)return;let n=v.replace(/[,원$\s]/g,"");if(/만$/.test(n))n=String(parseFloat(n)*10000);const r=await api("/api/m/capital",{market:m,amount:n});toast(r.msg);load()}
 function upd(){ask("🆕 업데이트","GitHub 최신 버전을 받아 시험 후 적용해요.",async()=>{const r=await api("/api/m/update",{});toast(r.msg)})}
+
+
+/* ───────── 데스크 ───────── */
+let DK={}, dsub=localStorageGet("dsub")||"plan";
+async function vDesk(){
+  let h=`<div class="seg">${["KR","US"].map(m=>`<button class="${m===pmk?"on":""}" onclick="setPmk('${m}',1)">${FL[m]} ${NM[m]}</button>`).join("")}</div>
+    <div class="seg">${[["plan","가격 계획"],["earn","실적 일정"],["scan","차트 분류"]].map(([k,n])=>`<button class="${k===dsub?"on":""}" onclick="dsub='${k}';localStorageSet('dsub','${k}');vDesk()">${n}</button>`).join("")}</div>`;
+  const d=DK[pmk];
+  if(!d){$("v").innerHTML=h+`<div class="card empty"><span class="spin"></span> 데스크 자료 불러오는 중</div>`;
+    try{DK[pmk]=await api("/api/m/desk?mk="+pmk)}catch(e){DK[pmk]={error:e.message}} if(tab==="desk")vDesk();return}
+  if(d.error){$("v").innerHTML=h+`<div class="card empty">${esc(d.error)}</div>`;return}
+  const row=(x,extra)=>`<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(x.code)}')">${esc(x.name||x.code)} ›</span>${extra||""}</div></div>`;
+  const plan=p=>`<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(p.code)}')">${esc(p.name||p.code)} ›</span><span class="chip ${/1순위/.test(p.src)?"A":"B"}">${esc(p.src||"")}</span>${p.score!=null?`<span class="chip">${p.score}점</span>`:""}</div>
+     <div class="kv"><span>진입 <b>${money(p.entryLow,pmk)}~${money(p.entryHigh,pmk)}</b></span><span class="down">손절 ${money(p.stop,pmk)}</span><span class="up">1차 ${money(p.t1,pmk)}</span>${p.t2?`<span class="up">2차 ${money(p.t2,pmk)}</span>`:""}</div></div>`;
+  if(dsub==="plan"){
+    h+=`<div class="card"><b>장중 1순위</b> <span class="small muted">${esc(d.live.date||"")} ${esc(String(d.live.updatedAt||"").slice(11,16))}</span>${d.live.plans.map(plan).join("")||`<div class="empty">없음</div>`}
+      ${d.live.watch.length?`<div class="why" style="margin-top:8px">장중 관심: ${d.live.watch.map(w=>`<span class="nm" onclick="openStock(pmk,'${esc(w.code)}')" style="text-decoration:underline">${esc(w.name)}</span>`).join(" · ")}</div>`:""}</div>
+      <div class="card"><b>마감 리포트 가격 계획</b> <span class="small muted">${esc(d.report.date||"")}</span>${d.report.plans.map(plan).join("")||`<div class="empty">없음</div>`}</div>
+      <div class="card small muted">데스크(클로드 예약 작업)가 만든 계획이에요. 봇은 이 계획을 참고만 하고, 살 때는 점수·손실 한도·AI 점검을 따로 해요.</div>`;
+  }else if(dsub==="earn"){
+    const t=new Date().toISOString().slice(0,10);
+    h+=`<div class="card"><b>실적 발표 예정</b>${d.earn.upcoming.filter(x=>x.date>=t).map(x=>row(x,`<span class="sp"></span><span class="small muted">${esc(x.date.slice(5))}</span>`)).join("")||`<div class="empty">없음</div>`}</div>`;
+    if(d.earn.good.length)h+=`<div class="card"><b class="up">실적 좋음</b>${d.earn.good.map(x=>row(x)).join("")}</div>`;
+    if(d.earn.bad.length)h+=`<div class="card"><b class="down">실적 나쁨</b>${d.earn.bad.map(x=>row(x)).join("")}</div>`;
+  }else{
+    const NMs={breakout:"돌파",rebound:"반등",trend:"추세",caution:"주의"};
+    h+=`<div class="small muted" style="padding:0 4px">${esc(d.scanAsOf||"")} 종가 기준 · 차트 조건 기계 분류(추천 아님)</div>`;
+    for(const [k,v] of Object.entries(d.scan||{})){ if(!v.length)continue;
+      h+=`<div class="card"><b>${NMs[k]||k}</b>${v.map(x=>`<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(x.code)}')">${esc(x.name)} ›</span><span class="sp"></span><span class="${cls(x.pct)} b">${x.pct!=null?pct(x.pct):""}</span></div>
+        <div class="why">${(x.signals||[]).map(esc).join(" · ")}${(x.warns||[]).length?` <span class="down">⚠ ${(x.warns||[]).map(esc).join(" · ")}</span>`:""}</div></div>`).join("")}</div>`}
+  }
+  $("v").innerHTML=h;
+}
+
+/* ───────── 검색 ───────── */
+function closeFull(id){$(id).style.display="none";document.body.style.overflow=""}
+function openSearch(){$("srch").style.display="block";document.body.style.overflow="hidden";const q=$("sq");q.value="";$("sres").innerHTML="";setTimeout(()=>q.focus(),50);
+  q.oninput=()=>{clearTimeout(q._t);q._t=setTimeout(async()=>{const v=q.value.trim();if(!v){$("sres").innerHTML="";return}
+    const r=await api("/api/m/search?q="+encodeURIComponent(v));
+    $("sres").innerHTML=(r.items||[]).map(x=>`<button onclick="closeFull('srch');openStock('${x.market}','${esc(x.code)}')"><b>${esc(x.name)}</b><span class="small muted">${esc(x.code)}</span><span class="sp"></span><span>${FL[x.market]}</span></button>`).join("")||`<div class="empty">찾는 종목이 없어요. 국장은 6자리 코드, 미장은 티커로 넣어 보세요.</div>`},300)}}
+
+/* ───────── 종목 상세: 차트·점수·AI·데스크 계획·봇으로 사기 ───────── */
+let LW=null, chartObj=null, curStk=null;
+function loadLW(){return LW||(LW=new Promise((ok,no)=>{const sc=document.createElement("script");sc.src="/lw-charts.js";sc.onload=ok;sc.onerror=no;document.head.appendChild(sc)}))}
+async function openStock(mk,code){
+  $("stk").style.display="block";document.body.style.overflow="hidden";$("stk-t").textContent=code;
+  $("stk-b").innerHTML=`<div class="card empty"><span class="spin"></span> 차트·점수·기사 모으는 중</div>`;
+  let d; try{d=await api(`/api/m/stock?mk=${mk}&code=${encodeURIComponent(code)}`)}catch(e){$("stk-b").innerHTML=`<div class="card empty">${esc(e.message)}</div>`;return}
+  if(d.error){$("stk-b").innerHTML=`<div class="card empty">${esc(d.error)}</div>`;return}
+  curStk=d; const m=d.market;
+  $("stk-t").textContent=`${FL[m]} ${d.name}`;
+  const a=d.ai, g=d.grade, ok=d.score!=null&&d.score>=d.min_score;
+  const lines=[];
+  if(d.hold){lines.push(["산 값",d.hold.entry,"#98A2B3"]);lines.push(["손절선",d.hold.sl,"#3182F6"])}
+  else if(d.stop)lines.push(["봇 손절선(2×ATR)",d.stop,"#3182F6"]);
+  if(d.target)lines.push(["평균 목표가",d.target,"#12B76A"]);
+  if(d.plan){lines.push(["데스크 진입",d.plan.entryHigh,"#F79009"]);if(d.plan.t1)lines.push(["데스크 1차",d.plan.t1,"#F04452"])}
+  let h=`<div class="card"><div class="row"><span class="big">${money(d.price,m)}</span><span class="sp"></span><span class="b ${cls(d.pct)}">${pct(d.pct)}</span></div>
+    <div class="small muted">${esc(d.code)}${d.sector?` · ${esc(d.sector)}`:""}${d.earn?` · 실적 ${esc(String(d.earn).slice(0,10))}`:""}</div>
+    <div id="cv" style="margin-top:10px"></div>
+    <div class="legend2"><span><i style="background:#12B76A"></i>5일</span><span><i style="background:#F79009"></i>20일</span><span><i style="background:#9B8AFB"></i>60일</span>${lines.map(l=>`<span><i style="background:${l[2]}"></i>${esc(l[0])} ${money(l[1],m)}</span>`).join("")}</div>
+    <div class="small muted" style="margin-top:4px;font-size:10px">차트: <a href="https://www.tradingview.com/" target="_blank" rel="noopener" style="color:inherit">TradingView</a> Lightweight Charts™</div></div>`;
+  h+=`<div class="card"><div class="row"><b>현재·미래 점수</b><span class="sp"></span>${d.score!=null?`<span class="chip ${g}">${g} ${d.score>0?"+":""}${d.score}</span>`:"–"}</div>
+    <div class="small ${ok?"":"up"}" style="margin:4px 0 6px">${d.score==null?"자료 부족":ok?`봇 매수 기준(+${d.min_score} 이상) 통과`:`봇 매수 기준(+${d.min_score} 이상) 미달 — 봇으로 사기를 눌러도 안 사요`}</div>
+    ${(d.why||[]).map(w=>`<div class="wl ${w.startsWith("＋")?"p":"n"}">${w.startsWith("＋")?"🟢":w.startsWith("－")?"🔴":"⚪"} ${esc(w.replace(/^[＋－·＊]/,""))}</div>`).join("")}</div>`;
+  if(a)h+=`<div class="card"><b>${a.final?"AI 최종 판독":"AI 1차 판독"}</b> <span class="chip ${a.view==="긍정"?"pos":a.view==="부정"?"neg":"mid"}">${esc(a.view||"")} ${a.adj?(a.adj>0?"+":"")+a.adj:""}</span>
+    ${a.veto?`<div class="veto">⛔ 매수 금지: ${esc(a.veto)}</div>`:""}<div class="why" style="color:var(--ink)">💡 ${esc(a.catalyst||"")}</div><div class="why up">⚠️ ${esc(a.risk||"")}</div></div>`;
+  if(d.dart&&d.dart.length)h+=`<div class="veto">⚠️ 최근 공시: ${d.dart.map(esc).join(" · ")}</div>`;
+  if(d.plan)h+=`<div class="card"><b>데스크 가격 계획</b> <span class="chip">${esc(d.plan.src||"")}</span><div class="lad" style="margin-top:6px">
+    <span class="muted">진입</span><b>${money(d.plan.entryLow,m)} ~ ${money(d.plan.entryHigh,m)}</b><span class="muted">손절</span><b class="down">${money(d.plan.stop,m)}</b>
+    <span class="muted">1차 목표</span><b class="up">${money(d.plan.t1,m)}</b>${d.plan.t2?`<span class="muted">2차 목표</span><b class="up">${money(d.plan.t2,m)}</b>`:""}</div></div>`;
+  if(d.chart&&(d.chart.signals||d.chart.warns))h+=`<div class="card"><b>차트 신호</b> ${d.chart.label?`<span class="chip ${d.chart.label==="관심"?"pos":"neg"}">${esc(d.chart.label)}</span>`:""}
+    <div class="why" style="color:var(--ink)">${(d.chart.signals||[]).map(esc).join(" · ")||"–"}</div>${(d.chart.warns||[]).length?`<div class="why down">⚠ ${(d.chart.warns||[]).map(esc).join(" · ")}</div>`:""}
+    <div class="kv">${d.chart.support?`<span>지지 ${money(d.chart.support,m)}</span>`:""}${d.chart.resistance?`<span>저항 ${money(d.chart.resistance,m)}</span>`:""}</div></div>`;
+  if((d.news||[]).length)h+=`<div class="card"><b>최근 기사</b>${d.news.map(n=>`<div class="why" style="color:var(--ink)">📰 ${esc(n)}</div>`).join("")}</div>`;
+  if(d.hold)h+=`<div class="card"><b>보유 중</b> ${d.hold.qty}주 · 평가 <b class="${cls(d.hold.pnl)}">${smoney(d.hold.pnl,m)}</b>
+    <div class="btns"><button class="sm" onclick="lockStk(${!d.hold.locked})">${d.hold.locked?"🔓 잠금 해제":"🔒 잠금"}</button><button class="sm dan" onclick="sellStk()">💰 팔기</button></div></div>`;
+  else h+=`<div class="card"><button class="wide pri" onclick="buyStk()" ${a&&a.veto?"disabled":""}>🤖 봇으로 사기</button>
+    <div class="why">봇이 스윙 규칙 그대로 점검해요: 손절선 ${money(d.stop,m)} · 1건 손실 한도 · 업종·열린 손실 한도 · 점수 +${d.min_score} 이상 · AI 매수 금지·위험 공시·악재 기사. 걸리면 안 사고 이유를 알려 드려요. 장중에만 돼요.</div></div>`;
+  $("stk-b").innerHTML=h;
+  try{await loadLW();drawChart(d,lines)}catch(e){$("cv").innerHTML=`<div class="empty">차트를 불러오지 못했어요</div>`}
+}
+function drawChart(d,lines){
+  const el=$("cv"); if(!el)return; el.innerHTML="";
+  const dark=matchMedia("(prefers-color-scheme: dark)").matches, css=getComputedStyle(document.documentElement);
+  const c=LightweightCharts.createChart(el,{height:300,layout:{background:{color:"transparent"},textColor:dark?"#98A2B3":"#6B7684",fontSize:11},
+    grid:{vertLines:{visible:false},horzLines:{color:dark?"#232831":"#EEF0F3"}},rightPriceScale:{borderVisible:false},timeScale:{borderVisible:false},
+    handleScroll:true,handleScale:true,crosshair:{mode:0},localization:{locale:"ko-KR"}});
+  const t=b=>b[0];
+  const cs=c.addCandlestickSeries({upColor:"#F04452",downColor:"#3182F6",borderVisible:false,wickUpColor:"#F04452",wickDownColor:"#3182F6"});
+  if(d.market==="KR")cs.applyOptions({priceFormat:{type:"price",precision:0,minMove:1}});
+  cs.setData(d.bars.map(b=>({time:t(b),open:b[1],high:b[2],low:b[3],close:b[4]})));
+  const vs=c.addHistogramSeries({priceScaleId:"v",priceFormat:{type:"volume"}});c.priceScale("v").applyOptions({scaleMargins:{top:.82,bottom:0}});
+  vs.setData(d.bars.map(b=>({time:t(b),value:b[5],color:b[4]>=b[1]?"rgba(240,68,82,.35)":"rgba(49,130,246,.35)"})));
+  for(const [n,col] of [[5,"#12B76A"],[20,"#F79009"],[60,"#9B8AFB"]]){const s=c.addLineSeries({color:col,lineWidth:1,priceLineVisible:false,lastValueVisible:false});
+    const out=[];for(let i=n-1;i<d.bars.length;i++){let a=0;for(let j=i-n+1;j<=i;j++)a+=d.bars[j][4];out.push({time:t(d.bars[i]),value:a/n})}s.setData(out)}
+  for(const [n,v,col] of lines) if(v) cs.createPriceLine({price:v,color:col,lineWidth:1,lineStyle:2,axisLabelVisible:true,title:n});
+  c.timeScale().setVisibleLogicalRange({from:Math.max(0,d.bars.length-90),to:d.bars.length+2});
+  chartObj=c;
+}
+function buyStk(){const d=curStk;ask("🤖 봇으로 살까요?",`${d.name}: 봇이 스윙 규칙(손절선 ${money(d.stop,d.market)}, 1건 손실 한도, 점수·AI·공시 점검) 그대로 판단해서 통과하면 시장가로 사요.`,async()=>{const r=await api("/api/m/buy",{market:d.market,symbol:d.code});toast(r.msg)})}
+async function lockStk(on){const d=curStk;const r=await api("/api/m/lock",{market:d.market,symbol:d.code,on});toast(r.msg);openStock(d.market,d.code)}
+function sellStk(){const d=curStk;ask("💰 지금 팔까요?",`${d.name} ${d.hold.qty}주를 시장가로 팔아요.`,async()=>{const r=await api("/api/m/sell",{market:d.market,symbol:d.code});toast(r.msg);closeFull("stk");load()})}
 
 nav();render();load();setInterval(()=>{if(!document.hidden)load()},30000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()});

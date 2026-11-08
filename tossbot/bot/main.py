@@ -126,6 +126,7 @@ class Bot:
         self.stream = None
         self.stop_req: str | None = None   # None / "keep"(보유 유지하고 끝) / "sell"(전부 팔고 끝)
         self.sell_reqs: list[str] = []     # 텔레그램 보유종목 칸에서 '팔기' 누른 종목
+        self.buy_reqs: list[dict] = []     # 휴대폰 앱에서 '봇으로 사기' 누른 종목 (스윙 규칙 그대로 점검 후 매수)
         self.loop_on = False               # 장중 루프가 돌고 있을 때만 True (이때만 한 종목 팔기 가능)
         self.stopped: dict = {}            # 최근 손실로 판 종목 → 며칠 다시 안 삼
         self.sw_picks = None               # 일봉 스윙 후보 (전날 장 끝난 뒤 만든 것)
@@ -901,7 +902,23 @@ class Bot:
         out.append("당일엔 시가가 손절선 아래·10% 넘게 갭, (마감 매수는) 장중 손절선 닿음, 현금 부족일 때만 결과가 달라져요.")
         return "\n".join(out)
 
-    def swing_enter(self, cash, when: str = "open", dry: bool = False) -> float:
+    def manual_buy(self, x, cash) -> float:
+        """휴대폰 앱에서 고른 종목을 스윙 규칙 그대로(손절선·손실 한도·업종·열린 손실·점수·AI·공시·뉴스 점검) 사기.
+        점검에 걸리면 이유를 알림으로 보내고 안 삼."""
+        old, old_t = self.sw_picks, getattr(self, "sw_table", [])
+        d = {k: v for k, v in (old or {}).items() if k not in ("picks", "_off")}
+        d.setdefault("regime", True)
+        d["picks"] = [dict(x, _manual=True)]
+        self.sw_picks = d
+        try:
+            spent = Bot.swing_enter(self, cash, "open", manual=True)
+        finally:
+            self.sw_picks, self.sw_table = old, old_t
+        if not spent:
+            self.log(f"🧭 {x['name']} 봇 매수 요청 처리 끝 (안 삼 — 이유는 위 알림)")
+        return spent
+
+    def swing_enter(self, cash, when: str = "open", dry: bool = False, manual: bool = False) -> float:
         """when: open(장 시작 직후) / close(장 마감 15분 전, 그날 흐름을 보고) — 방식별로 config entry_at.
         dry: 주문 없이 어제 종가로 같은 판단을 해서 판단표(self.sw_table)만 만듦 — 장 전에 미리 알리는 용도."""
         d, c = self.sw_picks or {}, self.cfg["daily_swing"]
@@ -910,7 +927,7 @@ class Bot:
         def skip(x, why, loud=False):
             if dry:
                 table.append((x, "탈락", why, 0))
-            elif loud:
+            elif loud or x.get("_manual"):
                 self.notify(f"🧭 {x['name']} 건너뜀 — {why}")
             else:
                 self.log(f"🧭 {x['name']} 안 사요 — {why}")
@@ -934,8 +951,8 @@ class Bot:
                 skip(x, "최근 손절한 종목 (며칠 재매수 금지)")
             else:
                 cands.append(x)
-        later = [] if dry else [x for x in cands if Bot.swing_timing(self, x, d) != when]
-        cands = cands if dry else [x for x in cands if Bot.swing_timing(self, x, d) == when]
+        later = [] if dry or manual else [x for x in cands if Bot.swing_timing(self, x, d) != when]
+        cands = cands if dry or manual else [x for x in cands if Bot.swing_timing(self, x, d) == when]
         if when == "open" and later and slots > 0:
             self.notify(f"🧭 스윙 후보 {len(later)}개({', '.join(x['name'] for x in later[:5])})는 장 시작 직후 말고 "
                         f"장 마감 15분 전에 오늘 흐름을 보고 살게요. 장중에 손절선까지 밀리면 안 사요.")
@@ -946,6 +963,8 @@ class Bot:
         for p0 in have:
             if p0.extra.get("sector"):
                 sec_n[p0.extra["sector"]] = sec_n.get(p0.extra["sector"], 0) + 1
+        if manual and slots <= 0 and cands:
+            self.notify(f"🧭 {cands[0]['name']} 봇 매수 요청 — 스윙 동시 보유 한도({c.get('max_pos', 6)}종목)가 꽉 차서 안 샀어요")
         if (slots <= 0 and not dry) or not cands:
             return 0.0
         if dry:
@@ -1817,6 +1836,18 @@ class Bot:
                             cash -= spent
                     except Exception as e:
                         self.log(f"🧭 스윙 매수 오류: {e}")
+                while self.buy_reqs:
+                    xb = self.buy_reqs.pop(0)
+                    if n >= no_entry_t:
+                        self.notify(f"🧭 {xb['name']} 봇 매수 요청 — 새 진입 시간이 지나서 안 샀어요")
+                        continue
+                    cash = self.fresh_cash(cash, force=True)
+                    try:
+                        spent = Bot.manual_buy(self, xb, cash)
+                        if cash is not None:
+                            cash -= spent
+                    except Exception as e:
+                        self.notify(f"🧭 {xb['name']} 봇 매수 오류: {e}")
                 while self.sell_reqs:
                     sym = self.sell_reqs.pop(0)
                     st = self.syms.get(sym)

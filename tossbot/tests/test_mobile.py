@@ -21,6 +21,40 @@ d = MB.picks("KR", get=lambda u: {"date": "2026-11-06", "regime": True, "picks":
 assert [x["name"] for x in d["picks"]] == ["가"] and d["picks"][0]["grade"] == "A" and d["picks"][0]["ai"]["veto"] == "희석"
 assert len(d["picks"][0]["news"]) == 5 and "x" not in d["picks"][0]["ai"]
 
+# 데스크 자료·검색·종목 상세 (네트워크 없이)
+FAKE = {"report": {"date": "2026-11-04", "plans": {"006400": {"name": "삼성SDI", "src": "픽", "score": 70, "stop": 1, "entryLow": 2, "entryHigh": 3, "t1": 4},
+                                                  "000660": {"name": "SK하이닉스", "src": "1순위", "score": 60, "stop": 1}}},
+        "live": {"plans": {}, "watch": ["005930"]}, "earn": {"upcoming": {"005930": "2026-11-20"}, "good": {"000660": 1}},
+        "chart": {"asOf": "2026-11-06", "scan": {"breakout": ["005930"]}, "stocks": {"005930": {"name": "삼성전자", "close": 1, "pct": 2, "signals": ["돌파"]}}},
+        "names": {"005930": "삼성전자", "000660": "SK하이닉스"}}
+
+
+def fake_json(url, ttl=300, get=None):
+    for k in ("report", "live", "earn"):
+        if f"-{k}.json" in url:
+            return FAKE[k]
+    if "chart-" in url:
+        return FAKE["chart"]
+    if "names.json" in url:
+        return FAKE["names"]
+    if "picks.json" in url:
+        return {"picks": [{"code": "005930", "name": "삼성전자", "close": 100, "ev": {"ai": {"view": "긍정", "adj": 1}}}]}
+    return None
+
+
+MB._get_json = fake_json
+dk = MB.desk("KR")
+assert [p["name"] for p in dk["report"]["plans"]] == ["SK하이닉스", "삼성SDI"]          # 1순위 먼저
+assert dk["live"]["watch"][0]["name"] == "삼성전자" and dk["scan"]["breakout"][0]["signals"] == ["돌파"]
+assert MB.search("삼성")[0]["code"] == "005930" and MB.search("123456")[0]["market"] == "KR" and MB.search("nvda")[0]["code"] == "NVDA"
+bb = [(f"2026-10-{i:02d}", 100 + i, 102 + i, 99 + i, 101 + i, 1000.0) for i in range(1, 31)]
+A.quotes = lambda syms: {}
+MB.est = lambda mk, code: {}
+sd = MB.stock("KR", "005930", get_bars=lambda c: bb)
+assert sd["name"] == "삼성전자" and sd["score"] is not None and sd["stop"] < sd["prev"] and sd["ai"]["view"] == "긍정"
+assert sd["_x"]["setup"] == "fs" and sd["_x"]["close"] == sd["prev"]
+assert "장중" in MB.buy("KR", "005930")                                              # 로봇이 장 밖이면 안 받음
+
 A.holdings = lambda: []
 A.status = lambda: dict(st)
 A.capitals = lambda: {"KR": 1000000, "US": 1000}

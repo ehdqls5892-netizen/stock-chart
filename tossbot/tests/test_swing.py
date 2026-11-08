@@ -489,3 +489,18 @@ sent.clear()
 M.Bot.swing_enter(bot, None, "close")
 assert "V1" not in bv.pos and any("AI 최종 판독 매수 금지: 실적 쇼크" in t for t in sent), sent
 print("✅ AI 2단계 시험 통과")
+
+# 24) 휴대폰 앱 '봇으로 사기': 스윙 규칙 그대로 점검 — 통과하면 사고, AI 매수 금지면 이유 알림 후 안 삼, 원래 후보는 그대로
+bm = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker, bot.m = bm, "US"
+prices.update({"M1": 100.0, "M2": 100.0})
+api.candles = lambda sym, iv, n: [{"timestamp": dt.datetime.now(M.TZ["US"]).isoformat(), "closePrice": "100", "highPrice": "101", "lowPrice": "99"}]
+keep = {"date": "2026-11-06", "regime": True, "index": {"close": 100.0}, "picks": [{"code": "ZZ", "name": "원래후보", "setup": "fs"}]}
+bot.sw_picks = keep
+sent.clear()
+M.Bot.manual_buy(bot, {"code": "M2", "name": "M2", "setup": "fs", "close": 100, "stop": 93, "atr": 3, "score": 6, "reason": "앱",
+                       "ev": {"sector": "Y", "ai": {"veto": "희석 발표", "adj": -3}}}, None)
+assert "M2" not in bm.pos and any("M2 건너뜀" in t and "희석" in t for t in sent), sent
+M.Bot.manual_buy(bot, {"code": "M1", "name": "M1", "setup": "fs", "close": 100, "stop": 93, "atr": 3, "score": 6, "reason": "앱", "ev": {"sector": "X"}}, None)
+assert "M1" in bm.pos and bot.sw_picks is keep, (list(bm.pos), bot.sw_picks)
+print("✅ 앱 봇으로 사기 시험 통과")
