@@ -49,9 +49,12 @@ dk = MB.desk("KR")
 assert [p["name"] for p in dk["report"]["plans"]] == ["SK하이닉스", "삼성SDI"]          # 1순위 먼저
 assert dk["live"]["watch"][0]["name"] == "삼성전자" and dk["scan"]["breakout"][0]["signals"] == ["돌파"]
 e0 = dk["earn"]["upcoming"][0]
-ct = [c["t"] for c in e0["chips"]]
-assert e0["name"] == "삼성전자" and e0["time"] == "장 시작 전" and "호재" in ct and "실적 기대" in ct and "목표가 +25%" in ct, e0
-assert dk["earn"]["upcoming"][1]["name"] == "123456" and dk["earn"]["good"][0]["chips"][0]["t"] == "실적 좋음"   # 이름 못 찾으면 코드
+assert e0["name"] == "삼성전자" and e0["time"] == "장 시작 전" and e0["bias"] == "호재" and e0["tgt"] == "+25%", e0
+assert "실적 발표 기대가 커요" in e0["why"] and "AI가 좋게 봐요" in e0["why"], e0
+assert dk["earn"]["upcoming"][1]["name"] == "123456" and dk["earn"]["upcoming"][1]["bias"] == "정보 적음"   # 이름 못 찾으면 코드
+assert dk["earn"]["good"][0]["bias"] == "호재"
+ctx = MB.context("KR", {"bad": {"9": {}}, "upcoming": {}}, {"impact": {"8": {"impact": "호재", "title": "수주"}, "9": {"impact": "호재"}}}, {"8": {"label": "주의"}})
+assert MB.tags("KR", "8", ctx)["bias"] == "엇갈림" and MB.tags("KR", "9", ctx)["bias"] == "악재"     # 실적 나쁨은 악재 우선
 assert MB.search("삼성")[0]["code"] == "005930" and MB.search("123456")[0]["market"] == "KR" and MB.search("nvda")[0]["code"] == "NVDA"
 bb = [(f"2026-10-{i:02d}", 100 + i, 102 + i, 99 + i, 101 + i, 1000.0) for i in range(1, 31)]
 A.quotes = lambda syms: {}

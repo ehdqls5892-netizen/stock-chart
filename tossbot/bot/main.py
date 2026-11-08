@@ -1312,7 +1312,7 @@ class Bot:
     def daily_full(self, sym) -> list:
         bars = []
         try:
-            for cd in self.api.candles(sym, "1d", 260) or []:
+            for cd in (self.api.candles_upto(sym, "1d", 260) if hasattr(self.api, "candles_upto") else self.api.candles(sym, "1d", 260)) or []:
                 t = parse_ts(cd.get("timestamp"), self.m)
                 cl = f(cd.get("closePrice"))
                 if t and cl:

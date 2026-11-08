@@ -277,28 +277,34 @@ def context(mk: str, earn: dict | None = None, live: dict | None = None, chart: 
 
 
 def tags(mk: str, code: str, ctx: dict) -> dict:
-    """종목 옆 작은 표시: 호재/악재/엇갈림 · 목표가 여력 · 점수 등급 · 실적일 · 차트 관심/주의 (최대 4개)"""
-    chips = []
+    """종목 한 줄 판단 (중학생도 바로 알게): 호재(초록)·엇갈림(노랑)·악재(빨강) + 목표가 여력 + 짧은 이유 2~3개.
+    재료: 실적 결과·이슈 기사·AI 판독·실적 분위기·현재·미래 점수·애널리스트 목표가·차트 신호."""
+    good, bad = [], []
     pk = ctx["pk"].get(code) or {}
     ai = ((pk.get("ev") or {}).get("ai")) or {}
     if code in ctx["good"]:
-        chips.append({"t": "실적 좋음", "c": "pos"})
-    elif code in ctx["bad"]:
-        chips.append({"t": "실적 나쁨", "c": "neg"})
-    elif (ctx["imp"].get(code) or {}).get("impact") in ("호재", "악재", "중립"):
-        im = ctx["imp"][code]["impact"]
-        chips.append({"t": im if im != "중립" else "엇갈림", "c": {"호재": "pos", "악재": "neg"}.get(im, "mid")})
-    elif ai.get("view") in ("긍정", "부정", "중립"):
-        chips.append({"t": {"긍정": "호재", "부정": "악재", "중립": "엇갈림"}[ai["view"]], "c": {"긍정": "pos", "부정": "neg"}.get(ai["view"], "mid")})
+        good.append("실적이 예상보다 좋았어요")
+    if code in ctx["bad"]:
+        bad.append("실적이 예상보다 나빴어요")
+    im = (ctx["imp"].get(code) or {})
+    if im.get("impact") == "호재":
+        good.append("좋은 뉴스: " + im.get("title", "")[:18])
+    elif im.get("impact") == "악재":
+        bad.append("나쁜 뉴스: " + im.get("title", "")[:18])
+    if ai.get("view") == "긍정":
+        good.append("AI가 좋게 봐요")
+    elif ai.get("view") == "부정":
+        bad.append("AI가 나쁘게 봐요")
     if ai.get("veto"):
-        chips.append({"t": "⛔ 매수 금지", "c": "neg"})
-    b = (ctx["ev"].get(code) or {}).get("bias", "")
-    if b and code in ctx["up"]:
-        chips.append({"t": "실적 " + ("기대" if "기대" in b else "우려" if "우려" in b else "엇갈림"),
-                      "c": "pos" if "기대" in b else "neg" if "우려" in b else "mid"})
-    if pk.get("score") is not None:
-        sc = pk["score"]
-        chips.append({"t": f"{'A' if sc >= 4 else 'B' if sc >= 2 else 'C'} {sc:+d}", "c": "A" if sc >= 4 else "B" if sc >= 2 else "C"})
+        bad.append("AI 매수 금지")
+    bias_e = (ctx["ev"].get(code) or {}).get("bias", "")
+    if code in ctx["up"] and "기대" in bias_e:
+        good.append("실적 발표 기대가 커요")
+    elif code in ctx["up"] and "우려" in bias_e:
+        bad.append("실적 발표 걱정이 커요")
+    sc = pk.get("score")
+    if sc is not None:
+        (good if sc >= 4 else bad if sc <= 1 else []).append(f"봇 점수 {sc:+d}")
     up = None
     an = ctx["an"].get(code) or {}
     if an.get("up") is not None:
@@ -311,15 +317,26 @@ def tags(mk: str, code: str, ctx: dict) -> dict:
             up = tg / px - 1
         elif (pk.get("ev") or {}).get("tgt_up") is not None:
             up = pk["ev"]["tgt_up"]
-    if up is not None and -0.6 <= up <= 3.0:                 # 자료가 어긋나 보이는 값(예: 단위 차이)은 표시 안 함
-        chips.append({"t": f"목표가 {up * 100:+.0f}%", "c": "pos" if up >= 0.15 else "neg" if up < 0 else "mid"})
+    if up is not None and not (-0.6 <= up <= 3.0):
+        up = None                                            # 자료가 어긋나 보이는 값은 안 씀
+    if up is not None:
+        if up >= 0.15:
+            good.append("목표가까지 많이 남았어요")
+        elif up < 0:
+            bad.append("이미 목표가보다 비싸요")
     lb = (ctx["ch"].get(code) or {}).get("label")
-    if lb in ("관심", "주의") and len(chips) < 4:
-        chips.append({"t": f"차트 {lb}", "c": "pos" if lb == "관심" else "neg"})
+    if lb == "관심":
+        good.append("차트 모양이 좋아요")
+    elif lb == "주의":
+        bad.append("차트 모양이 나빠요")
+    n = len(good) - len(bad)
+    if ai.get("veto") or code in ctx["bad"]:
+        n = min(n, -1)
+    bias = "정보 적음" if not good and not bad else "호재" if n > 0 else "악재" if n < 0 else "엇갈림"
+    why = (good + bad) if n >= 0 else (bad + good)
     d = ctx["up"].get(code)
-    if d and len(chips) < 4:
-        chips.append({"t": f"실적 {d[5:].replace('-', '/')}", "c": "C"})
-    return {"chips": chips[:4]}
+    return {"bias": bias, "tgt": f"{up * 100:+.0f}%" if up is not None else None, "why": why[:3],
+            "earn": d[5:].replace("-", "/") if d else None}
 
 
 def SWnum(v):
@@ -371,15 +388,23 @@ def bars(sym: str, n: int = 260) -> list:
     out = []
     try:
         M.load_env()
-        for c in M.shared_api().candles(sym, "1d", n) or []:
+        from .util import parse_ts
+        mk = "KR" if sym[:1].isdigit() or sym[:1] == "A" and sym[1:2].isdigit() else "US"
+        for c in M.shared_api().candles_upto(sym, "1d", n) or []:
             cl = f(c.get("closePrice"))
-            if cl:
-                out.append((str(c.get("timestamp") or "")[:10], f(c.get("openPrice")) or cl, f(c.get("highPrice")) or cl,
+            t = parse_ts(c.get("timestamp"), mk)
+            if cl and t:
+                out.append((t.date().isoformat(), f(c.get("openPrice")) or cl, f(c.get("highPrice")) or cl,
                             f(c.get("lowPrice")) or cl, cl, f(c.get("volume"), 0.0) or 0.0))
         out.sort(key=lambda b: b[0])
-    except Exception:
+        dd = {}
+        for x in out:                       # 같은 날짜가 두 번 오면 마지막 것만
+            dd[x[0]] = x
+        out = list(dd.values())
+    except Exception as e:
+        print("일봉 받기 실패", sym, type(e).__name__, e)
         out = []
-    _BARS[sym] = (time.time(), out)
+    _BARS[sym] = (time.time(), out) if out else (time.time() - 50, out)
     return out
 
 

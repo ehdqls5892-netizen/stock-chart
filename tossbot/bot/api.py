@@ -149,6 +149,17 @@ class TossAPI:
                      {"symbol": symbol, "interval": interval, "count": count})
         return (r or {}).get("candles", [])
 
+    def candles_upto(self, symbol: str, interval="1d", count=260):
+        """한 번에 받을 수 있는 개수 제한이 있어도 되게: 많이 요청해 실패하거나 비면 개수를 줄여 다시."""
+        for n in [count] + [x for x in (200, 120, 100, 60) if x < count]:
+            try:
+                r = self.candles(symbol, interval, n)
+            except TossError:
+                r = []
+            if r:
+                return r
+        return []
+
     def stocks(self, symbols: list[str]):
         out = []
         for i in range(0, len(symbols), 100):

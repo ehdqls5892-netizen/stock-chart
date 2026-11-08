@@ -17,14 +17,15 @@
 @media (prefers-color-scheme:dark){:root{--bg:#101318;--card:#1B1F26;--ink:#E9ECEF;--muted:#98A2B3;--line:#2A3039;
   --blue-soft:#14243A;--up-soft:#3A1A1E;--ok-soft:#12301F;--warn-soft:#3A2A12;--tab:#161A20}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
-header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(env(safe-area-inset-top) + 10px) 16px 8px;display:flex;align-items:center;gap:8px}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 -apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;height:100%;overflow:hidden;-webkit-text-size-adjust:100%}
+body{display:flex;flex-direction:column;height:100dvh}
+header{flex:none;z-index:5;background:var(--bg);padding:calc(env(safe-area-inset-top) + 10px) 16px 8px;display:flex;align-items:center;gap:8px}
 header h1{font-size:20px;margin:0}
 .badge{font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px;background:var(--line);color:var(--muted)}
 .badge.live{background:var(--up);color:#fff}.badge.paper{background:var(--blue-soft);color:var(--blue)}
 .dot{width:8px;height:8px;border-radius:50%;background:var(--muted)}.dot.on{background:var(--ok)}
 #upd{margin-left:auto;font-size:12px;color:var(--muted)}
-main{padding:4px 16px calc(84px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px}
+main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:4px 16px 24px;display:flex;flex-direction:column;gap:12px}
 .card{background:var(--card);border-radius:18px;padding:14px 16px}
 .row{display:flex;align-items:center;gap:8px}.sp{flex:1}
 .muted{color:var(--muted)}.small{font-size:12px}.b{font-weight:700}
@@ -55,8 +56,8 @@ button:disabled{opacity:.45}
 details summary{cursor:pointer;color:var(--muted);font-size:12px;margin-top:6px}
 pre{white-space:pre-wrap;word-break:break-word;font:13px/1.55 -apple-system,"Apple SD Gothic Neo",sans-serif;margin:0}
 .log{font-size:12px;line-height:1.5;border-top:1px solid var(--line);padding:6px 0}
-input{font:inherit;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);width:100%}
-nav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--tab);border-top:1px solid var(--line);display:flex;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
+input{font:inherit;font-size:16px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);width:100%}
+nav{flex:none;z-index:6;background:var(--tab);border-top:1px solid var(--line);display:flex;padding:6px 4px calc(6px + env(safe-area-inset-bottom))}
 nav button{flex:1;background:transparent;color:var(--muted);font-size:11px;padding:6px 2px;display:flex;flex-direction:column;align-items:center;gap:2px}
 nav button span{font-size:20px;line-height:1}nav button.on{color:var(--ink)}
 .toast{position:fixed;left:16px;right:16px;bottom:calc(80px + env(safe-area-inset-bottom));background:var(--ink);color:var(--card);padding:12px 14px;border-radius:14px;font-size:14px;z-index:9;display:none;white-space:pre-wrap}
@@ -66,10 +67,13 @@ nav button span{font-size:20px;line-height:1}nav button.on{color:var(--ink)}
 .empty{color:var(--muted);text-align:center;padding:18px 0;font-size:14px}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--blue);border-radius:50%;animation:r 1s linear infinite;vertical-align:-2px}
 @keyframes r{to{transform:rotate(360deg)}}
+.bz{display:inline-block;font-size:12px;font-weight:800;padding:2px 9px;border-radius:99px;white-space:nowrap;flex:none}.bz.g{background:var(--ok);color:#fff}.bz.y{background:#F5B700;color:#1b1b1b}.bz.r{background:var(--up);color:#fff}.bz.n{background:var(--line);color:var(--muted)}
+.tg2{font-size:12px;font-weight:700;color:var(--muted);white-space:nowrap;flex:none}
+.legend3{display:flex;gap:10px;font-size:12px;color:var(--muted);align-items:center;flex-wrap:wrap}
 .bdg{position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--up);color:#fff;font-size:10px;line-height:16px;display:none;padding:0 4px}
 .ib{border-top:1px solid var(--line);padding:11px 0}.ib:first-child{border-top:0}.ib .tt{font-weight:700}.ib.new .tt::before{content:'● ';color:var(--up)}
 .tg{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}.tg:first-of-type{border-top:0}.tg input{width:auto;transform:scale(1.3)}
-select{font:inherit;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+select{font:inherit;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
 .full{position:fixed;inset:0;z-index:8;background:var(--bg);overflow:auto;display:none;padding:calc(env(safe-area-inset-top) + 8px) 16px calc(24px + env(safe-area-inset-bottom))}
 .full .top{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:8px;padding:6px 0 10px;z-index:5}
 .full .top h2{margin:0;font-size:20px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -115,7 +119,7 @@ function closeSheet(){$("sheet").style.display="none"}
 $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
 
 function nav(){$("nav").innerHTML=TABS.map(([k,i,n])=>`<button class="${k===tab?"on":""}" onclick="go('${k}')"><span>${i}</span>${n}</button>`).join("")}
-function go(k){tab=k;localStorageSet("tab",k);nav();render();window.scrollTo(0,0)}
+function go(k){tab=k;localStorageSet("tab",k);nav();render();$("v").scrollTo(0,0)}
 
 async function load(){
   try{D=await api("/api/m/home");$("upd").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});}
@@ -239,15 +243,17 @@ let DK={}, dsub=localStorageGet("dsub")||"plan";
 async function vDesk(){
   let h=`<div class="seg">${["KR","US"].map(m=>`<button class="${m===pmk?"on":""}" onclick="setPmk('${m}',1)">${FL[m]} ${NM[m]}</button>`).join("")}</div>
     <div class="seg">${[["plan","가격 계획"],["earn","실적 일정"],["scan","차트 분류"]].map(([k,n])=>`<button class="${k===dsub?"on":""}" onclick="dsub='${k}';localStorageSet('dsub','${k}');vDesk()">${n}</button>`).join("")}</div>`;
+  h+=`<div class="legend3"><span style="white-space:nowrap"><span class="bz g">호재</span> 좋은 소식 많음</span><span style="white-space:nowrap"><span class="bz y">엇갈림</span> 반반</span><span style="white-space:nowrap"><span class="bz r">악재</span> 나쁜 소식 많음</span></div>`;
   const d=DK[pmk];
   if(!d){$("v").innerHTML=h+`<div class="card empty"><span class="spin"></span> 데스크 자료 불러오는 중</div>`;
     try{DK[pmk]=await api("/api/m/desk?mk="+pmk)}catch(e){DK[pmk]={error:e.message}} if(tab==="desk")vDesk();return}
   if(d.error){$("v").innerHTML=h+`<div class="card empty">${esc(d.error)}</div>`;return}
-  const chips=x=>(x.chips||[]).map(c=>`<span class="chip ${esc(c.c)}">${esc(c.t)}</span>`).join("");
-  const row=(x,extra,sub)=>`<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(x.code)}')">${esc(x.name||x.code)} ›</span><span class="sp"></span>${extra||""}</div>
-     <div style="margin-top:4px">${chips(x)}</div>${sub?`<div class="why">${sub}</div>`:""}</div>`;
-  const plan=p=>`<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(p.code)}')">${esc(p.name||p.code)} ›</span><span class="sp"></span><span class="chip ${/1순위/.test(p.src)?"A":"B"}">${esc(p.src||"")}</span>${p.score!=null?`<span class="chip">${p.score}점</span>`:""}</div>
-     <div style="margin-top:4px">${chips(p)}</div>
+  const BZ={"호재":"g","엇갈림":"y","악재":"r"};
+  const chips=x=>`<span class="bz ${BZ[x.bias]||"n"}">${esc(x.bias||"정보 적음")}</span>${x.tgt?`<span class="tg2">목표가 ${esc(x.tgt)}</span>`:""}`;
+  const row=(x,extra,sub)=>`<div class="pk"><div class="row" style="flex-wrap:wrap;row-gap:4px"><span class="nm b" onclick="openStock(pmk,'${esc(x.code)}')">${esc(x.name||x.code)} ›</span>${chips(x)}<span class="sp"></span>${extra||""}</div>
+     ${(x.why||[]).length?`<div class="why">${x.why.map(esc).join(" · ")}</div>`:""}${sub?`<div class="why">${sub}</div>`:""}</div>`;
+  const plan=p=>`<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(p.code)}')">${esc(p.name||p.code)} ›</span>${chips(p)}<span class="sp"></span><span class="chip">${esc(p.src||"")}</span></div>
+     ${(p.why||[]).length?`<div class="why">${p.why.map(esc).join(" · ")}</div>`:""}
      <div class="kv"><span>진입 <b>${money(p.entryLow,pmk)}~${money(p.entryHigh,pmk)}</b></span><span class="down">손절 ${money(p.stop,pmk)}</span><span class="up">1차 ${money(p.t1,pmk)}</span>${p.t2?`<span class="up">2차 ${money(p.t2,pmk)}</span>`:""}</div></div>`;
   if(dsub==="plan"){
     h+=`<div class="card"><b>장중 1순위</b> <span class="small muted">${esc(d.live.date||"")} ${esc(String(d.live.updatedAt||"").slice(11,16))}</span>${d.live.plans.map(plan).join("")||`<div class="empty">없음</div>`}
@@ -322,6 +328,7 @@ async function openStock(mk,code){
 }
 function drawChart(d,lines){
   const el=$("cv"); if(!el)return; el.innerHTML="";
+  if(!d.bars||d.bars.length<2){el.style.height="auto";el.innerHTML=`<div class="empty">토스에서 일봉 자료를 못 받았어요. 잠시 뒤 다시 열어 보세요.</div>`;return}
   const dark=matchMedia("(prefers-color-scheme: dark)").matches, css=getComputedStyle(document.documentElement);
   const c=LightweightCharts.createChart(el,{height:300,layout:{background:{color:"transparent"},textColor:dark?"#98A2B3":"#6B7684",fontSize:11},
     grid:{vertLines:{visible:false},horzLines:{color:dark?"#232831":"#EEF0F3"}},rightPriceScale:{borderVisible:false},timeScale:{borderVisible:false},
