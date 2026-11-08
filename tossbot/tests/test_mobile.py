@@ -133,3 +133,15 @@ MB.LAST_BIAS[("US", "HOLD")] = "호재"
 MB.refresh_once("US", get_bars=lambda c: dn_bars, notify=lambda *a: alerts.append(a))
 assert alerts and "호재→악재" in alerts[0][1], (alerts, MB.LAST_BIAS)
 print("✅ 계속 다시 보기 시험 통과")
+
+# 업데이트 칸: 마지막 업데이트 시각·최신 여부
+import bot.mobile as _MB  # noqa: E402
+_MB._get_json = lambda url, ttl=300, get=None: get(url)
+_MB._CACHE.clear()
+_v = _MB.version(get=lambda u: [{"sha": "abcdef123", "commit": {"committer": {"date": "2000-01-01T00:00:00Z"}, "message": "새 기능\n자세히"}}])
+assert _v["latest_sha"] == "abcdef1" and _v["up_to_date"] is True and _v["latest_msg"] == "새 기능", _v
+_MB._CACHE.clear()
+_v = _MB.version(get=lambda u: [{"sha": "abcdef123", "commit": {"committer": {"date": "2999-01-01T00:00:00Z"}, "message": "x"}}])
+assert _v["up_to_date"] is False
+_MB._CACHE.clear()
+print("✅ 버전 표시 시험 통과")

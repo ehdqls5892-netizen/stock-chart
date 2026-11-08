@@ -175,6 +175,35 @@ def _get_json(url: str, ttl: int = 300, get=None):
     return v
 
 
+STARTED = time.time()
+
+
+def version(get=None) -> dict:
+    """설정 화면 '업데이트' 칸: 지금 쓰는 버전·적용 시각·로봇 다시 켜진 시각·GitHub 최신 코드 시각 → 최신인지."""
+    import datetime as dt
+    root = DIR.parent
+    out = {"started": dt.datetime.fromtimestamp(STARTED, dt.timezone.utc).isoformat(timespec="seconds")}
+    f = root / ".last_sha"
+    if f.exists():
+        out["sha"] = f.read_text().strip()[:7]
+        out["applied"] = dt.datetime.fromtimestamp(f.stat().st_mtime, dt.timezone.utc).isoformat(timespec="seconds")
+    bad = root / ".last_fail"
+    if bad.exists():
+        out["fail"] = dt.datetime.fromtimestamp(bad.stat().st_mtime, dt.timezone.utc).isoformat(timespec="seconds")
+    js = _get_json("https://api.github.com/repos/ehdqls5892-netizen/stock-chart/commits?path=tossbot&per_page=1", 300, get)
+    try:
+        c = js[0]
+        out["latest_sha"] = c["sha"][:7]
+        out["latest"] = c["commit"]["committer"]["date"].replace("Z", "+00:00")
+        out["latest_msg"] = c["commit"]["message"].split("\n")[0][:80]
+    except Exception:
+        pass
+    if out.get("latest"):
+        mine = out.get("applied") or out["started"]
+        out["up_to_date"] = dt.datetime.fromisoformat(mine) >= dt.datetime.fromisoformat(out["latest"])
+    return out
+
+
 def desk(mk: str) -> dict:
     """주식비서 데스크 자료(마감 리포트 가격 계획·장중 1순위·실적 일정·차트 분류) — 모든 종목에 이름과 작은 표시(칩)."""
     m = mk.lower()

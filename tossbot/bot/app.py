@@ -764,6 +764,8 @@ class H(BaseHTTPRequestHandler):
                 elif u.path == "/api/m/plan":
                     hs = holdings()
                     out = {mk: MB.plan(mk, hold=[h for h in hs if h["market"] == mk]) for mk in ("KR", "US")}
+                elif u.path == "/api/m/version":
+                    out = MB.version()
                 elif u.path == "/api/m/desk":
                     out = MB.desk(q.get("mk", "KR"))
                 elif u.path == "/api/m/search":

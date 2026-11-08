@@ -252,16 +252,24 @@ function vMore(){
     <input id="cap${m}" inputmode="decimal" placeholder="${money(cap[m],m)}"><button class="sm" style="flex:0 0 64px" onclick="setCap('${m}')">저장</button></div>`).join("")}
     <div class="why">국장은 원, 미장은 달러로 적어요. 이미 산 종목은 그대로예요.</div></div>
   <div class="card"><b>업데이트</b><div class="muted small">GitHub 새 버전을 받아 시험 후 적용해요 (1~2분, 보유 종목은 이어서 관리).</div>
+    <div id="verc" class="small" style="margin-top:6px">버전 확인 중…</div>
     <div class="btns"><button class="sm pri" onclick="upd()">🆕 지금 업데이트</button></div></div>
   <div class="card small muted">홈 화면에 추가: 아이폰은 Safari 공유 버튼 → '홈 화면에 추가', 안드로이드는 Chrome 메뉴 → '앱 설치'.<br>알림은 위 🔔 알림 칸에서 켜요. 텔레그램 알림은 '안 받기'로 끌 수 있어요(버튼 조작은 그대로 돼요).</div>`;
   pushCard();
+  verCard();
 }
+function kt(iso){if(!iso)return"";const d=new Date(iso);return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`}
+async function verCard(){const v=await api("/api/m/version");const el=$("verc");if(!el)return;if(!v||v.error){el.textContent="버전을 못 읽었어요";return}
+  const st=v.up_to_date===true?`<span style="color:var(--ok)">✅ 최신 버전이에요</span>`:v.up_to_date===false?`<span style="color:var(--warn)">🆕 새 버전이 있어요 (${kt(v.latest)} 올라옴) — 업데이트를 눌러 주세요</span>`:"";
+  el.innerHTML=`${st}<div class="muted">마지막 업데이트: ${v.applied?kt(v.applied)+" ("+v.sha+")":"기록 없음"} · 로봇 다시 켜짐: ${kt(v.started)}</div>`
+   +(v.fail&&(!v.applied||v.fail>v.applied)?`<div style="color:var(--up)">⚠️ ${kt(v.fail)} 업데이트 시험 실패 — 예전 버전 그대로예요</div>`:"")
+   +(v.latest_msg?`<div class="muted">최신 변경: ${esc(v.latest_msg.slice(0,40))}…</div>`:"")}
 function startBot(m){ask(m==="live"?"🔴 실전 시작":"▶️ 연습 시작",m==="live"?"실제 돈으로 주문해요.":"연습 모드로 시작해요.",async()=>{const r=await api("/api/m/start",{mode:m});toast(r.msg);load()})}
 function stopBot(h){ask(h==="sell"?"💰 전부 팔고 끄기":"⏹ 로봇 끄기",h==="sell"?"보유 종목을 전부 시장가로 팔고 멈춰요 (잠긴 종목도).":"보유 종목은 토스 서버 손절 주문을 걸어 둔 채로 멈춰요.",async()=>{const r=await api("/api/m/stop",{how:h});toast(r.msg);load()})}
 function lockAll(){ask("🔒 전부 잠금","보유 종목을 전부 장 마감 정리 없이 들고 가요.",async()=>{const r=await api("/api/m/lockall",{});toast(r.msg);load()})}
 function resume(){ask("▶️ 재개","계좌 낙폭 한도로 멈춘 매수를 다시 시작해요.",async()=>{const r=await api("/api/m/resume",{});toast(r.msg)})}
 async function setCap(m){const v=$("cap"+m).value.trim();if(!v)return;let n=v.replace(/[,원$\s]/g,"");if(/만$/.test(n))n=String(parseFloat(n)*10000);const r=await api("/api/m/capital",{market:m,amount:n});toast(r.msg);load()}
-function upd(){ask("🆕 업데이트","GitHub 최신 버전을 받아 시험 후 적용해요.",async()=>{const r=await api("/api/m/update",{});toast(r.msg)})}
+function upd(){ask("🆕 업데이트","GitHub 최신 버전을 받아 시험 후 적용해요.",async()=>{const r=await api("/api/m/update",{});toast(r.msg);setTimeout(verCard,90000)})}
 
 
 /* ───────── 데스크 ───────── */

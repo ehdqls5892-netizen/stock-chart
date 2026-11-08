@@ -49,10 +49,11 @@ update_github() {   # $1 = force
   SRC=$(ls -d "$T"/*/tossbot 2>/dev/null | head -1)
   [ -z "$SRC" ] && { echo "GitHub 에 tossbot 폴더가 없어요"; rm -rf "$T"; return 1; }
   if apply_src "$SRC"; then
-    echo "$SHA" > .last_sha
+    echo "$SHA" > .last_sha; rm -f .last_fail
     echo "✅ GitHub 최신 버전($SHA)으로 업데이트하고 다시 켰어요 (.env·투자금 설정은 그대로)"
     notify "🆕 로봇을 새 버전($SHA)으로 자동 업데이트했어요. 보유 종목은 이어서 관리해요."
   else
+    echo "$SHA" > .last_fail
     notify "⚠️ 새 버전($SHA)이 시험을 통과하지 못해서 지금 버전을 그대로 써요."
   fi
   rm -rf "$T"
