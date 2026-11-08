@@ -148,9 +148,14 @@ def ai_read(market: str, x: dict, news: list) -> dict:
               + json.dumps(facts, ensure_ascii=False, default=str)[:6000])
     try:
         r = requests.post("https://api.anthropic.com/v1/messages", timeout=60,
-                          headers={"x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json"},
+                          headers={k: v for k, v in {"x-api-key": key, "authorization": f"Bearer {key}", "anthropic-version": "2023-06-01",
+                                                     "content-type": "application/json",
+                                                     "anthropic-workspace-id": os.getenv("ANTHROPIC_WORKSPACE_ID", "").strip()}.items() if v},
                           json={"model": model, "max_tokens": 300, "messages": [{"role": "user", "content": prompt}]})
         js = r.json()
+        if r.status_code != 200:
+            log("Claude 응답 오류", r.status_code, str(js)[:200])
+            return {}
         txt = "".join(c.get("text", "") for c in js.get("content", []) if c.get("type") == "text")
         m = re.search(r"\{.*\}", txt, re.S)
         if not m:
