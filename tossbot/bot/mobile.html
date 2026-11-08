@@ -39,7 +39,7 @@ main{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;oversc
 .chip.lock{background:var(--blue-soft);color:var(--blue)}
 .h{border-top:1px solid var(--line);padding:12px 0}.h:first-child{border-top:0;padding-top:2px}
 .h .nm{font-weight:700;font-size:16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.h .row,.pk .row{flex-wrap:nowrap}.pk .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.h .row,.pk .row{flex-wrap:nowrap}.pk .nm{white-space:nowrap;flex:none}
 .kv{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:var(--muted);margin-top:4px}.kv b{color:var(--ink);font-weight:600}
 .why{font-size:12px;color:var(--muted);margin-top:6px}
 .btns{display:flex;gap:8px;margin-top:10px}
@@ -174,7 +174,7 @@ async function vPicks(){
   if(d.error)h+=`<div class="card empty">${esc(d.error)}</div>`;
   h+=`<div class="card">`+((d.picks||[]).map(x=>{const a=x.ai, vw=a?(a.view==="긍정"?"pos":a.view==="부정"?"neg":"mid"):"";
     return `<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(x.code)}')">${esc(x.name)} ›</span><span class="chip ${x.grade||""}">${x.grade||""} ${x.score>0?"+":""}${x.score??""}</span>
-      ${a?`<span class="chip ${vw}">AI ${esc(a.view||"")}${a.adj?` ${a.adj>0?"+":""}${a.adj}`:""}</span>`:""}<span class="sp"></span><span class="small muted">${esc(x.sector||"")}</span></div>
+      ${a?`<span class="chip ${vw}">AI ${esc(a.view||"")}${a.adj?` ${a.adj>0?"+":""}${a.adj}`:""}</span>`:""}</div>${x.sector?`<div class="small muted">${esc(x.sector)}</div>`:""}
       <div class="kv"><span>종가 <b>${money(x.close,pmk)}</b></span><span>손절 ${money(x.stop,pmk)} (${x.close?((x.stop/x.close-1)*100).toFixed(1):"–"}%)</span>
       ${x.rr?`<span>목표가 여력 ${(x.rr.up*100).toFixed(0)}%</span>`:x.tgt_up!=null?`<span>목표가 여력 ${(x.tgt_up*100).toFixed(0)}%</span>`:""}${x.earn?`<span>실적 ${esc(String(x.earn).slice(0,10))}</span>`:""}</div>
       ${x.rr?`<div class="small" style="margin-top:4px"><span class="bz ${x.rr.rr>=2?"g":x.rr.rr>=1.5?"y":"r"}">손익비 ${x.rr.rr}</span> <span class="muted">목표가까지 ${(x.rr.up*100).toFixed(0)}% 남음 · 손절까지 -${(x.rr.stop*100).toFixed(0)}% → ${x.rr.rr>=2?"남는 게 커요":x.rr.rr>=1.5?"보통이에요":"남는 게 적어요"}</span></div>`:""}
