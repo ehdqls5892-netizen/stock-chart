@@ -522,3 +522,18 @@ M.Bot.swing_enter(bot, None, "close")
 assert "N1" not in ba.pos and any("AI 판독이 부정적" in t for t in sent), sent
 assert "N2" in ba.pos and ba.pos["N2"].extra.get("risk_pct") == c["risk_by_grade"]["B"], ba.pos["N2"].extra.get("risk_pct")
 print("✅ 손익비·AI 부정/중립 시험 통과")
+
+# 26) 손익비 1 미만이면 점수가 높아도 안 삼
+br2 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker, bot.m = br2, "US"
+prices.update({"R1": 100.0})
+api.candles = lambda sym, iv, n: [{"timestamp": dt.datetime.now(M.TZ["US"]).isoformat(), "closePrice": "100", "highPrice": "101", "lowPrice": "99"}]
+bot._est_day, bot._est = M.now("US").date(), {"R1": {"targetMeanPrice": "103"}}
+c["estimates_url"] = "x"
+bot.sw_picks = {"date": "2026-11-06", "regime": True, "index": {"close": 100.0},
+                "picks": [{"code": "R1", "name": "R1", "setup": "fs", "close": 100, "stop": 93, "atr": 3, "score": 9, "reason": "x", "ev": {"sector": "R"}}]}
+sent.clear()
+M.Bot.swing_enter(bot, None, "close")
+c["estimates_url"] = ""
+assert "R1" not in br2.pos and any("손익비" in t for t in sent), sent
+print("✅ 손익비 하한 시험 통과")

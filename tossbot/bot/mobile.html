@@ -176,11 +176,12 @@ async function vPicks(){
     return `<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(x.code)}')">${esc(x.name)} ›</span><span class="chip ${x.grade||""}">${x.grade||""} ${x.score>0?"+":""}${x.score??""}</span>
       ${a?`<span class="chip ${vw}">AI ${esc(a.view||"")}${a.adj?` ${a.adj>0?"+":""}${a.adj}`:""}</span>`:""}<span class="sp"></span><span class="small muted">${esc(x.sector||"")}</span></div>
       <div class="kv"><span>종가 <b>${money(x.close,pmk)}</b></span><span>손절 ${money(x.stop,pmk)} (${x.close?((x.stop/x.close-1)*100).toFixed(1):"–"}%)</span>
-      ${x.tgt_up!=null?`<span>목표가 여력 ${(x.tgt_up*100).toFixed(0)}%</span>`:""}${x.earn?`<span>실적 ${esc(String(x.earn).slice(0,10))}</span>`:""}</div>
+      ${x.rr?`<span>목표가 여력 ${(x.rr.up*100).toFixed(0)}%</span>`:x.tgt_up!=null?`<span>목표가 여력 ${(x.tgt_up*100).toFixed(0)}%</span>`:""}${x.earn?`<span>실적 ${esc(String(x.earn).slice(0,10))}</span>`:""}</div>
       ${x.rr?`<div class="small" style="margin-top:4px"><span class="bz ${x.rr.rr>=2?"g":x.rr.rr>=1.5?"y":"r"}">손익비 ${x.rr.rr}</span> <span class="muted">목표가까지 ${(x.rr.up*100).toFixed(0)}% 남음 · 손절까지 -${(x.rr.stop*100).toFixed(0)}% → ${x.rr.rr>=2?"남는 게 커요":x.rr.rr>=1.5?"보통이에요":"남는 게 적어요"}</span></div>`:""}
       ${(x.pros||[]).length?`<div class="why"><b style="color:var(--ok)">왜 후보?</b> ${x.pros.map(esc).join(" · ")}</div>`:""}
       ${(x.cons||[]).length?`<div class="why"><b style="color:var(--up)">걱정되는 점</b> ${x.cons.map(esc).join(" · ")}</div>`:""}
       ${a&&a.veto?`<div class="veto">⛔ AI 매수 금지: ${esc(a.veto)}</div>`:""}
+      ${x.no_buy?`<div class="veto">⛔ 안 사요: ${esc(x.no_buy)}</div>`:a&&a.view==="부정"?`<div class="veto">⛔ 안 사요: AI 판독 부정</div>`:a&&a.view==="중립"?`<div class="why" style="color:var(--warn)">AI 판독 중립 → 사더라도 작게(손실 한도 0.6%)</div>`:""}
       ${x.dart&&x.dart.length?`<div class="veto">⚠️ 최근 공시: ${x.dart.map(esc).join(" · ")}</div>`:""}
       ${a?`<div class="ai"><div class="t">${a.final?"AI 최종 판독":"AI 1차 판독"}</div><div>💡 ${esc(a.catalyst||"")}</div><div class="up" style="margin-top:4px">⚠️ ${esc(a.risk||"")}</div></div>`:""}
       <details><summary>점수 근거${x.news&&x.news.length?" · 기사":""}</summary><div class="why">${esc(x.reason)}</div>

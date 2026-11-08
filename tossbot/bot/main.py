@@ -1064,6 +1064,10 @@ class Bot:
             if bad:
                 skip(x, bad, loud=True)
                 continue
+            mrr = c.get("min_rr")
+            if mrr and x.get("_rr") is not None and x["_rr"] < mrr:
+                skip(x, f"손익비 {x['_rr']:.1f} — 평균 목표가까지 남은 폭이 손절 폭보다 작아서(이미 목표가 근처) 안 사요", loud=True)
+                continue
             veto = (ev.get("ai") or {}).get("veto")
             if veto:
                 skip(x, f"AI 최종 판독 매수 금지: {veto}", loud=True)
@@ -1399,11 +1403,13 @@ class Bot:
             tone = 0
         fs, fwhy = SW.forward_score(self.m, bars, price, est, ev, tone)
         tg0 = SW.cons_target(self.m, est)
+        rr0 = None
         if tg0 and price and x.get("stop") and not SW.long_downtrend(bars, price):
-            adj, rtxt, _ = SW.rr_score(tg0 / price - 1, (price - float(x["stop"])) / price)
+            adj, rtxt, rr0 = SW.rr_score(tg0 / price - 1, (price - float(x["stop"])) / price)
             if rtxt:
                 fs += adj
                 fwhy = [rtxt] + fwhy
+        x["_rr"] = rr0
         x["_fscore"], x["_fwhy"] = fs, fwhy
         x["_tgt"] = SW.cons_target(self.m, est) or (price * (1 + ev["tgt_up"]) if (x.get("ev") or {}).get("tgt_up") is not None and price else None)
         txt = (f"🎯 현재·미래 점수 {fs:+d} ({SW.grade_of(fs)}): " + " ".join(fwhy[:8]) + ("\n" + txt if txt else "")) if fwhy else txt

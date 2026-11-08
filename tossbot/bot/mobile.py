@@ -84,7 +84,7 @@ def picks(mk: str, get=None) -> dict:
                     "reason": x.get("reason", ""), "sector": ev.get("sector"),
                     "ai": {k: ai.get(k) for k in ("view", "adj", "catalyst", "risk", "veto", "final", "model")} if ai else None,
                     "dart": ev.get("dart_flags"), "earn": ev.get("earn"), "tgt_up": ev.get("tgt_up"),
-                    "news": (ev.get("news") or [])[:5], "rr": x.get("rr"),
+                    "news": (ev.get("news") or [])[:5], "rr": x.get("rr"), "no_buy": x.get("no_buy"),
                     "pros": [t.strip() for t in re.findall(r"＋([^＋－·＊]+)", x.get("reason", ""))][:3],
                     "cons": [t.strip() for t in re.findall(r"－([^＋－·＊]+)", x.get("reason", ""))][:3]})
     res = {"market": mk, "date": d.get("date"), "regime": d.get("regime"), "index": d.get("index"), "picks": out[:20]}

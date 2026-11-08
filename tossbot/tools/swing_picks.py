@@ -305,6 +305,8 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
                 sc += adj
                 why.insert(0, txt)
                 x["rr"] = {"up": round(tu, 4), "stop": round(stop_pct, 4), "rr": round(rr, 2)}
+                if rr < 1.0:
+                    x["no_buy"] = "손익비 1 미만 — 이미 목표가 근처"
         x["score"] = sc
         x["reason"] = f"현재·미래 점수 {sc:+d}: " + " ".join(why[:10])
         nws = ev.get("news") or []
@@ -345,7 +347,7 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
             x["reason"] += " · ⚠️ 최근 공시: " + " · ".join(ev["dart_flags"])
         x.pop("_news", None)
         x.pop("_base", None)
-    out.sort(key=lambda x: (bool((x["ev"].get("ai") or {}).get("veto")), -x["score"]))
+    out.sort(key=lambda x: (bool((x["ev"].get("ai") or {}).get("veto")) or bool(x.get("no_buy")), -x["score"]))
     if XS.USAGE:
         print("Claude 사용량(입력·출력 토큰):", XS.USAGE, file=sys.stderr)
     return out[:keep]
