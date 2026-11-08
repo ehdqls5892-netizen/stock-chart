@@ -755,6 +755,12 @@ class H(BaseHTTPRequestHandler):
                     out = MB.picks(q.get("mk", "KR"))
                 elif u.path == "/api/m/table":
                     out = {"text": MB.table(q.get("mk", "KR"))}
+                elif u.path == "/api/m/push":
+                    from . import push as PU
+                    out = {"key": PU.public_key(), "subs": len(PU.subs()), "prefs": PU.prefs()}
+                elif u.path == "/api/m/inbox":
+                    from . import push as PU
+                    out = {"items": PU.inbox(int(q.get("n", 100)))}
                 elif u.path == "/api/m/desk":
                     out = MB.desk(q.get("mk", "KR"))
                 elif u.path == "/api/m/search":
@@ -824,6 +830,8 @@ def main():
     tc.etf_fn = etf_cmd
     from . import mobile as MB
     MB.make(tc)
+    from . import alerts as AL
+    AL.start()                                   # 장중 급등·급락 감시 → 휴대폰 앱 알림
     if tc.enabled:
         tc.start()
         threading.Thread(target=_briefing_loop, args=(lambda t: tc.send(t),), daemon=True).start()

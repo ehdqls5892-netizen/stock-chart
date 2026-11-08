@@ -21,8 +21,21 @@ class Notifier:
         return bool(self.token and self.chat)
 
     def __call__(self, text: str):
-        if self.enabled:
-            self.q.put(self.prefix + text)
+        full = self.prefix + text
+        mk = "KR" if self.prefix.startswith("🇰🇷") else "US" if self.prefix.startswith("🇺🇸") else None
+        tg = "full"
+        try:                                   # 휴대폰 앱 알림함·푸시 (쉬운 글로 줄임)
+            from . import push
+            s = push.handle(full, mk)
+            tg = push.prefs().get("telegram", "short")
+            if tg == "short":
+                if s.get("level") == "low" and s.get("kind") not in ("report",):
+                    return                     # 보유 점검 같은 자잘한 건 앱 알림함에만
+                full = f"{s['title']}\n{s['body']}"
+        except Exception:
+            pass
+        if self.enabled and tg != "off":
+            self.q.put(full)
 
     def _run(self):
         while True:

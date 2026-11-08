@@ -135,6 +135,15 @@ def post(path: str, body: dict) -> dict:
         return {"msg": A.resume_dd()}
     if path == "/api/m/update":
         return {"msg": WC.update_now() if WC else "쓸 수 없어요"}
+    if path.startswith("/api/m/push/"):
+        from . import push as PU
+        if path == "/api/m/push/sub":
+            return {"msg": PU.subscribe(body.get("sub") or {})}
+        if path == "/api/m/push/prefs":
+            return {"prefs": PU.set_prefs(body.get("prefs") or {})}
+        if path == "/api/m/push/test":
+            n = PU.send_push("🔔 토스봇 알림 시험", "이 알림이 보이면 준비 끝이에요. 사고팔 때·급등할 때 이렇게 알려 드려요.")
+            return {"msg": f"{n}대 기기로 보냈어요" if n else "보낼 기기가 없거나 실패했어요. '이 휴대폰으로 알림 받기'를 먼저 눌러 주세요."}
     if path == "/api/m/buy":
         return {"msg": buy(mk, sym or str(body.get("code", "")))}
     if path == "/api/m/cmd":
