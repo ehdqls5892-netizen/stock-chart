@@ -282,17 +282,40 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
                 nws = recent_news(x["name"], m.upper(), days=7, n=8)
             except Exception:
                 nws = []
+        x["_news"] = nws
+        x["_base"] = sc
         ai = XS.ai_read(m.upper(), x, nws)
         if ai:
             ev["ai"] = ai
             x["score"] = sc = sc + ai["adj"]
-            x["reason"] += f" · AI 판독 {ai['view']}({ai['adj']:+d}): {ai['catalyst']} / 위험: {ai['risk']}"
-        if ev.get("dart_flags"):
-            x["reason"] += " · ⚠️ 최근 공시: " + " · ".join(ev["dart_flags"])
         x.pop("_chart", None)
         x.pop("_rows", None)
         out.append(x)
     out.sort(key=lambda x: -x["score"])
+    # 2단계: 실제로 살 만한 상위 후보만 가장 좋은 모델로 다시 깊게 읽고 확정 (치명적 위험이면 매수 금지 표시)
+    nf = int(os.getenv("CLAUDE_FINAL_N", "") or 10)
+    for x in out[:nf]:
+        ev = x["ev"]
+        if ev.get("dart_flags"):
+            continue
+        fin = XS.ai_final(m.upper(), x, x["_news"], ev.get("ai") or {})
+        if fin:
+            ev["ai"] = fin
+            x["score"] = x["_base"] + fin["adj"]
+    for x in out:
+        ev, ai = x["ev"], x["ev"].get("ai")
+        if ai:
+            tag = "AI 최종" if ai.get("final") else "AI 1차"
+            x["reason"] += f" · {tag} {ai['view']}({ai['adj']:+d}): {ai['catalyst']} / 위험: {ai['risk']}"
+            if ai.get("veto"):
+                x["reason"] += f" · ⛔ AI 매수 금지: {ai['veto']}"
+        if ev.get("dart_flags"):
+            x["reason"] += " · ⚠️ 최근 공시: " + " · ".join(ev["dart_flags"])
+        x.pop("_news", None)
+        x.pop("_base", None)
+    out.sort(key=lambda x: (bool((x["ev"].get("ai") or {}).get("veto")), -x["score"]))
+    if XS.USAGE:
+        print("Claude 사용량(입력·출력 토큰):", XS.USAGE, file=sys.stderr)
     return out[:keep]
 
 

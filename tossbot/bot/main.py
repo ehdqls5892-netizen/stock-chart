@@ -1045,6 +1045,10 @@ class Bot:
             if bad:
                 skip(x, bad, loud=True)
                 continue
+            veto = (ev.get("ai") or {}).get("veto")
+            if veto:
+                skip(x, f"AI 최종 판독 매수 금지: {veto}", loud=True)
+                continue
             dfl = ev.get("dart_flags")
             if dfl:
                 skip(x, "최근 공시 위험: " + " · ".join(dfl), loud=True)

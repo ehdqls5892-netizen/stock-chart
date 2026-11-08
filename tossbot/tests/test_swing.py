@@ -465,3 +465,27 @@ c["exit_forward_score"] = 0
 _, fw6 = SW.forward_score("KR", [], 100, {}, {"op_yoy": 0.5, "op_period": "2026 반기", "op_stale": True, "prov_date": "20261027"}, 0)
 assert not any(w.startswith("＋공시 영업이익") for w in fw6) and any("지난 분기 숫자" in w for w in fw6), fw6
 print("✅ 애널리스트 관점 보강 시험 통과")
+
+# 23) AI 2단계: 1차는 +1 까지만, 최종은 −3~+2·치명적 위험이면 매수 금지 → 봇이 안 삼
+import os as _os
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+import extra_sources as XS
+_os.environ["ANTHROPIC_API_KEY"] = "test"
+XS._claude = lambda model, prompt, mt, code=None: {"view": "긍정", "catalyst": "c", "risk": "r", "adj": 5}
+assert XS.ai_read("KR", {"code": "1", "ev": {}}, [])["adj"] == 1
+XS._claude = lambda model, prompt, mt, code=None: {"view": "부정", "catalyst": "c", "risk": "r", "adj": -9, "veto": True, "veto_reason": "유상증자 발표"}
+fin = XS.ai_final("KR", {"code": "1", "ev": {}}, [], {})
+assert fin["adj"] == -3 and fin["veto"] == "유상증자 발표" and fin["model"] == "claude-opus-5-5", fin
+del _os.environ["ANTHROPIC_API_KEY"]
+bv = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker, bot.m = bv, "US"
+prices.update({"V1": 100.0})
+api.candles = lambda sym, iv, n: [{"timestamp": dt.datetime.now(M.TZ["US"]).isoformat(), "closePrice": "100", "highPrice": "101", "lowPrice": "99"}]
+bot.sw_picks = {"date": "2026-11-06", "regime": True, "index": {"close": 100.0},
+                "picks": [{"code": "V1", "name": "V1", "setup": "fs", "close": 100, "stop": 93, "atr": 3, "score": 9, "reason": "x",
+                           "ev": {"sector": "Z", "ai": {"adj": -3, "veto": "실적 쇼크", "final": True}}}]}
+sent.clear()
+M.Bot.swing_enter(bot, None, "close")
+assert "V1" not in bv.pos and any("AI 최종 판독 매수 금지: 실적 쇼크" in t for t in sent), sent
+print("✅ AI 2단계 시험 통과")

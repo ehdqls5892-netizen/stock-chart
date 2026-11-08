@@ -133,38 +133,90 @@ def naver_stock_news(code: str, n: int = 8) -> list:
 
 
 # ── Claude 판독 ───────────────────────────────────────────────────────────────
-def ai_read(market: str, x: dict, news: list) -> dict:
+def _claude(model: str, prompt: str, max_tokens: int, code=None) -> dict:
     key = os.getenv("ANTHROPIC_API_KEY", "").strip()
-    if not key:
-        return {}
-    model = os.getenv("CLAUDE_MODEL", "").strip() or "claude-haiku-5-5"
-    facts = {"종목": x.get("name"), "시장": market, "종가": x.get("close"), "점수 근거": x.get("reason"),
-             "애널리스트·실적": {k: v for k, v in (x.get("ev") or {}).items() if k not in ("est",)},
-             "국장 컨센서스·수급": (x.get("ev") or {}).get("est"), "최근 뉴스 제목": news[:8]}
-    prompt = ("너는 15년 차 주식 애널리스트다. 아래 자료만 보고 이 종목을 앞으로 1~4주 들고 갈 만한지 판단해라. "
-              "자료에 없는 사실을 지어내지 마라. JSON 한 줄만 답해라: "
-              '{"view":"긍정|중립|부정","catalyst":"최근 움직임의 이유 한 문장(모르면 \'확인 안 됨\')",'
-              '"risk":"가장 큰 위험 한 문장","adj":-2~2 사이 정수(근거가 확실할 때만 ±2)}\n\n'
-              + json.dumps(facts, ensure_ascii=False, default=str)[:6000])
     try:
-        r = requests.post("https://api.anthropic.com/v1/messages", timeout=60,
+        r = requests.post("https://api.anthropic.com/v1/messages", timeout=120,
                           headers={k: v for k, v in {"x-api-key": key, "authorization": f"Bearer {key}", "anthropic-version": "2023-06-01",
                                                      "content-type": "application/json",
                                                      "anthropic-workspace-id": os.getenv("ANTHROPIC_WORKSPACE_ID", "").strip()}.items() if v},
-                          json={"model": model, "max_tokens": 300, "messages": [{"role": "user", "content": prompt}]})
+                          json={"model": model, "max_tokens": max_tokens, "messages": [{"role": "user", "content": prompt}]})
         js = r.json()
         if r.status_code != 200:
-            log("Claude 응답 오류", r.status_code, str(js)[:200])
+            log("Claude 응답 오류", model, r.status_code, str(js)[:200])
             return {}
+        u = js.get("usage") or {}
+        USAGE[model] = [USAGE.get(model, [0, 0])[0] + u.get("input_tokens", 0), USAGE.get(model, [0, 0])[1] + u.get("output_tokens", 0)]
         txt = "".join(c.get("text", "") for c in js.get("content", []) if c.get("type") == "text")
         m = re.search(r"\{.*\}", txt, re.S)
         if not m:
-            log("Claude 응답 해석 실패", x.get("code"), str(js)[:200])
+            log("Claude 응답 해석 실패", code, txt[:200])
             return {}
-        d = json.loads(m.group(0))
-        adj = int(max(-2, min(2, int(d.get("adj", 0)))))
-        return {"view": str(d.get("view", ""))[:4], "catalyst": str(d.get("catalyst", ""))[:120],
-                "risk": str(d.get("risk", ""))[:120], "adj": adj}
+        return json.loads(m.group(0))
     except Exception as e:
-        log("Claude 판독 실패", x.get("code"), type(e).__name__, str(e)[:80])
+        log("Claude 판독 실패", code, type(e).__name__, str(e)[:80])
         return {}
+
+
+USAGE: dict = {}
+
+RULES = ("규칙: 1) 아래 자료에 없는 사실은 절대 지어내지 마라. 2) 확실하지 않으면 adj 는 0. "
+         "3) 기사 제목이 시장 전체 얘기면 이 종목 근거로 쓰지 마라. 4) 실적 숫자가 '지난 분기'(op_stale) 표시면 최신 아님. "
+         "5) 손실을 피하는 게 수익보다 중요하다: 희석(유상증자·CB), 회계·소송·규제, 실적 하향·가이던스 축소, 대주주 매도, "
+         "급등 직후 재료 소멸, 실적 발표 임박 같은 위험은 반드시 짚어라.")
+
+
+def ai_read(market: str, x: dict, news: list) -> dict:
+    """1단계(전 후보, 싼 모델): 빠른 거르기. 올리는 건 +1 까지만, 내리는 건 −2 까지."""
+    if not os.getenv("ANTHROPIC_API_KEY", "").strip():
+        return {}
+    model = os.getenv("CLAUDE_MODEL", "").strip() or "claude-haiku-5-5"
+    facts = {"종목": x.get("name"), "시장": market, "종가": x.get("close"), "점수 근거": x.get("reason"),
+             "애널리스트·실적·공시": {k: v for k, v in (x.get("ev") or {}).items() if k not in ("est", "news", "ai")},
+             "국장 컨센서스·수급": (x.get("ev") or {}).get("est"), "최근 뉴스 제목": news[:8]}
+    prompt = ("너는 15년 차 주식 애널리스트다. 아래 자료만 보고 이 종목을 앞으로 1~4주 들고 갈 만한지 판단해라. " + RULES +
+              " JSON 한 줄만 답해라: "
+              '{"view":"긍정|중립|부정","catalyst":"최근 움직임의 이유 한 문장(모르면 \'확인 안 됨\')",'
+              '"risk":"가장 큰 위험 한 문장","adj":-2~1 사이 정수}\n\n'
+              + json.dumps(facts, ensure_ascii=False, default=str)[:6000])
+    d = _claude(model, prompt, 300, x.get("code"))
+    if not d:
+        return {}
+    try:
+        adj = int(max(-2, min(1, int(d.get("adj", 0)))))
+    except (TypeError, ValueError):
+        adj = 0
+    return {"view": str(d.get("view", ""))[:4], "catalyst": str(d.get("catalyst", ""))[:120],
+            "risk": str(d.get("risk", ""))[:120], "adj": adj, "model": model}
+
+
+def ai_final(market: str, x: dict, news: list, first: dict) -> dict:
+    """2단계(실제로 살 상위 후보만, 가장 좋은 모델): 깊게 다시 읽고 확정. 치명적 위험이면 veto(매수 금지).
+    점수 보정은 −3 ~ +2 (위험 쪽을 더 크게)."""
+    if not os.getenv("ANTHROPIC_API_KEY", "").strip():
+        return {}
+    model = os.getenv("CLAUDE_MODEL_FINAL", "").strip() or "claude-opus-5-5"
+    facts = {"종목": x.get("name"), "코드": x.get("code"), "시장": market, "종가": x.get("close"), "손절가": x.get("stop"),
+             "점수 근거": x.get("reason"),
+             "애널리스트·실적·공시": {k: v for k, v in (x.get("ev") or {}).items() if k not in ("est", "news", "ai")},
+             "국장 컨센서스·수급": (x.get("ev") or {}).get("est"), "최근 뉴스 제목": news[:15], "1차 판독": first}
+    prompt = ("너는 15년 차 주식 애널리스트이자 리스크 매니저다. 이 종목은 내일 실제로 돈을 넣을 최종 후보다. "
+              "손절은 손절가에서 자동으로 걸린다. 아래 자료만 근거로, 1~4주 보유가 위험 대비 이득인지 냉정하게 판단해라. "
+              "1차 판독이 틀렸으면 바로잡아라. " + RULES +
+              " 치명적 위험(희석 발표, 회계·감사 문제, 거래정지 위험, 실적 쇼크·가이던스 대폭 하향, 재료가 이미 끝난 급등)이 "
+              "자료에 분명히 있으면 veto 를 true 로. 애매하면 veto 는 false 로 두고 adj 를 낮춰라. JSON 한 줄만 답해라: "
+              '{"view":"긍정|중립|부정","catalyst":"움직임의 이유 한 문장(모르면 \'확인 안 됨\')",'
+              '"risk":"가장 큰 위험 한 문장","adj":-3~2 사이 정수,"veto":true|false,"veto_reason":"veto 일 때만 한 문장"}\n\n'
+              + json.dumps(facts, ensure_ascii=False, default=str)[:9000])
+    d = _claude(model, prompt, 500, x.get("code"))
+    if not d:
+        return {}
+    try:
+        adj = int(max(-3, min(2, int(d.get("adj", 0)))))
+    except (TypeError, ValueError):
+        adj = 0
+    out = {"view": str(d.get("view", ""))[:4], "catalyst": str(d.get("catalyst", ""))[:150],
+           "risk": str(d.get("risk", ""))[:150], "adj": adj, "model": model, "final": True}
+    if d.get("veto") is True:
+        out["veto"] = str(d.get("veto_reason") or out["risk"])[:150]
+    return out

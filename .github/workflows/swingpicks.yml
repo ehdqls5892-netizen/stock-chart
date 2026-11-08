@@ -48,7 +48,9 @@ jobs:
           NAVER_ID: ${{ secrets.NAVER_ID }}
           NAVER_SECRET: ${{ secrets.NAVER_SECRET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}              # 1차(전 후보) 기본 claude-haiku-5-5
+          CLAUDE_MODEL_FINAL: ${{ vars.CLAUDE_MODEL_FINAL }}  # 2차(상위 후보) 기본 claude-opus-5-5
+          CLAUDE_FINAL_N: ${{ vars.CLAUDE_FINAL_N }}          # 2차로 다시 읽을 후보 수 기본 10
         run: python tossbot/tools/swing_picks.py ${{ steps.mk.outputs.m }} --out out 2> >(tee out.log >&2)
       - name: 올리기 (swingpicks-<m> 브랜치)
         if: always()
