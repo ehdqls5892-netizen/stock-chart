@@ -504,3 +504,21 @@ assert "M2" not in bm.pos and any("M2 건너뜀" in t and "희석" in t for t in
 M.Bot.manual_buy(bot, {"code": "M1", "name": "M1", "setup": "fs", "close": 100, "stop": 93, "atr": 3, "score": 6, "reason": "앱", "ev": {"sector": "X"}}, None)
 assert "M1" in bm.pos and bot.sw_picks is keep, (list(bm.pos), bot.sw_picks)
 print("✅ 앱 봇으로 사기 시험 통과")
+
+# 25) 손익비·과열·AI 부정/중립: 목표가까지 남은 폭이 손절 폭보다 작으면 감점, AI 부정이면 안 삼, 중립이면 작게
+assert SW.rr_score(0.30, 0.10)[0] == 1 and SW.rr_score(0.17, 0.10)[0] == 0 and SW.rr_score(0.12, 0.10)[0] == -1
+assert SW.rr_score(0.05, 0.10)[0] == -2 and SW.rr_score(None, 0.1)[0] == 0
+hot = [(f"d{i}", 100, 101, 99, 100, 1000) for i in range(19)] + [("d19", 100, 150, 99, 150, 1000)]
+assert any("단기 과열" in w for w in SW.forward_score("US", hot, 150, {}, {}, 0)[1])
+ba = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker, bot.m = ba, "US"
+prices.update({"N1": 100.0, "N2": 100.0})
+api.candles = lambda sym, iv, n: [{"timestamp": dt.datetime.now(M.TZ["US"]).isoformat(), "closePrice": "100", "highPrice": "101", "lowPrice": "99"}]
+bot.sw_picks = {"date": "2026-11-06", "regime": True, "index": {"close": 100.0}, "picks": [
+    {"code": "N1", "name": "N1", "setup": "fs", "close": 100, "stop": 93, "atr": 3, "score": 9, "reason": "x", "ev": {"sector": "P", "ai": {"view": "부정", "adj": -1}}},
+    {"code": "N2", "name": "N2", "setup": "fs", "close": 100, "stop": 93, "atr": 3, "score": 9, "reason": "x", "ev": {"sector": "Q", "ai": {"view": "중립", "adj": 0}}}]}
+sent.clear()
+M.Bot.swing_enter(bot, None, "close")
+assert "N1" not in ba.pos and any("AI 판독이 부정적" in t for t in sent), sent
+assert "N2" in ba.pos and ba.pos["N2"].extra.get("risk_pct") == c["risk_by_grade"]["B"], ba.pos["N2"].extra.get("risk_pct")
+print("✅ 손익비·AI 부정/중립 시험 통과")

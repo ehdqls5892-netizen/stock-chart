@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from pathlib import Path
 
@@ -83,7 +84,9 @@ def picks(mk: str, get=None) -> dict:
                     "reason": x.get("reason", ""), "sector": ev.get("sector"),
                     "ai": {k: ai.get(k) for k in ("view", "adj", "catalyst", "risk", "veto", "final", "model")} if ai else None,
                     "dart": ev.get("dart_flags"), "earn": ev.get("earn"), "tgt_up": ev.get("tgt_up"),
-                    "news": (ev.get("news") or [])[:5]})
+                    "news": (ev.get("news") or [])[:5], "rr": x.get("rr"),
+                    "pros": [t.strip() for t in re.findall(r"＋([^＋－·＊]+)", x.get("reason", ""))][:3],
+                    "cons": [t.strip() for t in re.findall(r"－([^＋－·＊]+)", x.get("reason", ""))][:3]})
     res = {"market": mk, "date": d.get("date"), "regime": d.get("regime"), "index": d.get("index"), "picks": out[:20]}
     _PICKS[mk] = (time.time(), res)
     return res
@@ -269,10 +272,12 @@ def context(mk: str, earn: dict | None = None, live: dict | None = None, chart: 
     pk = {}
     try:
         for x in (_get_json(_cfg()["daily_swing"]["picks_url"].format(m=mk.lower())) or {}).get("picks", []):
-            pk.setdefault(x.get("code"), x)
+            if x.get("setup") == "fs":                       # 현재·미래 점수 방식 후보만 (옛 방식 점수는 단위가 달라 안 씀)
+                pk.setdefault(x.get("code"), x)
     except Exception:
         pass
-    return {"ev": earn.get("events") or {}, "an": earn.get("analyst") or {}, "good": earn.get("good") or {}, "bad": earn.get("bad") or {},
+    sc = _get_json(f"{RAW}/swingpicks-{mk.lower()}/scores.json", 3 * 3600) or {}
+    return {"sc": sc, "ev": earn.get("events") or {}, "an": earn.get("analyst") or {}, "good": earn.get("good") or {}, "bad": earn.get("bad") or {},
             "up": earn.get("upcoming") or {}, "imp": (live or {}).get("impact") or {}, "pk": pk, "ch": chart or {}}
 
 
@@ -304,7 +309,19 @@ def tags(mk: str, code: str, ctx: dict) -> dict:
         bad.append("실적 발표 걱정이 커요")
     sc = pk.get("score")
     if sc is not None:
+        sc = int(round(sc))
         (good if sc >= 4 else bad if sc <= 1 else []).append(f"봇 점수 {sc:+d}")
+    stt = (ctx.get("sc") or {}).get(code) or {}
+    ld = bool(stt.get("ld"))
+    if ld:
+        bad.append(f"1년 고점보다 {stt['dd'] * 100:.0f}%, 오래 내리는 중")
+    elif stt.get("c") is not None:
+        if stt["c"] >= 3:
+            good.append("요즘 차트 흐름이 좋아요")
+        elif stt["c"] <= -2:
+            bad.append("요즘 차트 흐름이 나빠요")
+    if (stt.get("d20") or 0) >= 0.15:
+        bad.append("짧은 기간에 너무 많이 올랐어요")
     up = None
     an = ctx["an"].get(code) or {}
     if an.get("up") is not None:
@@ -312,30 +329,39 @@ def tags(mk: str, code: str, ctx: dict) -> dict:
     else:
         e = est(mk, code)
         tg = SWnum(e.get("targetMeanPrice") if mk == "US" else e.get("cs_priceTargetMean"))
-        px = SWnum((ctx["ch"].get(code) or {}).get("close")) or SWnum(e.get("closePrice")) or SWnum(e.get("currentPrice")) or SWnum(pk.get("close"))
+        px = SWnum(stt.get("close")) or SWnum((ctx["ch"].get(code) or {}).get("close")) or SWnum(e.get("closePrice")) or SWnum(e.get("currentPrice")) or SWnum(pk.get("close"))
         if tg and px:
             up = tg / px - 1
         elif (pk.get("ev") or {}).get("tgt_up") is not None:
             up = pk["ev"]["tgt_up"]
     if up is not None and not (-0.6 <= up <= 3.0):
         up = None                                            # 자료가 어긋나 보이는 값은 안 씀
+    note = None
     if up is not None:
-        if up >= 0.15:
+        if ld and up >= 0.15:
+            note = "목표가는 높지만 주가가 많이 빠진 뒤라 믿기 어려워요"
+        elif up > 1.0:
+            note = "목표가가 너무 멀어요(오래된 값일 수 있어요)"
+        elif up >= 0.15:
             good.append("목표가까지 많이 남았어요")
         elif up < 0:
             bad.append("이미 목표가보다 비싸요")
+        elif up < 0.08:
+            bad.append("목표가까지 남은 게 적어요")
     lb = (ctx["ch"].get(code) or {}).get("label")
-    if lb == "관심":
+    if lb == "관심" and not stt:
         good.append("차트 모양이 좋아요")
-    elif lb == "주의":
+    elif lb == "주의" and not stt:
         bad.append("차트 모양이 나빠요")
     n = len(good) - len(bad)
     if ai.get("veto") or code in ctx["bad"]:
         n = min(n, -1)
     bias = "정보 적음" if not good and not bad else "호재" if n > 0 else "악재" if n < 0 else "엇갈림"
     why = (good + bad) if n >= 0 else (bad + good)
+    if note:
+        why.append(note)
     d = ctx["up"].get(code)
-    return {"bias": bias, "tgt": f"{up * 100:+.0f}%" if up is not None else None, "why": why[:3],
+    return {"bias": bias, "tgt": f"{up * 100:+.0f}%" if up is not None else None, "why": why[:4],
             "earn": d[5:].replace("-", "/") if d else None}
 
 
@@ -460,13 +486,20 @@ def stock(mk: str, code: str, get_bars=None) -> dict:
         trs = [max(b[i][2] - b[i][3], abs(b[i][2] - b[i - 1][4]), abs(b[i][3] - b[i - 1][4])) for i in range(len(b) - 14, len(b))]
         atr = sum(trs) / len(trs)
     stop = round(prev - 2 * atr, 4) if prev and atr else None
+    tg0 = SW.cons_target(mk, e) or (pk["close"] * (1 + ev["tgt_up"]) if ev.get("tgt_up") is not None and pk.get("close") else None)
+    rr = None
+    if fs is not None and tg0 and price and stop and not SW.long_downtrend(b, price):
+        adj, rtxt, rr = SW.rr_score(tg0 / price - 1, (price - stop) / price)
+        if rtxt:
+            fs += adj
+            why = [rtxt] + why
     dsk = desk(mk)
     plan = next((p for p in dsk["report"]["plans"] + dsk["live"]["plans"] if p["code"] == code), None)
     ch = ((_get_json(f"{RAW}/main/docs/data/chart-{mk.lower()}-latest.json", 900) or {}).get("stocks") or {}).get(code) or {}
     hold = next((h for h in A.holdings() if h["market"] == mk and h["symbol"] == code), None) if A.STATE.get("bots") else None
     return {"market": mk, "code": code, "name": nm, "price": price, "prev": prev,
             "pct": (price / prev - 1) * 100 if price and prev else None,
-            "bars": [list(x) for x in b[-160:]], "score": fs, "grade": SW.grade_of(fs) if fs is not None else None, "why": why,
+            "bars": [list(x) for x in b[-160:]], "rr": round(rr, 2) if rr else None, "score": fs, "grade": SW.grade_of(fs) if fs is not None else None, "why": why,
             "min_score": _cfg()["daily_swing"].get("min_forward_score", 3),
             "target": SW.cons_target(mk, e) or (pk["close"] * (1 + ev["tgt_up"]) if ev.get("tgt_up") is not None and pk.get("close") else None),
             "ai": ev.get("ai"), "dart": ev.get("dart_flags"), "sector": ev.get("sector"), "earn": ev.get("earn"),

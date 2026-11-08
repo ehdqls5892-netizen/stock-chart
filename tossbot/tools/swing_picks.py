@@ -52,6 +52,10 @@ def main():
     except Exception as e:
         print("ETF 상태 계산 실패:", e, file=sys.stderr)
     Path(a.out).mkdir(parents=True, exist_ok=True)
+    try:                                                   # 휴대폰 앱 데스크 판정용 전 종목 상태
+        (Path(a.out) / "scores.json").write_text(json.dumps(STATS, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    except Exception as e:
+        print("상태 목록 저장 실패:", e, file=sys.stderr)
     try:                                                   # 휴대폰 앱 종목 검색용 이름 목록
         (Path(a.out) / "names.json").write_text(json.dumps({str(k): str(v) for k, v in names.items()}, ensure_ascii=False), encoding="utf-8")
     except Exception as e:
@@ -181,6 +185,9 @@ def _rows(b, n=30):
     return out
 
 
+STATS: dict = {}       # 전 종목 지금 상태 (앱 데스크 판정용): 차트 점수·장기 하락·1년 고점 대비·3개월·20일선 거리
+
+
 def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
     """현재·미래 점수 스캔: 전체 종목을 '지금' 기준으로 점수 매겨 상위 종목을 후보(setup 'fs')로.
     1) 차트(최근 봉 양봉·마감 위치·거래량 실린 상승·20일선·52주 신고가 근처·시장 추세)로 전 종목 1차 점수
@@ -211,6 +218,14 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
         vols = [x[5] for x in r[-21:-1] if x[5]]
         vx = r[-1][5] / (sum(vols) / len(vols)) if vols and r[-1][5] else 0
         first.append((sc, vx, code, r, why))
+        try:
+            hi1 = max(x[2] for x in r[-252:])
+            ma20 = sum(x[4] for x in r[-20:]) / 20
+            STATS[code] = {"c": sc - mkt, "ld": bool(SW.long_downtrend(r, c)), "dd": round(c / hi1 - 1, 3),
+                           "r3": round(c / r[-64][4] - 1, 3) if len(r) >= 64 else None, "d20": round(c / ma20 - 1, 3),
+                           "close": round(c, 4)}
+        except Exception:
+            pass
     first.sort(key=lambda t: (-t[0], -t[1]))
     cand = []
     for sc, vx, code, r, why in first[:top]:
@@ -277,6 +292,19 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
             if not ok:
                 continue                                      # 장기 하락 + 실적 반전 근거 부족 → 후보 아님
             why.append(f"＊장기 하락 중이지만 반전 근거 {ev_n}개")
+        # 손익비: 평균 목표가까지 남은 폭 vs 손절선(2×ATR)까지 폭 — 장기 하락 중엔 목표가가 늦게 내려오니 안 씀
+        if m == "us":
+            tu = ev.get("tgt_up")
+        else:
+            tg = SW._num((ev.get("est") or {}).get("cs_priceTargetMean"))
+            tu = (tg / x["close"] - 1) if tg and x["close"] else None
+        stop_pct = (x["close"] - x["stop"]) / x["close"] if x["close"] else None
+        if not ld:
+            adj, txt, rr = SW.rr_score(tu, stop_pct)
+            if txt:
+                sc += adj
+                why.insert(0, txt)
+                x["rr"] = {"up": round(tu, 4), "stop": round(stop_pct, 4), "rr": round(rr, 2)}
         x["score"] = sc
         x["reason"] = f"현재·미래 점수 {sc:+d}: " + " ".join(why[:10])
         nws = ev.get("news") or []

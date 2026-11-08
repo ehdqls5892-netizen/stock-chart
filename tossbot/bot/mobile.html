@@ -74,8 +74,8 @@ nav button span{font-size:20px;line-height:1}nav button.on{color:var(--ink)}
 .ib{border-top:1px solid var(--line);padding:11px 0}.ib:first-child{border-top:0}.ib .tt{font-weight:700}.ib.new .tt::before{content:'● ';color:var(--up)}
 .tg{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:14px}.tg:first-of-type{border-top:0}.tg input{width:auto;transform:scale(1.3)}
 select{font:inherit;font-size:16px;padding:8px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
-.full{position:fixed;inset:0;z-index:8;background:var(--bg);overflow:auto;display:none;padding:calc(env(safe-area-inset-top) + 8px) 16px calc(24px + env(safe-area-inset-bottom))}
-.full .top{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:8px;padding:6px 0 10px;z-index:5}
+.full{position:fixed;inset:0;z-index:8;background:var(--bg);overflow:auto;display:none;padding:0 16px calc(24px + env(safe-area-inset-bottom))}
+.full .top{position:sticky;top:0;background:var(--bg);display:flex;align-items:center;gap:8px;padding:calc(env(safe-area-inset-top) + 8px) 0 10px;z-index:5}
 .full .top h2{margin:0;font-size:20px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #cv{width:100%;height:300px;position:relative;z-index:0}
 .legend2{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:11px;color:var(--muted);margin-top:6px}.legend2 i{display:inline-block;width:12px;height:3px;border-radius:2px;margin-right:4px;vertical-align:middle}
@@ -168,7 +168,7 @@ async function vPicks(){
   const d=P[pmk];
   if(!d){$("v").innerHTML=h+`<div class="card empty"><span class="spin"></span> 후보 불러오는 중</div>`;
     try{P[pmk]=await api("/api/m/picks?mk="+pmk)}catch(e){P[pmk]={error:e.message,picks:[]}} if(tab==="picks")vPicks();return}
-  h+=`<div class="card"><div class="row"><div><b>${d.date||""} 종가 기준 후보</b><div class="muted small">현재·미래 점수 순 · 장 마감 15분 전 다시 점검하고 삼</div></div></div>
+  h+=`<div class="card"><div class="row"><div><b>${d.date||""} 종가 기준 후보</b><div class="muted small">점수 높은 순 후보예요. 바로 사는 게 아니라, 장 마감 15분 전에 그날 봉·뉴스·손익비·AI 판독으로 다시 점검해 통과한 것만 사요 (AI 부정이면 안 사고, 중립이면 작게).</div></div></div>
     <div class="btns"><button class="sm" onclick="loadTable()">📋 오늘 매수 판단표</button><button class="sm" onclick="P['${pmk}']=null;vPicks()">새로고침</button></div>
     <div id="tbl"></div></div>`;
   if(d.error)h+=`<div class="card empty">${esc(d.error)}</div>`;
@@ -177,6 +177,9 @@ async function vPicks(){
       ${a?`<span class="chip ${vw}">AI ${esc(a.view||"")}${a.adj?` ${a.adj>0?"+":""}${a.adj}`:""}</span>`:""}<span class="sp"></span><span class="small muted">${esc(x.sector||"")}</span></div>
       <div class="kv"><span>종가 <b>${money(x.close,pmk)}</b></span><span>손절 ${money(x.stop,pmk)} (${x.close?((x.stop/x.close-1)*100).toFixed(1):"–"}%)</span>
       ${x.tgt_up!=null?`<span>목표가 여력 ${(x.tgt_up*100).toFixed(0)}%</span>`:""}${x.earn?`<span>실적 ${esc(String(x.earn).slice(0,10))}</span>`:""}</div>
+      ${x.rr?`<div class="small" style="margin-top:4px"><span class="bz ${x.rr.rr>=2?"g":x.rr.rr>=1.5?"y":"r"}">손익비 ${x.rr.rr}</span> <span class="muted">목표가까지 ${(x.rr.up*100).toFixed(0)}% 남음 · 손절까지 -${(x.rr.stop*100).toFixed(0)}% → ${x.rr.rr>=2?"남는 게 커요":x.rr.rr>=1.5?"보통이에요":"남는 게 적어요"}</span></div>`:""}
+      ${(x.pros||[]).length?`<div class="why"><b style="color:var(--ok)">왜 후보?</b> ${x.pros.map(esc).join(" · ")}</div>`:""}
+      ${(x.cons||[]).length?`<div class="why"><b style="color:var(--up)">걱정되는 점</b> ${x.cons.map(esc).join(" · ")}</div>`:""}
       ${a&&a.veto?`<div class="veto">⛔ AI 매수 금지: ${esc(a.veto)}</div>`:""}
       ${x.dart&&x.dart.length?`<div class="veto">⚠️ 최근 공시: ${x.dart.map(esc).join(" · ")}</div>`:""}
       ${a?`<div class="ai"><div class="t">${a.final?"AI 최종 판독":"AI 1차 판독"}</div><div>💡 ${esc(a.catalyst||"")}</div><div class="up" style="margin-top:4px">⚠️ ${esc(a.risk||"")}</div></div>`:""}
@@ -307,6 +310,7 @@ async function openStock(mk,code){
     <div class="legend2"><span><i style="background:#12B76A"></i>5일</span><span><i style="background:#F79009"></i>20일</span><span><i style="background:#9B8AFB"></i>60일</span>${lines.map(l=>`<span><i style="background:${l[2]}"></i>${esc(l[0])} ${money(l[1],m)}</span>`).join("")}</div>
     <div class="small muted" style="margin-top:4px;font-size:10px">차트: <a href="https://www.tradingview.com/" target="_blank" rel="noopener" style="color:inherit">TradingView</a> Lightweight Charts™</div></div>`;
   h+=`<div class="card"><div class="row"><b>현재·미래 점수</b><span class="sp"></span>${d.score!=null?`<span class="chip ${g}">${g} ${d.score>0?"+":""}${d.score}</span>`:"–"}</div>
+    ${d.rr?`<div class="small" style="margin-top:4px"><span class="bz ${d.rr>=2?"g":d.rr>=1.5?"y":"r"}">손익비 ${d.rr}</span> <span class="muted">${d.rr>=2?"오를 여지가 손절 폭의 2배 넘게 남았어요":d.rr>=1.5?"오를 여지와 손절 폭이 비슷한 편이에요":"오를 여지가 손절 폭보다 작거나 비슷해요"}</span></div>`:""}
     <div class="small ${ok?"":"up"}" style="margin:4px 0 6px">${d.score==null?"자료 부족":ok?`봇 매수 기준(+${d.min_score} 이상) 통과`:`봇 매수 기준(+${d.min_score} 이상) 미달 — 봇으로 사기를 눌러도 안 사요`}</div>
     ${(d.why||[]).map(w=>`<div class="wl ${w.startsWith("＋")?"p":"n"}">${w.startsWith("＋")?"🟢":w.startsWith("－")?"🔴":"⚪"} ${esc(w.replace(/^[＋－·＊]/,""))}</div>`).join("")}</div>`;
   if(a)h+=`<div class="card"><b>${a.final?"AI 최종 판독":"AI 1차 판독"}</b> <span class="chip ${a.view==="긍정"?"pos":a.view==="부정"?"neg":"mid"}">${esc(a.view||"")} ${a.adj?(a.adj>0?"+":"")+a.adj:""}</span>
@@ -372,12 +376,14 @@ async function pushCard(){
   const can="serviceWorker" in navigator&&"PushManager" in window;
   let on=false;try{const reg=await navigator.serviceWorker.ready;on=!!(await reg.pushManager.getSubscription())}catch(e){}
   const tg=(k,t,d)=>`<label class="tg"><input type="checkbox" ${P[k]?"checked":""} onchange="setPref('${k}',this.checked)"><span><b>${t}</b><br><span class="small muted">${d}</span></span></label>`;
-  el.innerHTML=`<b>🔔 알림</b><div class="small muted" style="margin:4px 0 8px">${on?"✅ 이 휴대폰으로 알림이 와요":"아직 이 휴대폰으로 알림이 안 와요"}${PU?` · 받는 기기 ${PU.subs}대`:""}</div>
+  const open=localStorageGet("pushOpen")==="1";
+  el.innerHTML=`<div class="row" onclick="localStorageSet('pushOpen',localStorageGet('pushOpen')==='1'?'0':'1');pushCard()" style="cursor:pointer"><b>🔔 알림</b><span class="small muted">${on?"✅ 켜짐":"꺼짐"}</span><span class="sp"></span><span class="small muted">${open?"접기 ▲":"설정 ▼"}</span></div>
+  <div style="display:${open?"block":"none"}"><div class="small muted" style="margin:4px 0 8px">${on?"✅ 이 휴대폰으로 알림이 와요":"아직 이 휴대폰으로 알림이 안 와요"}${PU?` · 받는 기기 ${PU.subs}대`:""}</div>
     ${!standalone()&&/iPhone|iPad/.test(navigator.userAgent)?`<div class="veto" style="background:var(--warn-soft);color:var(--warn)">아이폰은 Safari → 공유 → '홈 화면에 추가'로 설치한 앱 안에서만 알림을 켤 수 있어요. 홈 화면 아이콘으로 열어서 다시 눌러 주세요.</div>`:""}
     ${can?`<div class="btns"><button class="sm pri" onclick="enablePush()">${on?"다시 연결":"이 휴대폰으로 알림 받기"}</button><button class="sm" onclick="testPush()">시험 알림</button></div>`:`<div class="why">이 브라우저는 알림을 지원하지 않아요.</div>`}
     <div style="margin-top:10px">${tg("trade","사고팔 때","샀어요 · 팔았어요(이익/손실) · 일부 익절")}${tg("plan","오늘 살 후보","장 시작 전 판단표가 나오면")}${tg("move_hold","보유 종목 급등·급락","+5% · +10% · -5% · -8%")}${tg("move_watch","후보 종목 급등","후보·데스크 종목이 +5% 넘게 오를 때")}${tg("move_market","시장 전체 급등","+15% 넘는 종목 (하루 최대 5개)")}${tg("skip","안 산 이유","후보를 건너뛸 때")}${tg("warn","확인이 필요할 때","주문 실패·로봇 오류")}</div>
     <div class="row" style="margin-top:8px"><span class="small">텔레그램</span><span class="sp"></span><select onchange="setPref('telegram',this.value)">${[["short","짧게(추천)"],["full","자세히(예전처럼)"],["off","안 받기"]].map(([v,n])=>`<option value="${v}" ${P.telegram===v?"selected":""}>${n}</option>`).join("")}</select></div>
-    <div class="why">자잘한 알림(보유 점검 등)은 🔔 알림함에만 쌓여요.</div>`;
+    <div class="why">자잘한 알림(보유 점검 등)은 🔔 알림함에만 쌓여요.</div></div>`;
 }
 async function enablePush(){
   try{

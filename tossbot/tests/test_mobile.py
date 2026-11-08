@@ -40,7 +40,7 @@ def fake_json(url, ttl=300, get=None):
     if "names.json" in url:
         return FAKE["names"]
     if "picks.json" in url:
-        return {"picks": [{"code": "005930", "name": "삼성전자", "close": 100, "ev": {"ai": {"view": "긍정", "adj": 1}}}]}
+        return {"picks": [{"code": "005930", "name": "삼성전자", "setup": "fs", "close": 100, "ev": {"ai": {"view": "긍정", "adj": 1}}}]}
     return None
 
 
@@ -55,6 +55,14 @@ assert dk["earn"]["upcoming"][1]["name"] == "123456" and dk["earn"]["upcoming"][
 assert dk["earn"]["good"][0]["bias"] == "호재"
 ctx = MB.context("KR", {"bad": {"9": {}}, "upcoming": {}}, {"impact": {"8": {"impact": "호재", "title": "수주"}, "9": {"impact": "호재"}}}, {"8": {"label": "주의"}})
 assert MB.tags("KR", "8", ctx)["bias"] == "엇갈림" and MB.tags("KR", "9", ctx)["bias"] == "악재"     # 실적 나쁨은 악재 우선
+# 두산처럼: 목표가는 +200% 이지만 1년 고점 대비 -74% 장기 하락 → 목표가를 호재로 안 셈, 악재
+ctx["sc"] = {"7": {"ld": True, "dd": -0.74, "c": -4, "close": 100}}
+ctx["an"] = {"7": {"up": 205.0}}
+t7 = MB.tags("KR", "7", ctx)
+assert t7["bias"] == "악재" and any("오래 내리는 중" in w for w in t7["why"]) and any("믿기 어려워요" in w for w in t7["why"]), t7
+ctx["sc"]["6"] = {"c": 1, "d20": 0.2}
+ctx["an"]["6"] = {"up": 5.0}
+assert MB.tags("KR", "6", ctx)["bias"] == "악재"                              # 많이 올랐고 목표가까지 남은 게 적음
 assert MB.search("삼성")[0]["code"] == "005930" and MB.search("123456")[0]["market"] == "KR" and MB.search("nvda")[0]["code"] == "NVDA"
 bb = [(f"2026-10-{i:02d}", 100 + i, 102 + i, 99 + i, 101 + i, 1000.0) for i in range(1, 31)]
 A.quotes = lambda syms: {}

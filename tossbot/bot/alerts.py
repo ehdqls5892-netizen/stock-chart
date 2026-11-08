@@ -62,7 +62,7 @@ def watch_list(mk: str) -> dict:
     try:
         for x in (MB.picks(mk).get("picks") or [])[:12]:
             if (x.get("score") or 0) >= 2 and not ((x.get("ai") or {}).get("veto")):
-                out[x["code"]] = (x["name"], f"후보 종목 · 점수 {x.get('grade')} {x['score']:+d}")
+                out[x["code"]] = (x["name"], f"후보 종목 · 점수 {x.get('grade')} {int(round(x['score'])):+d}")
     except Exception:
         pass
     try:

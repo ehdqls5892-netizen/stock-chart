@@ -299,6 +299,8 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
         if len(bars) >= 20:
             ma20 = sum(b[4] for b in bars[-20:]) / 20
             add(1 if c >= ma20 else -1, f"20일선 {'위' if c >= ma20 else '아래'}")
+            if c >= ma20 * 1.15:
+                add(-1, f"20일선보다 {(c / ma20 - 1) * 100:+.0f}% 높아 단기 과열(쉬어 갈 수 있음)")
     longdown = False
     if len(bars) >= 200:
         c = price or bars[-1][4]
@@ -489,3 +491,19 @@ def corr(a: list, b: list):
 def cons_target(market: str, est: dict):
     """증권사·애널리스트 평균 목표가 (없으면 None)."""
     return _num((est or {}).get("targetMeanPrice" if market == "US" else "cs_priceTargetMean")) or None
+
+
+def rr_score(tgt_up, stop_pct):
+    """손익비 = 애널리스트 평균 목표가까지 남은 % ÷ 손절선까지 %.
+    2 이상 +1 / 1.5~2 0 / 1~1.5 −1 / 1 미만 −2 (목표가까지 남은 게 손절 폭보다 작으면 사 봐야 남는 게 적음). → (점수, 설명, 손익비)"""
+    if tgt_up is None or not stop_pct or stop_pct <= 0:
+        return 0, None, None
+    rr = tgt_up / stop_pct
+    txt = f"손익비 {rr:.1f} (목표가까지 {tgt_up * 100:+.0f}% vs 손절 -{stop_pct * 100:.0f}%)"
+    if rr >= 2:
+        return 1, "＋" + txt, rr
+    if rr >= 1.5:
+        return 0, "·" + txt, rr
+    if rr >= 1:
+        return -1, "－" + txt + " — 남는 게 적음", rr
+    return -2, "－" + txt + " — 이미 목표가 근처", rr

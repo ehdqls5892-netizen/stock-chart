@@ -1068,6 +1068,10 @@ class Bot:
             if veto:
                 skip(x, f"AI 최종 판독 매수 금지: {veto}", loud=True)
                 continue
+            aiv = (ev.get("ai") or {}).get("view")
+            if aiv == "부정":
+                skip(x, "AI 판독이 부정적이라 안 사요 (점수가 높아도 위험 쪽이 더 크다고 봄)", loud=True)
+                continue
             dfl = ev.get("dart_flags")
             if dfl:
                 skip(x, "최근 공시 위험: " + " · ".join(dfl), loud=True)
@@ -1082,6 +1086,12 @@ class Bot:
                     if q < 1:
                         skip(x, f"등급 {g} 손실 한도 {rp:g}%로는 1주도 못 삼")
                         continue
+            if aiv == "중립" and rg.get("B") is not None and rp > rg["B"]:
+                rp = rg["B"]                               # AI 가 애매하다고 보면 작게만
+                q = SW.qty_for(cap, rp, c.get("cap_pct", 20), e, size_stop, None if cash is None else cash - spent)
+                if q < 1:
+                    skip(x, "AI 판독 중립이라 작게만 사려는데 1주도 안 됨")
+                    continue
             x["_rp"] = rp
             # 이미 가진 종목과 너무 똑같이 움직이면(60일 수익률 상관 > 기준) 위험이 겹침
             cm = c.get("max_corr")
@@ -1388,6 +1398,12 @@ class Bot:
         except Exception:
             tone = 0
         fs, fwhy = SW.forward_score(self.m, bars, price, est, ev, tone)
+        tg0 = SW.cons_target(self.m, est)
+        if tg0 and price and x.get("stop") and not SW.long_downtrend(bars, price):
+            adj, rtxt, _ = SW.rr_score(tg0 / price - 1, (price - float(x["stop"])) / price)
+            if rtxt:
+                fs += adj
+                fwhy = [rtxt] + fwhy
         x["_fscore"], x["_fwhy"] = fs, fwhy
         x["_tgt"] = SW.cons_target(self.m, est) or (price * (1 + ev["tgt_up"]) if (x.get("ev") or {}).get("tgt_up") is not None and price else None)
         txt = (f"🎯 현재·미래 점수 {fs:+d} ({SW.grade_of(fs)}): " + " ".join(fwhy[:8]) + ("\n" + txt if txt else "")) if fwhy else txt
