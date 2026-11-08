@@ -529,3 +529,85 @@ def buy(mk: str, code: str) -> str:
     return (f"🤖 {x['name']} 매수 요청을 봇에게 넘겼어요. 봇이 손실 한도·손절선({money(mk, x['stop'])})·업종·점수(지금 {x['score']:+d})·"
             f"AI·공시·뉴스 점검을 똑같이 하고, 통과하면 사고 아니면 이유를 알려 드려요 (몇 초~1분)." if x.get("score") is not None
             else f"🤖 {x['name']} 매수 요청을 봇에게 넘겼어요.")
+
+
+# ───────── 오늘 살 종목 (로봇이 꺼져 있어도 보이는 예상표) ─────────
+def next_buy_time(mk: str, now=None):
+    """다음 스윙 매수 시각(장 마감 15분 전 = config session.flatten), 주말 건너뜀 → ISO(UTC)."""
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    tz = ZoneInfo("Asia/Seoul" if mk == "KR" else "America/New_York")
+    hm = _cfg()["session"][mk]["flatten"]
+    n = (now or dt.datetime.now(tz)).astimezone(tz)
+    t = n.replace(hour=int(hm[:2]), minute=int(hm[3:]), second=0, microsecond=0)
+    if n >= t:
+        t += dt.timedelta(days=1)
+    while t.weekday() >= 5:
+        t += dt.timedelta(days=1)
+    return t.astimezone(dt.timezone.utc).isoformat()
+
+
+def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
+    """오늘(다음 매수 시각에) 살 종목 예상: 봇과 같은 규칙(점수·AI 부정/중립·손익비·업종 2종목·빈자리·손실 한도)으로 미리 계산.
+    최종 결정은 그 시각에 그날 봉·뉴스·현재가로 한 번 더 점검해서 바뀔 수 있음."""
+    from . import app as A
+    from .main import money
+    mk = mk.upper()
+    cfg = _cfg()
+    c = cfg["daily_swing"]
+    if hold is None:
+        try:
+            hold = [h for h in A.holdings() if h["market"] == mk]
+        except Exception:
+            hold = []
+    cap = cap if cap is not None else (A.capitals().get(mk) or 0)
+    d = pk if pk is not None else picks(mk)
+    held_codes = {h["symbol"] for h in hold}
+    slots = max(0, c.get("max_pos", 6) - sum(1 for h in hold if h.get("swing")))
+    smax = (c.get("earnings") or {}).get("sector_max") or 99
+    sec_n: dict = {}
+    rg = c.get("risk_by_grade") or {}
+    buy, wait, skip = [], [], []
+    for x in d.get("picks", []):
+        ai = x.get("ai") or {}
+        why = None
+        sc = x.get("score") or 0
+        if x["code"] in held_codes:
+            why = "이미 갖고 있어요"
+        elif ai.get("veto"):
+            why = "AI 매수 금지: " + str(ai["veto"])[:30]
+        elif ai.get("view") == "부정":
+            why = "AI 판독이 부정적"
+        elif x.get("no_buy"):
+            why = x["no_buy"]
+        elif sc < c.get("min_forward_score", 3):
+            why = f"점수 {sc:+.0f} (기준 +{c.get('min_forward_score', 3)} 미만)"
+        elif x.get("sector") and sec_n.get(x["sector"], 0) >= smax:
+            why = f"같은 업종 {smax}종목까지만"
+        if why:
+            skip.append({"code": x["code"], "name": x["name"], "why": why})
+            continue
+        g = "A" if sc >= 4 else "B"
+        rp = rg.get(g, c.get("risk_pct", 1.0))
+        small = ai.get("view") == "중립" and rg.get("B") is not None and rp > rg["B"]
+        if small:
+            rp = rg["B"]
+        per = (x.get("close") or 0) - (x.get("stop") or 0)
+        q = int(cap * rp / 100 / per) if per > 0 and cap else 0
+        q = min(q, int(cap * c.get("cap_pct", 20) / 100 / x["close"])) if x.get("close") and cap else q
+        row = {"code": x["code"], "name": x["name"], "score": sc, "grade": g, "qty": q, "close": x.get("close"), "stop": x.get("stop"),
+               "amount": money(mk, q * (x.get("close") or 0)), "loss": money(mk, q * per) if per > 0 else None,
+               "small": small, "ai": ai.get("view"), "rr": (x.get("rr") or {}).get("rr")}
+        if q < 1:
+            skip.append({"code": x["code"], "name": x["name"], "why": "손실 한도로는 1주도 안 됨(비싼 종목)"})
+            continue
+        if len(buy) < slots:
+            buy.append(row)
+            if x.get("sector"):
+                sec_n[x["sector"]] = sec_n.get(x["sector"], 0) + 1
+        elif len(wait) < 3:
+            wait.append(row)
+    b = A.STATE.get("bots", {}).get(mk)
+    return {"market": mk, "date": d.get("date"), "at": next_buy_time(mk, now), "slots": slots, "buy": buy, "wait": wait,
+            "skip": skip[:12], "running": bool(b is not None and getattr(b, "phase", "") not in ("종료됨", "")),
+            "robot": bool(A.running()) if hasattr(A, "running") else False}

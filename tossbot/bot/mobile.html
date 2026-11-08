@@ -132,8 +132,28 @@ async function load(){
 
 function render(){({home:vHome,picks:vPicks,desk:vDesk,brief:vBrief,log:vLog,more:vMore}[tab]||vHome)()}
 
+let PL=null, PLt=0;
+async function loadPlan(){if(Date.now()-PLt<120000&&PL)return;PLt=Date.now();try{PL=await api("/api/m/plan")}catch(e){PL={error:e.message}}if(tab==="home")vHome()}
+function planCard(){
+  if(!PL)return `<div class="card"><b>🛒 오늘 살 종목</b> <span class="spin"></span></div>`;
+  if(PL.error)return "";
+  const t=iso=>new Date(iso).toLocaleString("ko-KR",{month:"numeric",day:"numeric",weekday:"short",hour:"numeric",minute:"2-digit"});
+  let h=`<div class="card"><div class="row"><b>🛒 오늘 살 종목</b><span class="sp"></span><span class="small muted">미리 계산한 예상</span></div>`;
+  if(D&&!D.running)h+=`<div class="veto" style="background:var(--warn-soft);color:var(--warn)">로봇이 꺼져 있어서 지금은 아무것도 안 사요. 설정 → 🔴 실전 시작을 눌러야 아래대로 사요.</div>`;
+  for(const mk of ["KR","US"]){const p=PL[mk];if(!p)continue;
+    h+=`<div style="margin-top:12px"><div class="row"><b>${FL[mk]} ${NM[mk]}</b><span class="sp"></span><span class="small muted">내 시간 ${t(p.at)} 점검 후 매수</span></div>`;
+    h+=p.buy.length?p.buy.map(x=>`<div class="pk"><div class="row" style="flex-wrap:wrap;row-gap:4px"><span class="nm b" onclick="openStock('${mk}','${esc(x.code)}')">${esc(x.name)} ›</span><span class="chip ${x.grade}">${x.grade} ${x.score>0?"+":""}${Math.round(x.score)}</span>${x.small?`<span class="bz y">작게</span>`:`<span class="bz g">정상</span>`}<span class="sp"></span><span class="b">≈${x.qty}주</span></div>
+      <div class="kv"><span>약 <b>${esc(x.amount)}</b></span><span class="down">손절 ${money(x.stop,mk)}</span>${x.loss?`<span>최대 손실 약 ${esc(x.loss)}</span>`:""}${x.rr?`<span>손익비 ${x.rr}</span>`:""}</div></div>`).join("")
+      :`<div class="why">살 종목 없음${p.slots===0?" (빈자리 없음)":""}</div>`;
+    if(p.wait.length)h+=`<div class="why">⏭ 예비: ${p.wait.map(x=>esc(x.name)).join(", ")} (앞 종목이 점검에서 빠지면 차례로)</div>`;
+    if(p.skip.length)h+=`<details><summary>안 사는 후보 ${p.skip.length}개 · 이유</summary>${p.skip.map(x=>`<div class="why">⛔ ${esc(x.name)} — ${esc(x.why)}</div>`).join("")}</details>`;
+    h+=`</div>`}
+  h+=`<div class="why" style="margin-top:8px">밤에 뽑은 후보에 봇 규칙(점수·손익비·AI·업종·손실 한도)을 미리 적용한 예상이에요. 매수 시각에 그날 봉·뉴스·현재가로 한 번 더 점검해서 바뀔 수 있어요.</div></div>`;
+  return h;
+}
 function vHome(){
   if(!D){$("v").innerHTML=`<div class="card empty"><span class="spin"></span> 불러오는 중</div>`;return}
+  loadPlan();
   const hs=D.holdings||[]; let tot=0, val=0, fxok=true;
   hs.forEach(h=>{if(h.pnl!=null){if(h.fx){tot+=h.pnl*h.fx;val+=(h.value||0)*h.fx}else fxok=false}});
   let h=`<div class="card"><div class="muted small">보유 평가손익${fxok?" (원화 환산)":""}</div>
@@ -144,6 +164,7 @@ function vHome(){
      <div class="v ${cls(x.realized)}">${smoney(x.realized||0,mk)}</div><div class="muted small">오늘 확정 · 매수 ${x.trades||0}회</div>
      <div class="muted small">투자금 ${money(x.capital,mk)}${x.invested?` · 사용 ${money(x.invested,mk)}`:""}</div>
      ${x.halted?`<div class="small up">⛔ ${esc(x.halted)}</div>`:""}${x.error?`<div class="small up">❌ ${esc(x.error)}</div>`:""}</div>`).join("")+`</div>`;
+  h+=planCard();
   h+=`<div class="card"><div class="row"><b>보유 종목</b><span class="sp"></span><button class="sm" style="flex:0" onclick="load()">새로고침</button></div>`;
   if(!hs.length) h+=`<div class="empty">로봇이 관리하는 보유 종목이 없어요</div>`;
   hs.forEach((x,i)=>{const mk=x.market, g=x.grade?`<span class="chip ${x.grade==="유지"?"pos":x.grade==="나쁨"?"neg":"mid"}">${esc(x.grade)}</span>`:"";

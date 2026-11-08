@@ -102,3 +102,18 @@ assert post("/api/m/lockall", "https://bot.tail123.ts.net", xreq=False) == 403  
 assert post("/api/m/lockall", "https://bot.tail123.ts.net") == 200              # 내 Tailscale 주소의 앱
 srv.shutdown()
 print("✅ 휴대폰 앱 시험 통과")
+
+# 오늘 살 종목 예상: 봇 규칙(AI 부정·손익비·업종 2종목·빈자리·손실 한도) 그대로
+pkd = {"date": "2026-11-06", "picks": [
+    {"code": "A", "name": "가", "score": 9, "close": 100, "stop": 92, "sector": "S", "ai": {"view": "긍정"}},
+    {"code": "B", "name": "나", "score": 8, "close": 100, "stop": 92, "sector": "S", "ai": {"view": "중립"}},
+    {"code": "C", "name": "다", "score": 8, "close": 100, "stop": 92, "sector": "S", "ai": {}},
+    {"code": "D", "name": "라", "score": 7, "close": 100, "stop": 92, "sector": "T", "ai": {"view": "부정"}},
+    {"code": "E", "name": "마", "score": 7, "close": 100, "stop": 92, "sector": "T", "no_buy": "손익비 1 미만", "ai": {}},
+    {"code": "F", "name": "바", "score": 2, "close": 100, "stop": 92, "sector": "U", "ai": {}}]}
+pl = MB.plan("US", hold=[], cap=5000, pk=pkd)
+assert [x["name"] for x in pl["buy"]] == ["가", "나"] and pl["buy"][0]["qty"] == 6 and pl["buy"][1]["small"] and pl["buy"][1]["qty"] == 3, pl["buy"]
+why = {x["name"]: x["why"] for x in pl["skip"]}
+assert "업종" in why["다"] and "부정" in why["라"] and "손익비" in why["마"] and "기준" in why["바"], why
+assert MB.next_buy_time("KR").endswith("+00:00")
+print("✅ 오늘 살 종목 시험 통과")
