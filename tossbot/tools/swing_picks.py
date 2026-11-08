@@ -37,6 +37,23 @@ def main():
         names = SD.us_universe()
         bars = SD.yf_bars({c: c.replace(".", "-") for c in names}, 2)
         idx = SD.yf_bars({"SPY": "SPY"}, 2).get("SPY")
+    # 데스크(실적 일정·가격 계획·이슈)에 나오는데 평소 분석 범위 밖인 종목도 같이 받아 판정 (앱에 '정보 적음' 안 뜨게)
+    try:
+        extra = [c for c in desk_codes(m) if c not in bars][:80]
+        if extra:
+            if m == "kr":
+                got = SD.yf_bars({c: c + ".KS" for c in extra}, 2)
+                miss = [c for c in extra if c not in got]
+                got.update(SD.yf_bars({c: c + ".KQ" for c in miss}, 2) if miss else {})
+            else:
+                got = SD.yf_bars({c: c.replace(".", "-") for c in extra}, 2)
+            for c, b in got.items():
+                bars[c] = b
+                names.setdefault(c, c)
+            EXTRA.update(got.keys())
+            print(f"데스크 종목 추가 분석: {len(got)}/{len(extra)}", file=sys.stderr)
+    except Exception as e:
+        print("데스크 종목 추가 실패:", e, file=sys.stderr)
     out = build(m, bars, names, idx)
     if a.live:
         return live_main(a, m, bars, names, idx, out, (lambda c: yfs.get(c, c)) if m == "kr" else None)
@@ -55,6 +72,10 @@ def main():
     except Exception as e:
         print("ETF 상태 계산 실패:", e, file=sys.stderr)
     Path(a.out).mkdir(parents=True, exist_ok=True)
+    try:
+        add_targets(m, [c for c in EXTRA if c in STATS])
+    except Exception as e:
+        print("추가 종목 목표가 실패:", e, file=sys.stderr)
     try:                                                   # 휴대폰 앱 데스크 판정용 전 종목 상태
         (Path(a.out) / "scores.json").write_text(json.dumps(STATS, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
     except Exception as e:
@@ -68,6 +89,33 @@ def main():
 
 
 REUSE: dict = {}       # 장중 다시 고르기: 밤에 이미 AI 가 읽은 종목은 그 판독을 다시 씀 (비용 절약)
+
+
+def add_targets(m, codes):
+    """범위 밖 종목의 증권사 평균 목표가·의견 (미장 야후, 국장 네이버) → STATS[code]['tgt'], ['rec']."""
+    import requests
+    if m == "us":
+        import yfinance as yf
+        for c in codes[:60]:
+            try:
+                info = yf.Ticker(c.replace(".", "-")).info or {}
+                STATS[c]["tgt"] = info.get("targetMeanPrice")
+                STATS[c]["rec"] = info.get("recommendationMean")
+                if info.get("shortName"):
+                    STATS[c]["name"] = info["shortName"]
+            except Exception:
+                pass
+    else:
+        import estimates_snapshot as ES
+        ses = requests.Session()
+        ses.headers["User-Agent"] = "Mozilla/5.0 (stock-chart bot)"
+        for c in codes[:60]:
+            try:
+                row = ES.kr_api(c, ses)
+                STATS[c]["tgt"] = SW._num(row.get("cs_priceTargetMean"))
+                STATS[c]["rec"] = SW._num(row.get("cs_recommMean"))
+            except Exception:
+                pass
 
 
 def live_main(a, m, bars, names, idx, base, tick):
@@ -212,6 +260,7 @@ def desk_codes(m):
             out += [c for c, x in (d.get("impact") or {}).items() if (x or {}).get("impact") == "호재"]
         if k == "earn":
             out += list((d.get("good") or {}))
+            out += list((d.get("upcoming") or {}))
             out += [c for c, x in (d.get("events") or {}).items() if "기대" in str((x or {}).get("bias", ""))]
     return list(dict.fromkeys(str(c) for c in out))
 
@@ -248,6 +297,8 @@ def _rows(b, n=30):
     return out
 
 
+THIN: set = set()      # 거래가 너무 적어 매수 후보로는 안 쓰는 종목
+EXTRA: set = set()     # 데스크 때문에 추가로 받은 종목 (목표가·의견도 따로 붙임)
 STATS: dict = {}       # 전 종목 지금 상태 (앱 데스크 판정용): 차트 점수·장기 하락·1년 고점 대비·3개월·20일선 거리
 
 
@@ -272,8 +323,11 @@ def scan_now(m, bars, names, idx, tick=None, top=50, keep=20):
         r = _rows(b, 260)
         c = r[-1][4]
         tv = sum(x[4] * x[5] for x in r[-20:]) / 20
-        if c < (1000 if m == "kr" else 5) or tv < (3e9 if m == "kr" else 3e7):
+        thin = c < (1000 if m == "kr" else 5) or tv < (3e9 if m == "kr" else 3e7)
+        if thin and code not in EXTRA:
             continue
+        if thin:
+            THIN.add(code)                                   # 데스크 종목: 판정용 상태만 계산, 매수 후보로는 안 씀
         sc, why = SW.forward_score(m.upper(), r, c, {}, {}, 0)
         hi = max(x[2] for x in r[-252:])
         if c >= hi * 0.95:
@@ -308,6 +362,7 @@ def scan_now(m, bars, names, idx, tick=None, top=50, keep=20):
         except Exception:
             pass
     first.sort(key=lambda t: (-t[0], -t[1]))
+    first = [t for t in first if t[2] not in THIN]
     try:
         dk = set(desk_codes(m))
     except Exception:

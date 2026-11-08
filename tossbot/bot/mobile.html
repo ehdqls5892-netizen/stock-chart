@@ -269,7 +269,7 @@ let DK={}, dsub=localStorageGet("dsub")||"plan";
 async function vDesk(){
   let h=`<div class="seg">${["KR","US"].map(m=>`<button class="${m===pmk?"on":""}" onclick="setPmk('${m}',1)">${FL[m]} ${NM[m]}</button>`).join("")}</div>
     <div class="seg">${[["plan","가격 계획"],["earn","실적 일정"],["scan","차트 분류"]].map(([k,n])=>`<button class="${k===dsub?"on":""}" onclick="dsub='${k}';localStorageSet('dsub','${k}');vDesk()">${n}</button>`).join("")}</div>`;
-  h+=`<div class="legend3"><span style="white-space:nowrap"><span class="bz g">호재</span> 좋은 소식 많음</span><span style="white-space:nowrap"><span class="bz y">엇갈림</span> 반반</span><span style="white-space:nowrap"><span class="bz r">악재</span> 나쁜 소식 많음</span></div>`;
+  h+=`<div class="small muted" style="padding:0 4px">판정은 서버가 20분마다 오늘 차트로 다시 보고, 화면은 5분마다 새로 받아요. 보유·오늘 살 종목이 악재로 바뀌면 알림이 와요.</div><div class="legend3"><span style="white-space:nowrap"><span class="bz g">호재</span> 좋은 소식 많음</span><span style="white-space:nowrap"><span class="bz y">엇갈림</span> 반반</span><span style="white-space:nowrap"><span class="bz r">악재</span> 나쁜 소식 많음</span></div>`;
   const d=DK[pmk];
   if(!d){$("v").innerHTML=h+`<div class="card empty"><span class="spin"></span> 데스크 자료 불러오는 중</div>`;
     try{DK[pmk]=await api("/api/m/desk?mk="+pmk)}catch(e){DK[pmk]={error:e.message}} if(tab==="desk")vDesk();return}
@@ -427,7 +427,8 @@ function route(){const h=decodeURIComponent(location.hash||"");
   if(h)history.replaceState(null,"",location.pathname)}
 window.addEventListener("hashchange",route);
 
-nav();render();load();route();badge();setInterval(()=>{if(!document.hidden)badge()},60000);setInterval(()=>{if(!document.hidden)load()},30000);
+nav();render();load();route();badge();setInterval(()=>{if(!document.hidden)badge()},60000);
+setInterval(()=>{if(document.hidden)return;DK={};P={};PLt=0;if(tab==="desk")vDesk();else if(tab==="picks")vPicks();else if(tab==="home")loadPlan()},300000);   // 5분마다 판정·후보 새로setInterval(()=>{if(!document.hidden)load()},30000);
 document.addEventListener("visibilitychange",()=>{if(!document.hidden)load()});
 if("serviceWorker" in navigator)navigator.serviceWorker.register("/sw.js").catch(()=>{});
 </script>

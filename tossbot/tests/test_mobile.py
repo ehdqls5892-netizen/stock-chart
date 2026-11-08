@@ -117,3 +117,19 @@ why = {x["name"]: x["why"] for x in pl["skip"]}
 assert "업종" in why["다"] and "부정" in why["라"] and "손익비" in why["마"] and "기준" in why["바"], why
 assert MB.next_buy_time("KR").endswith("+00:00")
 print("✅ 오늘 살 종목 시험 통과")
+
+# 범위 밖 종목도 토스 일봉으로 판정 (정보 적음 안 뜨게), 보유·오늘 살 종목이 악재로 바뀌면 알림
+up_bars = [(f"2026-10-{i:02d}", 100 + i, 102 + i, 99 + i, 101 + i, 1000.0) for i in range(1, 31)]
+dn_bars = [(f"2026-10-{i:02d}", 200 - i * 3, 201 - i * 3, 196 - i * 3, 197 - i * 3, 1000.0) for i in range(1, 31)]
+ctx0 = MB.context("US", {"upcoming": {}}, {}, {})
+ctx0["sc"] = {}
+MB.LIVE[("US", "RKLB")] = MB.live_stats("US", "RKLB", get_bars=lambda c: up_bars)
+assert MB.tags("US", "RKLB", ctx0)["bias"] != "정보 적음", MB.tags("US", "RKLB", ctx0)
+MB.watch_codes = lambda mk: {"HOLD": True}
+MB.name_map = lambda mk, codes, hint=None: {c: "보유종목" for c in codes}
+MB.context = lambda mk, *a: ctx0
+alerts = []
+MB.LAST_BIAS[("US", "HOLD")] = "호재"
+MB.refresh_once("US", get_bars=lambda c: dn_bars, notify=lambda *a: alerts.append(a))
+assert alerts and "호재→악재" in alerts[0][1], (alerts, MB.LAST_BIAS)
+print("✅ 계속 다시 보기 시험 통과")

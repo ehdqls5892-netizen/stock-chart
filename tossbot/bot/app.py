@@ -851,6 +851,7 @@ def main():
     MB.make(tc)
     from . import alerts as AL
     AL.start()                                   # 장중 급등·급락 감시 → 휴대폰 앱 알림
+    MB.start_refresh()                           # 20분마다 데스크·후보·보유 종목 판정 다시 (악재로 바뀌면 알림)
     if tc.enabled:
         tc.start()
         threading.Thread(target=_briefing_loop, args=(lambda t: say(tc, t),), daemon=True).start()

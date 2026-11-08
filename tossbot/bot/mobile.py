@@ -311,7 +311,10 @@ def tags(mk: str, code: str, ctx: dict) -> dict:
     if sc is not None:
         sc = int(round(sc))
         (good if sc >= 4 else bad if sc <= 1 else []).append(f"봇 점수 {sc:+d}")
-    stt = (ctx.get("sc") or {}).get(code) or {}
+    stt = dict((ctx.get("sc") or {}).get(code) or {})
+    lv = LIVE.get((mk, code))
+    if lv and time.time() - lv["t"] < 3600:              # 서버가 20분마다 토스 일봉으로 다시 본 오늘 상태가 우선
+        stt.update({k: lv[k] for k in ("c", "ld", "dd", "d20", "close") if lv.get(k) is not None})
     ld = bool(stt.get("ld"))
     if ld:
         bad.append(f"1년 고점보다 {stt['dd'] * 100:.0f}%, 오래 내리는 중")
@@ -326,6 +329,8 @@ def tags(mk: str, code: str, ctx: dict) -> dict:
     an = ctx["an"].get(code) or {}
     if an.get("up") is not None:
         up = float(an["up"]) / 100
+    elif stt.get("tgt") and stt.get("close"):
+        up = float(stt["tgt"]) / float(stt["close"]) - 1
     else:
         e = est(mk, code)
         tg = SWnum(e.get("targetMeanPrice") if mk == "US" else e.get("cs_priceTargetMean"))
@@ -348,6 +353,12 @@ def tags(mk: str, code: str, ctx: dict) -> dict:
             bad.append("이미 목표가보다 비싸요")
         elif up < 0.08:
             bad.append("목표가까지 남은 게 적어요")
+    rec = stt.get("rec")
+    if rec is not None and not pk:
+        if (mk == "US" and rec <= 2.0) or (mk == "KR" and rec >= 4.0):
+            good.append("증권사 의견 '매수'가 많아요")
+        elif (mk == "US" and rec >= 3.0) or (mk == "KR" and rec <= 3.0):
+            bad.append("증권사 의견이 '중립' 이하예요")
     lb = (ctx["ch"].get(code) or {}).get("label")
     if lb == "관심" and not stt:
         good.append("차트 모양이 좋아요")
@@ -356,7 +367,12 @@ def tags(mk: str, code: str, ctx: dict) -> dict:
     n = len(good) - len(bad)
     if ai.get("veto") or code in ctx["bad"]:
         n = min(n, -1)
-    bias = "정보 적음" if not good and not bad else "호재" if n > 0 else "악재" if n < 0 else "엇갈림"
+    if not good and not bad and (stt.get("c") is not None or up is not None):
+        bad, good = [], []
+        note = (note + " · " if note else "") + "뚜렷한 호재·악재 없이 보통이에요"
+        bias = "엇갈림"
+    else:
+        bias = "정보 적음" if not good and not bad else "호재" if n > 0 else "악재" if n < 0 else "엇갈림"
     why = (good + bad) if n >= 0 else (bad + good)
     if note:
         why.append(note)
@@ -632,3 +648,95 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
             "at": next_buy_time(mk, now), "slots": slots, "buy": buy, "wait": wait,
             "skip": skip[:12], "running": bool(b is not None and getattr(b, "phase", "") not in ("종료됨", "")),
             "robot": bool(A.running()) if hasattr(A, "running") else False}
+
+
+
+# ───────── 계속 다시 보기: 20분마다 데스크·후보·보유 종목을 토스 일봉으로 다시 판정, 보유·오늘 살 종목이 악재로 바뀌면 알림 ─────────
+LIVE: dict = {}
+LAST_BIAS: dict = {}
+
+
+def live_stats(mk: str, code: str, get_bars=None):
+    from . import swing as SW
+    b = (get_bars or bars)(code)
+    if len(b) < 20:
+        return None
+    c = b[-1][4]
+    sc, _ = SW.forward_score(mk, b, c, {}, {}, 0)
+    hi = max(x[2] for x in b[-252:])
+    ma20 = sum(x[4] for x in b[-20:]) / 20
+    return {"t": time.time(), "c": sc, "ld": bool(SW.long_downtrend(b, c)), "dd": round(c / hi - 1, 3), "d20": round(c / ma20 - 1, 3),
+            "close": c}
+
+
+def watch_codes(mk: str) -> dict:
+    """다시 볼 종목: 보유 + 오늘 살 예정 + 후보 + 데스크(가격 계획·장중 관심·실적 일정) → {code: 중요한가(알림 대상)}"""
+    from . import app as A
+    out = {}
+    try:
+        for h in A.holdings():
+            if h["market"] == mk:
+                out[h["symbol"]] = True
+    except Exception:
+        pass
+    try:
+        for x in plan(mk)["buy"]:
+            out[x["code"]] = True
+    except Exception:
+        pass
+    try:
+        for x in live_or_night(mk).get("picks", [])[:20]:
+            out.setdefault(x["code"], False)
+    except Exception:
+        pass
+    try:
+        d = desk(mk)
+        for x in d["live"]["plans"] + d["report"]["plans"] + d["live"]["watch"] + d["earn"]["upcoming"][:30]:
+            out.setdefault(x["code"], False)
+    except Exception:
+        pass
+    return out
+
+
+def refresh_once(mk: str, get_bars=None, notify=None):
+    from . import push as PU
+    from .main import FLAG
+    codes = watch_codes(mk)
+    for code in list(codes)[:100]:
+        try:
+            st = live_stats(mk, code, get_bars)
+            if st:
+                LIVE[(mk, code)] = st
+        except Exception:
+            pass
+    ctx = context(mk)
+    nm = name_map(mk, [c for c, imp in codes.items() if imp])
+    for code, imp in codes.items():
+        if not imp:
+            continue
+        t = tags(mk, code, ctx)
+        prev = LAST_BIAS.get((mk, code))
+        LAST_BIAS[(mk, code)] = t["bias"]
+        if prev in ("호재", "엇갈림") and t["bias"] == "악재":
+            why = " · ".join(t.get("why") or [])[:80]
+            (notify or PU.push_event)("warn", f"{FLAG[mk]} ⚠️ {nm.get(code, code)} {prev}→악재로 바뀌었어요", why or "탭해서 확인", mk, code)
+
+
+def _refresh_loop():
+    import datetime as dt
+    while True:
+        try:
+            if dt.datetime.now(dt.timezone.utc).weekday() < 6:
+                for mk in ("KR", "US"):
+                    try:
+                        refresh_once(mk)
+                    except Exception as e:
+                        print("다시 보기 오류", mk, e)
+        except Exception:
+            pass
+        time.sleep(1200)
+
+
+def start_refresh():
+    import threading
+    threading.Thread(target=_refresh_loop, daemon=True).start()
