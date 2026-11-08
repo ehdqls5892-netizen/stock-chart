@@ -144,7 +144,7 @@ function planCard(){
     h+=`<div style="margin-top:12px"><div class="row"><b>${FL[mk]} ${NM[mk]}</b><span class="chip ${p.live?"B":""}">${p.live?"오늘 흐름 반영":"어젯밤 기준"}</span><span class="sp"></span><span class="small muted">내 시간 ${t(p.at)} 매수</span></div>`;
     if(p.index_today!=null)h+=`<div class="why">지수 오늘 ${p.index_today>0?"+":""}${p.index_today}%${p.index_today<=-2?" — 시장이 크게 빠지는 날이라 새로 안 사요":""}</div>`;
     h+=p.buy.length?p.buy.map(x=>`<div class="pk"><div class="row" style="flex-wrap:wrap;row-gap:4px"><span class="nm b" onclick="openStock('${mk}','${esc(x.code)}')">${esc(x.name)} ›</span><span class="chip ${x.grade}">${x.grade} ${x.score>0?"+":""}${Math.round(x.score)}</span>${x.small?`<span class="bz y">작게</span>`:`<span class="bz g">정상</span>`}<span class="sp"></span><span class="b">≈${x.qty}주</span></div>
-      <div class="kv"><span>약 <b>${esc(x.amount)}</b></span><span class="down">손절 ${money(x.stop,mk)}</span>${x.loss?`<span>최대 손실 약 ${esc(x.loss)}</span>`:""}${x.rr?`<span>손익비 ${x.rr}</span>`:""}</div></div>`).join("")
+      <div class="kv"><span>약 <b>${esc(x.amount)}</b></span><span class="down">손절 ${money(x.stop,mk)}</span>${x.loss?`<span>최대 손실 약 ${esc(x.loss)}</span>`:""}${x.rr?`<span>손익비 ${x.rr}</span>`:""}</div>${x.earn_note?`<div class="why">📅 ${esc(x.earn_note)}</div>`:""}</div>`).join("")
       :`<div class="why">살 종목 없음${p.slots===0?" (빈자리 없음)":""}</div>`;
     if(p.wait.length)h+=`<div class="why">⏭ 예비: ${p.wait.map(x=>esc(x.name)).join(", ")} (앞 종목이 점검에서 빠지면 차례로)</div>`;
     if(p.skip.length)h+=`<details><summary>안 사는 후보 ${p.skip.length}개 · 이유</summary>${p.skip.map(x=>`<div class="why">⛔ ${esc(x.name)} — ${esc(x.why)}</div>`).join("")}</details>`;

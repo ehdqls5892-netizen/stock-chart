@@ -73,6 +73,12 @@ def picks(mk: str, get=None) -> dict:
         return {"market": mk, "error": f"후보 자료를 못 받았어요: {type(e).__name__}", "picks": []}
     on = set((c.get("markets") or {}).get(mk, []))
     out = []
+    try:
+        from . import swing as SW
+        from .main import now as _now
+        today = _now(mk).date()
+    except Exception:
+        SW, today = None, None
     for x in d.get("picks", []):
         if on and x.get("setup") not in on:
             continue
@@ -87,6 +93,12 @@ def picks(mk: str, get=None) -> dict:
                     "news": (ev.get("news") or [])[:5], "rr": x.get("rr"), "no_buy": x.get("no_buy"),
                     "pros": [t.strip() for t in re.findall(r"＋([^＋－·＊]+)", x.get("reason", ""))][:3],
                     "cons": [t.strip() for t in re.findall(r"－([^＋－·＊]+)", x.get("reason", ""))][:3]})
+        try:                         # 봇과 같은 실적 점검: 보유 기간 안에 실적이 있으면 뒤로 미루고 수량 줄임/안 삼
+            if SW and x.get("close") and x.get("stop"):
+                ep, per2, etxt = SW.earn_plan(x, today, float(x["close"]), float(x["stop"]), c.get("earnings") or {}, mk)
+                out[-1].update({"eplan": ep, "eper": per2, "etxt": etxt})
+        except Exception:
+            pass
     res = {"market": mk, "date": d.get("date"), "regime": d.get("regime"), "index": d.get("index"), "picks": out[:20]}
     _PICKS[mk] = (time.time(), res)
     return res
@@ -648,7 +660,8 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
     sec_n: dict = {}
     rg = c.get("risk_by_grade") or {}
     buy, wait, skip = [], [], []
-    for x in d.get("picks", []):
+    # 봇과 같은 순서: 보유 기간 안에 실적 발표가 없는 종목 먼저 (점수 순서는 그 안에서 유지)
+    for x in sorted(d.get("picks", []), key=lambda x: x.get("eplan", "ok") != "ok"):
         ai = x.get("ai") or {}
         why = None
         sc = x.get("score") or 0
@@ -664,6 +677,8 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
             why = f"점수 {sc:+.0f} (기준 +{c.get('min_forward_score', 3)} 미만)"
         elif x.get("sector") and sec_n.get(x["sector"], 0) >= smax:
             why = f"같은 업종 {smax}종목까지만"
+        elif x.get("eplan") == "skip":
+            why = x.get("etxt") or "실적 발표 앞두고 전망치 하향"
         if why:
             skip.append({"code": x["code"], "name": x["name"], "why": why})
             continue
@@ -673,13 +688,16 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
         if small:
             rp = rg["B"]
         per = (x.get("close") or 0) - (x.get("stop") or 0)
-        q = int(cap * rp / 100 / per) if per > 0 and cap else 0
+        per_q = max(per, float(x.get("eper") or 0))          # 실적을 끼고 가면 실적 갭 기준으로 수량 줄임
+        q = int(cap * rp / 100 / per_q) if per_q > 0 and cap else 0
         q = min(q, int(cap * c.get("cap_pct", 20) / 100 / x["close"])) if x.get("close") and cap else q
         row = {"code": x["code"], "name": x["name"], "score": sc, "grade": g, "qty": q, "close": x.get("close"), "stop": x.get("stop"),
                "amount": money(mk, q * (x.get("close") or 0)), "loss": money(mk, q * per) if per > 0 else None,
-               "small": small, "ai": ai.get("view"), "rr": (x.get("rr") or {}).get("rr")}
+               "small": small, "ai": ai.get("view"), "rr": (x.get("rr") or {}).get("rr"),
+               "earn_note": x.get("etxt") if x.get("eplan") == "hold" else None}
         if q < 1:
-            skip.append({"code": x["code"], "name": x["name"], "why": "손실 한도로는 1주도 안 됨(비싼 종목)"})
+            skip.append({"code": x["code"], "name": x["name"],
+                         "why": "실적 갭이 커서 1주도 손실 한도를 넘음" if x.get("eplan") == "hold" else "손실 한도로는 1주도 안 됨(비싼 종목)"})
             continue
         if len(buy) < slots:
             buy.append(row)
@@ -687,6 +705,13 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
                 sec_n[x["sector"]] = sec_n.get(x["sector"], 0) + 1
         elif len(wait) < 3:
             wait.append(row)
+    seen = {r["code"] for r in buy + wait + skip}
+    for x in d.get("picks", []):
+        if x.get("eplan") == "hold" and x["code"] not in seen and (x.get("score") or 0) >= c.get("min_forward_score", 3):
+            skip.append({"code": x["code"], "name": x["name"],
+                         "why": "실적 발표가 보유 기간 안이라 뒤로 미룸 ("
+                                + (x["etxt"].split(" · ")[0].replace("실적 반응일 ", "발표 반응 ") if str(x.get("etxt", "")).startswith("실적 반응일")
+                                   else "실적 시즌인데 발표일을 몰라요") + ")"})
     b = A.STATE.get("bots", {}).get(mk)
     return {"market": mk, "date": d.get("date"), "live": d.get("live", False), "index_today": d.get("index_today"),
             "at": next_buy_time(mk, now), "slots": slots, "buy": buy, "wait": wait,
