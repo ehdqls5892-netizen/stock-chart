@@ -150,7 +150,7 @@ def _claude(model: str, prompt: str, max_tokens: int, code=None) -> dict:
         txt = "".join(c.get("text", "") for c in js.get("content", []) if c.get("type") == "text")
         m = re.search(r"\{.*\}", txt, re.S)
         if not m:
-            log("Claude 응답 해석 실패", code, txt[:200])
+            log("Claude 응답 해석 실패", code, model, js.get("stop_reason"), [c.get("type") for c in js.get("content", [])], txt[:200])
             return {}
         return json.loads(m.group(0))
     except Exception as e:
@@ -179,7 +179,7 @@ def ai_read(market: str, x: dict, news: list) -> dict:
               '{"view":"긍정|중립|부정","catalyst":"최근 움직임의 이유 한 문장(모르면 \'확인 안 됨\')",'
               '"risk":"가장 큰 위험 한 문장","adj":-2~1 사이 정수}\n\n'
               + json.dumps(facts, ensure_ascii=False, default=str)[:6000])
-    d = _claude(model, prompt, 300, x.get("code"))
+    d = _claude(model, prompt, 3000, x.get("code"))
     if not d:
         return {}
     try:
@@ -208,7 +208,7 @@ def ai_final(market: str, x: dict, news: list, first: dict) -> dict:
               '{"view":"긍정|중립|부정","catalyst":"움직임의 이유 한 문장(모르면 \'확인 안 됨\')",'
               '"risk":"가장 큰 위험 한 문장","adj":-3~2 사이 정수,"veto":true|false,"veto_reason":"veto 일 때만 한 문장"}\n\n'
               + json.dumps(facts, ensure_ascii=False, default=str)[:9000])
-    d = _claude(model, prompt, 500, x.get("code"))
+    d = _claude(model, prompt, 6000, x.get("code"))
     if not d:
         return {}
     try:
