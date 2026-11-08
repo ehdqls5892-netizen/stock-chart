@@ -1,0 +1,51 @@
+name: 종목 뉴스 AI 판정 (장중 1시간마다)
+
+on:
+  schedule:
+    - cron: "5 23,0-6 * * 0-5"   # 국장: 한국 08:05~15:05 매시간 (일~금 UTC = 한국 월~금)
+    - cron: "35 13-21 * * 1-5"   # 미장: 뉴욕 프리장~마감 매시간 (겨울 08:35~16:35)
+  workflow_dispatch:
+    inputs:
+      market:
+        description: "kr 또는 us"
+        required: true
+        default: "kr"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: news-${{ github.event.inputs.market || github.event.schedule }}
+  cancel-in-progress: true
+
+jobs:
+  judge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: 시장 정하기
+        id: mk
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then M="${{ github.event.inputs.market }}";
+          elif [ "${{ github.event.schedule }}" = "5 23,0-6 * * 0-5" ]; then M=kr; else M=us; fi
+          echo "m=$M" >> $GITHUB_OUTPUT
+      - name: 판정
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CLAUDE_NEWS_MODEL: ${{ vars.CLAUDE_NEWS_MODEL }}   # 기본 claude-haiku-5-5
+        run: python tossbot/tools/news_judge.py ${{ steps.mk.outputs.m }} --out out 2> >(tee out.log >&2)
+      - name: 올리기 (swingnews-<m> 브랜치)
+        if: always()
+        run: |
+          mkdir -p out && cp -f out.log out/run.log 2>/dev/null || true
+          cd out
+          git init -q && git checkout -q -b swingnews-${{ steps.mk.outputs.m }}
+          git config user.name "cof-bot" && git config user.email "cof-bot@users.noreply.github.com"
+          git add -A && git commit -qm "뉴스 판정 $(date -u +'%F %H:%M')"
+          [ -f news.json ] || git branch -m swingnews-${{ steps.mk.outputs.m }}-log
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" HEAD

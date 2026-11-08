@@ -939,6 +939,24 @@ class Bot:
                     + (f" · 빠짐: {', '.join(drop)}" if drop else "") + (f" · 지수 오늘 {ix:+.1f}%" if ix is not None else ""))
         return True
 
+    def news_judged(self) -> dict:
+        """1시간마다 AI 가 다시 읽은 종목 뉴스 판정 (6시간 넘은 건 안 씀). 10분 동안 기억."""
+        import requests
+        from . import news_judge as NJ
+        c = self.cfg["daily_swing"]
+        url = c.get("news_judge_url")
+        if not url or os.getenv("TOSSBOT_OFFLINE") == "1":
+            return {}
+        hit = getattr(self, "_nj", None)
+        if hit and time.time() - hit[0] < 600:
+            return hit[1]
+        try:
+            d = NJ.fresh(requests.get(url.format(m=self.m.lower()), timeout=15).json(), c.get("news_judge_hours", 6))
+        except Exception:
+            d = hit[1] if hit else {}
+        self._nj = (time.time(), d)
+        return d
+
     def manual_buy(self, x, cash) -> float:
         """휴대폰 앱에서 고른 종목을 스윙 규칙 그대로(손절선·손실 한도·업종·열린 손실·점수·AI·공시·뉴스 점검) 사기.
         점검에 걸리면 이유를 알림으로 보내고 안 삼."""
@@ -1446,6 +1464,11 @@ class Bot:
             if rtxt:
                 fs += adj
                 fwhy = [rtxt] + fwhy
+        nj = Bot.news_judged(self).get(str(x["code"])) or {}
+        if nj.get("impact") in ("호재", "악재"):
+            fs += int(nj.get("adj") or 0)
+            fwhy = [f"{'＋' if nj['impact'] == '호재' else '－'}새 뉴스 AI {nj['impact']}: {nj.get('why', '')}"] + fwhy
+        x["_news_ai"] = nj or None
         x["_rr"] = rr0
         x["_fscore"], x["_fwhy"] = fs, fwhy
         x["_tgt"] = SW.cons_target(self.m, est) or (price * (1 + ev["tgt_up"]) if (x.get("ev") or {}).get("tgt_up") is not None and price else None)
@@ -1475,6 +1498,10 @@ class Bot:
                 why = ld + f" · 실적·수급·뉴스 반전 근거 {nev}개(2개 이상 필요)"
             else:
                 warn.append(f"장기 하락 중 — 반전 근거 {nev}개로 매수 허용")
+        if why is None and nj.get("severe"):
+            why = f"새로 나온 심한 악재 뉴스(AI 판정): {nj.get('why', '')} — {nj.get('head', '')[:40]}"
+        elif nj.get("impact") == "악재":
+            warn.append(f"새 악재 뉴스: {nj.get('why', '')}")
         if why is None and fwhy and fs < c.get("min_forward_score", 2):
             why = f"현재·미래 근거 부족 (점수 {fs:+d}, 기준 {c.get('min_forward_score', 2):+d} 이상): " + " ".join(w for w in fwhy if w.startswith("－"))[:120]
         if bars and len(bars) >= 2 and bars[-1][0] == now(self.m).date() and price < bars[-1][1] * 0.97:

@@ -473,7 +473,7 @@ def scan_now(m, bars, names, idx, tick=None, top=50, keep=20):
         out.append(x)
     out.sort(key=lambda x: -x["score"])
     # 2단계: 실제로 살 만한 상위 후보만 가장 좋은 모델로 다시 깊게 읽고 확정 (치명적 위험이면 매수 금지 표시)
-    nf = int(os.getenv("CLAUDE_FINAL_N", "") or 10)
+    nf = int(os.getenv("CLAUDE_FINAL_N", "") or 20)
     for x in out[:nf]:
         ev = x["ev"]
         if ev.get("dart_flags") or (x.get("_reused") and (ev.get("ai") or {}).get("final")):

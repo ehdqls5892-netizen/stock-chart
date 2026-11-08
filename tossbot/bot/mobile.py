@@ -159,6 +159,7 @@ def post(path: str, body: dict) -> dict:
 
 # ───────── 데스크 통합: 주식비서 데스크 자료·종목 검색·종목 상세(차트·점수)·봇으로 사기 ─────────
 _CACHE: dict = {}
+NJ_LOCAL: dict = {}          # 서버가 1시간마다 직접 AI 로 본 보유 종목 뉴스 판정 {mk: {code: {...}}}
 RAW = "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart"
 
 
@@ -277,7 +278,16 @@ def context(mk: str, earn: dict | None = None, live: dict | None = None, chart: 
     except Exception:
         pass
     sc = _get_json(f"{RAW}/swingpicks-{mk.lower()}/scores.json", 3 * 3600) or {}
-    return {"sc": sc, "ev": earn.get("events") or {}, "an": earn.get("analyst") or {}, "good": earn.get("good") or {}, "bad": earn.get("bad") or {},
+    nj = {}
+    try:
+        from . import news_judge as NJ
+        ds = _cfg()["daily_swing"]
+        if ds.get("news_judge_url"):
+            nj = NJ.fresh(_get_json(ds["news_judge_url"].format(m=mk.lower()), 600), ds.get("news_judge_hours", 6))
+        nj.update(NJ.fresh(NJ_LOCAL.get(mk), ds.get("news_judge_hours", 6)))   # 서버가 직접 본 보유 종목 판정
+    except Exception:
+        pass
+    return {"sc": sc, "nj": nj, "ev": earn.get("events") or {}, "an": earn.get("analyst") or {}, "good": earn.get("good") or {}, "bad": earn.get("bad") or {},
             "up": earn.get("upcoming") or {}, "imp": (live or {}).get("impact") or {}, "pk": pk, "ch": chart or {}}
 
 
@@ -296,6 +306,11 @@ def tags(mk: str, code: str, ctx: dict) -> dict:
         good.append("좋은 뉴스: " + im.get("title", "")[:18])
     elif im.get("impact") == "악재":
         bad.append("나쁜 뉴스: " + im.get("title", "")[:18])
+    nj = (ctx.get("nj") or {}).get(code) or {}
+    if nj.get("impact") == "호재":
+        good.insert(0, "새 뉴스: " + (nj.get("why") or "")[:22])
+    elif nj.get("impact") == "악재":
+        bad.insert(0, ("⛔ 심한 악재: " if nj.get("severe") else "새 악재: ") + (nj.get("why") or "")[:22])
     if ai.get("view") == "긍정":
         good.append("AI가 좋게 봐요")
     elif ai.get("view") == "부정":
@@ -365,7 +380,7 @@ def tags(mk: str, code: str, ctx: dict) -> dict:
     elif lb == "주의" and not stt:
         bad.append("차트 모양이 나빠요")
     n = len(good) - len(bad)
-    if ai.get("veto") or code in ctx["bad"]:
+    if ai.get("veto") or code in ctx["bad"] or nj.get("severe"):
         n = min(n, -1)
     if not good and not bad and (stt.get("c") is not None or up is not None):
         bad, good = [], []

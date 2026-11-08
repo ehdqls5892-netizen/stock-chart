@@ -60,7 +60,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}              # 1차(전 후보) 기본 claude-haiku-5-5
           CLAUDE_MODEL_FINAL: ${{ vars.CLAUDE_MODEL_FINAL }}  # 2차(상위 후보) 기본 claude-opus-5-5
-          CLAUDE_FINAL_N: ${{ vars.CLAUDE_FINAL_N }}          # 2차로 다시 읽을 후보 수 기본 10
+          CLAUDE_FINAL_N: ${{ vars.CLAUDE_FINAL_N }}          # 2차로 다시 읽을 후보 수 기본 20
         run: python tossbot/tools/swing_picks.py ${{ steps.mk.outputs.m }} ${{ steps.mk.outputs.live }} --out out 2> >(tee out.log >&2)
       - name: 올리기 (swingpicks-<m> 브랜치)
         if: always()

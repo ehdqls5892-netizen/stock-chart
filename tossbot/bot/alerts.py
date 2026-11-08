@@ -145,11 +145,53 @@ def check(mk: str, quotes=None, bars=None, rankings=None, names=None, now_fn=Non
             break
 
 
+_last_nj: dict = {}
+
+
+def hold_news(mk: str, news_fn=None, claude=None):
+    """1시간마다 보유 종목 최신 기사를 서버에서 바로 AI 판정 (.env 에 ANTHROPIC_API_KEY 가 있을 때만).
+    새로 '악재'가 되면 알림, '심한 악재'면 더 강하게 알림 (자동으로 팔지는 않음 — 손절선이 지켜 줌)."""
+    import os
+    from . import app as A
+    from . import main as M
+    from . import mobile as MB
+    from . import news as N
+    from . import news_judge as NJ
+    from . import push
+    if not os.getenv("ANTHROPIC_API_KEY", "").strip() and not claude:
+        return
+    if time.time() - _last_nj.get(mk, 0) < 3300:
+        return
+    b = A.STATE.get("bots", {}).get(mk)
+    if b is None or not getattr(b, "loop_on", False):
+        return
+    hold = [p for p in b.broker.pos.values() if p.state == "open"]
+    if not hold:
+        return
+    _last_nj[mk] = time.time()
+
+    def f(code, name):
+        h = N.naver_stock_news(code, 8) if mk == "KR" and code.isdigit() else []
+        return list(dict.fromkeys(h + N.recent_news(name, mk, days=2, n=6)))[:8]
+    prev = MB.NJ_LOCAL.get(mk) or {}
+    res = NJ.judge(mk, [{"code": p.symbol, "name": p.name} for p in hold], news_fn or f, prev, claude)
+    for c, v in res.items():
+        old = prev.get(c) or {}
+        if v["impact"] == "악재" and (old.get("impact") != "악재" or (v["severe"] and not old.get("severe"))):
+            t = f"{M.FLAG[mk]} {'⛔ 심한 ' if v['severe'] else '⚠️ '}악재 뉴스: {v.get('name') or c}"
+            push.push_event("warn", t, f"{v['why']} · 보유 중 · 손절선은 그대로 지켜요", mk, c)
+    MB.NJ_LOCAL[mk] = {**prev, **res}
+
+
 def _loop():
     while True:
         for mk in ("KR", "US"):
             try:
                 check(mk)
+            except Exception:
+                pass
+            try:
+                hold_news(mk)
             except Exception:
                 pass
         time.sleep(120)
