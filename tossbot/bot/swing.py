@@ -395,7 +395,9 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
         elif pe <= 15 and g is not None and g >= 0.10:
             add(1, f"이익 대비 쌈(PER {pe:.0f}, 이익 성장 {g * 100:+.0f}%)")
     oy = ev.get("op_yoy")
-    if oy is not None:
+    if oy is not None and ev.get("op_stale"):
+        why.append(f"·{ev.get('op_period', '')} 공시 영업이익 {oy * 100:+.0f}%는 지난 분기 숫자 — 새 잠정실적({ev.get('prov_date', '')}) 공시가 나와 점수 안 줌")
+    elif oy is not None:
         if oy >= 0.20:
             add(1, f"공시 영업이익 전년 대비 {oy * 100:+.0f}%({ev.get('op_period', '')})")
         elif oy <= -0.20:

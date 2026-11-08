@@ -462,4 +462,6 @@ M.Bot.hold_score = orig_hs
 assert pt.qty == 5 and pt.extra.get("tgt_done") and pt.sl >= 100, (pt.qty, pt.sl, pt.extra)
 assert bt.closed[-1].exit_reason.startswith("애널리스트 목표가"), bt.closed[-1].exit_reason
 c["exit_forward_score"] = 0
+_, fw6 = SW.forward_score("KR", [], 100, {}, {"op_yoy": 0.5, "op_period": "2026 반기", "op_stale": True, "prov_date": "20261027"}, 0)
+assert not any(w.startswith("＋공시 영업이익") for w in fw6) and any("지난 분기 숫자" in w for w in fw6), fw6
 print("✅ 애널리스트 관점 보강 시험 통과")

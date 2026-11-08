@@ -60,6 +60,9 @@ def dart(code: str, today: dt.date | None = None) -> dict:
         prov = [x for x in items if "잠정" in x.get("report_nm", "") and "실적" in x.get("report_nm", "")]
         if prov:
             out["prov_date"] = prov[0]["rcept_dt"]
+        reg = [x["rcept_dt"] for x in items if re.search(r"(분기|반기|사업)보고서", x.get("report_nm", "")) and "기재정정" not in x.get("report_nm", "")]
+        if prov and reg and prov[0]["rcept_dt"] > max(reg):
+            out["op_stale"] = True          # 이미 새 분기 잠정실적이 나왔는데 정기보고서(숫자)는 아직 → 지난 분기 숫자라 점수에 안 씀
         plan = [x for x in items if "결산실적공시예고" in x.get("report_nm", "").replace(" ", "") or "기업설명회" in x.get("report_nm", "")]
         if plan:
             out["ir_notice"] = plan[0]["rcept_dt"] + " " + plan[0]["report_nm"][:40]
@@ -90,7 +93,7 @@ def dart(code: str, today: dt.date | None = None) -> dict:
             break
     except Exception as e:
         log("DART 실패", code, type(e).__name__, str(e)[:80])
-    log("DART", code, cc, {k: out.get(k) for k in ("op_yoy", "op_period", "prov_date", "dart_flags") if out.get(k)} or "공시 숫자 없음")
+    log("DART", code, cc, {k: out.get(k) for k in ("op_yoy", "op_period", "op_stale", "prov_date", "dart_flags") if out.get(k)} or "공시 숫자 없음")
     return out
 
 
