@@ -85,7 +85,22 @@ def report(a):
         for x in (r.get("chartScan") or {}).get(k, []):
             if x.get("code"):
                 watch.append(x["code"])
-    return {"market": m, "date": r.get("date"), "plans": plans, "watch": list(dict.fromkeys(c for c in watch if c not in plans))[:60]}
+    # 앱 표시용: 종목 이름과 한 줄 메모(신호·재료)
+    info = {}
+    for it, src in items:
+        if it.get("code"):
+            info[it["code"]] = {"name": it.get("name", ""), "note": str(it.get("signal") or it.get("catalyst") or it.get("material") or "")[:60],
+                                "theme": it.get("theme", "")}
+    for t in r.get("themes", []):
+        for x in t.get("related", []):
+            if x.get("code"):
+                info.setdefault(x["code"], {"name": x.get("name", ""), "note": str(x.get("link") or "")[:60], "theme": t.get("name", "")})
+    for k in ("breakout", "rebound", "trend", "caution"):
+        for x in (r.get("chartScan") or {}).get(k, []):
+            if x.get("code"):
+                info.setdefault(x["code"], {"name": x.get("name", ""), "note": "", "theme": ""})
+    return {"market": m, "date": r.get("date"), "plans": plans, "watch": list(dict.fromkeys(c for c in watch if c not in plans))[:60],
+            "info": info}
 
 
 def live(a):
@@ -106,15 +121,23 @@ def live(a):
         for x in u.get("earnGood") or []:
             if x.get("code"):
                 good[x["code"]] = {"date": d.get("date"), "text": x.get("text", "")}
+    names, impact = {}, {}
+    if ups:
+        for x in ups[-1].get("items", []):
+            if x.get("code"):
+                names[x["code"]] = x.get("name", "")
     if a.issues:
         iss = load(a.issues)
         for x in iss.get("issues", []):
-            if x.get("market") in (m, "global") and x.get("impact") != "악재":
+            if x.get("market") in (m, "global"):
                 for s in x.get("stocks", []):
                     if s.get("code"):
-                        watch.append(s["code"])
+                        names.setdefault(s["code"], s.get("name", ""))
+                        impact.setdefault(s["code"], {"impact": x.get("impact", ""), "title": str(x.get("title", ""))[:40]})
+                        if x.get("impact") != "악재":
+                            watch.append(s["code"])
     return {"market": m, "date": d.get("date"), "updatedAt": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
-            "plans": plans, "watch": list(dict.fromkeys(watch))[:40], "earn_good": good}
+            "plans": plans, "watch": list(dict.fromkeys(watch))[:40], "earn_good": good, "names": names, "impact": impact}
 
 
 def earn(a):
@@ -141,7 +164,20 @@ def earn(a):
                 bad[code] = {"date": ds, "text": text}
         elif d >= today and not sur and not verdict:
             up[code] = ds
-    return {"market": m, "date": today.isoformat(), "upcoming": up, "good": good, "bad": bad}
+    # 앱 표시용: 실적 일정 종목의 이름·시간·분위기(기대/우려/엇갈림), 같은 폴더의 애널리스트 의견(analyst-<m>.json)
+    events = {}
+    for e in c.get("events", []):
+        if e.get("code") and e.get("date"):
+            events[e["code"]] = {k: str(e.get(k) or "")[:40] for k in ("name", "date", "time", "kind", "bias")}
+    analyst = {}
+    try:
+        an = load(Path(a.calendar).with_name(f"analyst-{m}.json"))
+        for code, x in (an.get("stocks") or {}).items():
+            analyst[code] = {"name": x.get("name", ""), "avg": x.get("targetAvg"), "up": x.get("upside"), "opinion": x.get("opinion", ""),
+                             "count": x.get("count")}
+    except Exception:
+        pass
+    return {"market": m, "date": today.isoformat(), "upcoming": up, "good": good, "bad": bad, "events": events, "analyst": analyst}
 
 
 def main():

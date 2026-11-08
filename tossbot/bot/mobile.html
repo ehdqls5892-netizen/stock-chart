@@ -32,7 +32,7 @@ main{padding:4px 16px calc(84px + env(safe-area-inset-bottom));display:flex;flex
 .big{font-size:26px;font-weight:800;letter-spacing:-.5px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .mk h3{margin:0 0 4px;font-size:14px}.mk .v{font-size:17px;font-weight:700}
-.chip{display:inline-block;white-space:nowrap;flex:none;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--line);color:var(--muted);margin-right:4px}
+.chip{display:inline-block;white-space:nowrap;flex:none;margin-bottom:2px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--line);color:var(--muted);margin-right:4px}
 .chip.A{background:var(--ok-soft);color:var(--ok)}.chip.B{background:var(--blue-soft);color:var(--blue)}.chip.C{background:var(--line)}
 .chip.pos{background:var(--ok-soft);color:var(--ok)}.chip.neg{background:var(--up-soft);color:var(--up)}.chip.mid{background:var(--warn-soft);color:var(--warn)}
 .chip.lock{background:var(--blue-soft);color:var(--blue)}
@@ -243,25 +243,31 @@ async function vDesk(){
   if(!d){$("v").innerHTML=h+`<div class="card empty"><span class="spin"></span> 데스크 자료 불러오는 중</div>`;
     try{DK[pmk]=await api("/api/m/desk?mk="+pmk)}catch(e){DK[pmk]={error:e.message}} if(tab==="desk")vDesk();return}
   if(d.error){$("v").innerHTML=h+`<div class="card empty">${esc(d.error)}</div>`;return}
-  const row=(x,extra)=>`<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(x.code)}')">${esc(x.name||x.code)} ›</span>${extra||""}</div></div>`;
-  const plan=p=>`<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(p.code)}')">${esc(p.name||p.code)} ›</span><span class="chip ${/1순위/.test(p.src)?"A":"B"}">${esc(p.src||"")}</span>${p.score!=null?`<span class="chip">${p.score}점</span>`:""}</div>
+  const chips=x=>(x.chips||[]).map(c=>`<span class="chip ${esc(c.c)}">${esc(c.t)}</span>`).join("");
+  const row=(x,extra,sub)=>`<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(x.code)}')">${esc(x.name||x.code)} ›</span><span class="sp"></span>${extra||""}</div>
+     <div style="margin-top:4px">${chips(x)}</div>${sub?`<div class="why">${sub}</div>`:""}</div>`;
+  const plan=p=>`<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(p.code)}')">${esc(p.name||p.code)} ›</span><span class="sp"></span><span class="chip ${/1순위/.test(p.src)?"A":"B"}">${esc(p.src||"")}</span>${p.score!=null?`<span class="chip">${p.score}점</span>`:""}</div>
+     <div style="margin-top:4px">${chips(p)}</div>
      <div class="kv"><span>진입 <b>${money(p.entryLow,pmk)}~${money(p.entryHigh,pmk)}</b></span><span class="down">손절 ${money(p.stop,pmk)}</span><span class="up">1차 ${money(p.t1,pmk)}</span>${p.t2?`<span class="up">2차 ${money(p.t2,pmk)}</span>`:""}</div></div>`;
   if(dsub==="plan"){
     h+=`<div class="card"><b>장중 1순위</b> <span class="small muted">${esc(d.live.date||"")} ${esc(String(d.live.updatedAt||"").slice(11,16))}</span>${d.live.plans.map(plan).join("")||`<div class="empty">없음</div>`}
-      ${d.live.watch.length?`<div class="why" style="margin-top:8px">장중 관심: ${d.live.watch.map(w=>`<span class="nm" onclick="openStock(pmk,'${esc(w.code)}')" style="text-decoration:underline">${esc(w.name)}</span>`).join(" · ")}</div>`:""}</div>
+      </div>${d.live.watch.length?`<div class="card"><b>장중 관심 종목</b>${d.live.watch.map(w=>row(w)).join("")}</div>`:""}
       <div class="card"><b>마감 리포트 가격 계획</b> <span class="small muted">${esc(d.report.date||"")}</span>${d.report.plans.map(plan).join("")||`<div class="empty">없음</div>`}</div>
       <div class="card small muted">데스크(클로드 예약 작업)가 만든 계획이에요. 봇은 이 계획을 참고만 하고, 살 때는 점수·손실 한도·AI 점검을 따로 해요.</div>`;
   }else if(dsub==="earn"){
     const t=new Date().toISOString().slice(0,10);
-    h+=`<div class="card"><b>실적 발표 예정</b>${d.earn.upcoming.filter(x=>x.date>=t).map(x=>row(x,`<span class="sp"></span><span class="small muted">${esc(x.date.slice(5))}</span>`)).join("")||`<div class="empty">없음</div>`}</div>`;
-    if(d.earn.good.length)h+=`<div class="card"><b class="up">실적 좋음</b>${d.earn.good.map(x=>row(x)).join("")}</div>`;
-    if(d.earn.bad.length)h+=`<div class="card"><b class="down">실적 나쁨</b>${d.earn.bad.map(x=>row(x)).join("")}</div>`;
+    const wd=ds=>{const x=new Date(ds+"T00:00:00Z");return `${x.getUTCMonth()+1}/${x.getUTCDate()}(${"일월화수목금토"[x.getUTCDay()]})`};
+    const ups=d.earn.upcoming.filter(x=>x.date>=t);let last="";
+    h+=`<div class="card"><b>실적 발표 예정</b>${ups.map(x=>{const hd=x.date!==last?`<div class="small b" style="margin-top:10px;color:var(--blue)">${wd(x.date)}${x.date===t?" · 오늘":""}</div>`:"";last=x.date;
+      return hd+row(x,`<span class="small muted">${esc(x.time||"")}</span>`)}).join("")||`<div class="empty">없음</div>`}</div>`;
+    if(d.earn.good.length)h+=`<div class="card"><b class="up">실적 좋음</b>${d.earn.good.map(x=>row(x,"",esc(x.text||""))).join("")}</div>`;
+    if(d.earn.bad.length)h+=`<div class="card"><b class="down">실적 나쁨</b>${d.earn.bad.map(x=>row(x,"",esc(x.text||""))).join("")}</div>`;
   }else{
     const NMs={breakout:"돌파",rebound:"반등",trend:"추세",caution:"주의"};
     h+=`<div class="small muted" style="padding:0 4px">${esc(d.scanAsOf||"")} 종가 기준 · 차트 조건 기계 분류(추천 아님)</div>`;
     for(const [k,v] of Object.entries(d.scan||{})){ if(!v.length)continue;
-      h+=`<div class="card"><b>${NMs[k]||k}</b>${v.map(x=>`<div class="pk"><div class="row"><span class="nm b" onclick="openStock(pmk,'${esc(x.code)}')">${esc(x.name)} ›</span><span class="sp"></span><span class="${cls(x.pct)} b">${x.pct!=null?pct(x.pct):""}</span></div>
-        <div class="why">${(x.signals||[]).map(esc).join(" · ")}${(x.warns||[]).length?` <span class="down">⚠ ${(x.warns||[]).map(esc).join(" · ")}</span>`:""}</div></div>`).join("")}</div>`}
+      h+=`<div class="card"><b>${NMs[k]||k}</b>${v.map(x=>row(x,`<span class="${cls(x.pct)} b">${x.pct!=null?pct(x.pct):""}</span>`,
+        `${(x.signals||[]).map(esc).join(" · ")}${(x.warns||[]).length?` <span class="down">⚠ ${(x.warns||[]).map(esc).join(" · ")}</span>`:""}`)).join("")}</div>`}
   }
   $("v").innerHTML=h;
 }

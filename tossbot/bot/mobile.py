@@ -172,7 +172,7 @@ def _get_json(url: str, ttl: int = 300, get=None):
 
 
 def desk(mk: str) -> dict:
-    """주식비서 데스크 자료(마감 리포트 가격 계획·장중 1순위·실적 일정·차트 분류)."""
+    """주식비서 데스크 자료(마감 리포트 가격 계획·장중 1순위·실적 일정·차트 분류) — 모든 종목에 이름과 작은 표시(칩)."""
     m = mk.lower()
     base = _cfg().get("desk_feed_url") or (RAW + "/main/docs/data/desk-{m}-{kind}.json")
     rep = _get_json(base.format(m=m, kind="report")) or {}
@@ -180,29 +180,151 @@ def desk(mk: str) -> dict:
     earn = _get_json(base.format(m=m, kind="earn"), 900) or {}
     ch = _get_json(f"{RAW}/main/docs/data/chart-{m}-latest.json", 900) or {}
     st = ch.get("stocks") or {}
+    codes = set((rep.get("plans") or {})) | set((live.get("plans") or {})) | set(live.get("watch") or []) | set(earn.get("upcoming") or {}) \
+        | set(earn.get("good") or {}) | set(earn.get("bad") or {}) | {c for v in (ch.get("scan") or {}).values() for c in v[:15]}
+    hint = {}
+    for src in ((rep.get("info") or {}), (earn.get("events") or {}), (earn.get("analyst") or {})):
+        for c, x in src.items():
+            if x.get("name"):
+                hint.setdefault(c, x["name"])
+    for d0 in (rep, live):
+        for c, x in (d0.get("plans") or {}).items():
+            if x.get("name"):
+                hint.setdefault(c, x["name"])
+    for c, n in (live.get("names") or {}).items():
+        if n:
+            hint.setdefault(c, n)
+    for c, x in st.items():
+        if x.get("name"):
+            hint.setdefault(c, x["name"])
+    nm_ = name_map(mk, sorted(codes), hint)
+    ctx = context(mk, earn, live, st)
+
+    def row(c, **kw):
+        return {"code": c, "name": nm_.get(c) or c, **kw, **tags(mk, c, ctx)}
 
     def plans(d):
         out = []
         for code, p in (d.get("plans") or {}).items():
-            out.append({"code": code, **{k: p.get(k) for k in ("name", "src", "score", "entryLow", "entryHigh", "stop", "t1", "t2")}})
+            out.append(row(code, **{k: p.get(k) for k in ("src", "score", "entryLow", "entryHigh", "stop", "t1", "t2")}))
         out.sort(key=lambda x: (0 if "1순위" in str(x.get("src")) else 1, -(x.get("score") or 0)))
         return out
-
-    def nm(c):
-        return (st.get(c) or {}).get("name") or names(mk).get(c) or c
     scan = {}
     for k, v in (ch.get("scan") or {}).items():
-        scan[k] = [{"code": c, "name": nm(c), "close": (st.get(c) or {}).get("close"), "pct": (st.get(c) or {}).get("pct"),
-                    "label": (st.get(c) or {}).get("label"), "signals": (st.get(c) or {}).get("signals", [])[:3],
-                    "warns": (st.get(c) or {}).get("warns", [])[:3]} for c in v[:15]]
-    up = sorted(((c, d) for c, d in (earn.get("upcoming") or {}).items()), key=lambda t: t[1])[:30]
+        scan[k] = [row(c, close=(st.get(c) or {}).get("close"), pct=(st.get(c) or {}).get("pct"), label=(st.get(c) or {}).get("label"),
+                       signals=(st.get(c) or {}).get("signals", [])[:3], warns=(st.get(c) or {}).get("warns", [])[:3]) for c in v[:15]]
+    ev = earn.get("events") or {}
+    up = sorted(((c, d) for c, d in (earn.get("upcoming") or {}).items()), key=lambda t: t[1])[:40]
     return {"market": mk.upper(), "report": {"date": rep.get("date"), "plans": plans(rep)},
             "live": {"date": live.get("date"), "updatedAt": live.get("updatedAt"), "plans": plans(live),
-                     "watch": [{"code": c, "name": nm(c)} for c in (live.get("watch") or [])[:20]]},
-            "earn": {"date": earn.get("date"), "upcoming": [{"code": c, "name": nm(c), "date": d} for c, d in up],
-                     "good": [{"code": c, "name": nm(c)} for c in list(earn.get("good") or {})[:15]],
-                     "bad": [{"code": c, "name": nm(c)} for c in list(earn.get("bad") or {})[:15]]},
+                     "watch": [row(c) for c in (live.get("watch") or [])[:20]]},
+            "earn": {"date": earn.get("date"),
+                     "upcoming": [row(c, date=d, time=(ev.get(c) or {}).get("time", ""), kind=(ev.get(c) or {}).get("kind", "")) for c, d in up],
+                     "good": [row(c, text=str((x if isinstance(x, dict) else {}).get("text", ""))[:60]) for c, x in list((earn.get("good") or {}).items())[:15]],
+                     "bad": [row(c, text=str((x if isinstance(x, dict) else {}).get("text", ""))[:60]) for c, x in list((earn.get("bad") or {}).items())[:15]]},
             "scan": scan, "scanAsOf": ch.get("asOf")}
+
+
+_NC: dict = {}
+
+
+def name_map(mk: str, codes: list, hint: dict | None = None) -> dict:
+    """코드 → 종목 이름: 데스크 자료 → 이름 목록 → (그래도 없으면) 토스 종목 정보. 토스로 찾은 이름은 저장해 둠."""
+    from . import main as M
+    out = dict(hint or {})
+    nl = names(mk)
+    p = DIR.parent / "logs" / "names_cache.json"
+    if not _NC:
+        try:
+            _NC.update(json.loads(p.read_text(encoding="utf-8")))
+        except Exception:
+            pass
+    for c in codes:
+        if not out.get(c):
+            out[c] = nl.get(c) or _NC.get(f"{mk}:{c}") or ""
+    miss = [c for c in codes if not out.get(c)][:50]
+    if miss:
+        try:
+            M.load_env()
+            for x in M.shared_api().stocks(miss) or []:
+                sym, nm = x.get("symbol"), x.get("name") or x.get("stockName") or x.get("koreanName")
+                if sym and nm:
+                    out[sym] = nm
+                    _NC[f"{mk}:{sym}"] = nm
+            p.parent.mkdir(parents=True, exist_ok=True)
+            p.write_text(json.dumps(_NC, ensure_ascii=False), encoding="utf-8")
+        except Exception:
+            pass
+    return {c: (out.get(c) or c) for c in codes} | {c: v for c, v in out.items() if v}
+
+
+def context(mk: str, earn: dict | None = None, live: dict | None = None, chart: dict | None = None) -> dict:
+    """종목별 작은 표시를 만들 재료 (한 번 모아 두고 여러 종목에 씀)."""
+    if earn is None:
+        m = mk.lower()
+        base = _cfg().get("desk_feed_url") or (RAW + "/main/docs/data/desk-{m}-{kind}.json")
+        earn = _get_json(base.format(m=m, kind="earn"), 900) or {}
+        live = _get_json(base.format(m=m, kind="live"), 120) or {}
+        chart = (_get_json(f"{RAW}/main/docs/data/chart-{m}-latest.json", 900) or {}).get("stocks") or {}
+    pk = {}
+    try:
+        for x in (_get_json(_cfg()["daily_swing"]["picks_url"].format(m=mk.lower())) or {}).get("picks", []):
+            pk.setdefault(x.get("code"), x)
+    except Exception:
+        pass
+    return {"ev": earn.get("events") or {}, "an": earn.get("analyst") or {}, "good": earn.get("good") or {}, "bad": earn.get("bad") or {},
+            "up": earn.get("upcoming") or {}, "imp": (live or {}).get("impact") or {}, "pk": pk, "ch": chart or {}}
+
+
+def tags(mk: str, code: str, ctx: dict) -> dict:
+    """종목 옆 작은 표시: 호재/악재/엇갈림 · 목표가 여력 · 점수 등급 · 실적일 · 차트 관심/주의 (최대 4개)"""
+    chips = []
+    pk = ctx["pk"].get(code) or {}
+    ai = ((pk.get("ev") or {}).get("ai")) or {}
+    if code in ctx["good"]:
+        chips.append({"t": "실적 좋음", "c": "pos"})
+    elif code in ctx["bad"]:
+        chips.append({"t": "실적 나쁨", "c": "neg"})
+    elif (ctx["imp"].get(code) or {}).get("impact") in ("호재", "악재", "중립"):
+        im = ctx["imp"][code]["impact"]
+        chips.append({"t": im if im != "중립" else "엇갈림", "c": {"호재": "pos", "악재": "neg"}.get(im, "mid")})
+    elif ai.get("view") in ("긍정", "부정", "중립"):
+        chips.append({"t": {"긍정": "호재", "부정": "악재", "중립": "엇갈림"}[ai["view"]], "c": {"긍정": "pos", "부정": "neg"}.get(ai["view"], "mid")})
+    if ai.get("veto"):
+        chips.append({"t": "⛔ 매수 금지", "c": "neg"})
+    b = (ctx["ev"].get(code) or {}).get("bias", "")
+    if b and code in ctx["up"]:
+        chips.append({"t": "실적 " + ("기대" if "기대" in b else "우려" if "우려" in b else "엇갈림"),
+                      "c": "pos" if "기대" in b else "neg" if "우려" in b else "mid"})
+    if pk.get("score") is not None:
+        sc = pk["score"]
+        chips.append({"t": f"{'A' if sc >= 4 else 'B' if sc >= 2 else 'C'} {sc:+d}", "c": "A" if sc >= 4 else "B" if sc >= 2 else "C"})
+    up = None
+    an = ctx["an"].get(code) or {}
+    if an.get("up") is not None:
+        up = float(an["up"]) / 100
+    else:
+        e = est(mk, code)
+        tg = SWnum(e.get("targetMeanPrice") if mk == "US" else e.get("cs_priceTargetMean"))
+        px = SWnum((ctx["ch"].get(code) or {}).get("close")) or SWnum(e.get("closePrice")) or SWnum(e.get("currentPrice")) or SWnum(pk.get("close"))
+        if tg and px:
+            up = tg / px - 1
+        elif (pk.get("ev") or {}).get("tgt_up") is not None:
+            up = pk["ev"]["tgt_up"]
+    if up is not None and -0.6 <= up <= 3.0:                 # 자료가 어긋나 보이는 값(예: 단위 차이)은 표시 안 함
+        chips.append({"t": f"목표가 {up * 100:+.0f}%", "c": "pos" if up >= 0.15 else "neg" if up < 0 else "mid"})
+    lb = (ctx["ch"].get(code) or {}).get("label")
+    if lb in ("관심", "주의") and len(chips) < 4:
+        chips.append({"t": f"차트 {lb}", "c": "pos" if lb == "관심" else "neg"})
+    d = ctx["up"].get(code)
+    if d and len(chips) < 4:
+        chips.append({"t": f"실적 {d[5:].replace('-', '/')}", "c": "C"})
+    return {"chips": chips[:4]}
+
+
+def SWnum(v):
+    from .swing import _num
+    return _num(v)
 
 
 def names(mk: str) -> dict:
@@ -230,7 +352,7 @@ def search(q: str) -> list:
     out.sort(key=lambda t: (t[0], t[1]))
     res = [t[2] for t in out[:25]]
     if not res and (q.isdigit() and len(q) == 6):
-        res = [{"market": "KR", "code": q, "name": q}]
+        res = [{"market": "KR", "code": q, "name": name_map("KR", [q]).get(q, q)}]
     elif not res and q.replace(".", "").isalpha() and len(q) <= 6:
         res = [{"market": "US", "code": q.upper(), "name": q.upper()}]
     return res
@@ -292,7 +414,7 @@ def stock(mk: str, code: str, get_bars=None) -> dict:
     e = est(mk, code)
     if mk == "US" and not e.get("targetMeanPrice") and ev.get("tgt_up") is not None and pk.get("close"):
         e = {**e, "targetMeanPrice": pk["close"] * (1 + ev["tgt_up"]), "recommendationMean": ev.get("rec")}
-    nm = pk.get("name") or names(mk).get(code) or code
+    nm = pk.get("name") or name_map(mk, [code]).get(code) or code
     news = []
     try:
         from .news import NewsWatch, naver_stock_news, recent_news

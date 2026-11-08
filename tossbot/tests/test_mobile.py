@@ -24,7 +24,9 @@ assert len(d["picks"][0]["news"]) == 5 and "x" not in d["picks"][0]["ai"]
 # 데스크 자료·검색·종목 상세 (네트워크 없이)
 FAKE = {"report": {"date": "2026-11-04", "plans": {"006400": {"name": "삼성SDI", "src": "픽", "score": 70, "stop": 1, "entryLow": 2, "entryHigh": 3, "t1": 4},
                                                   "000660": {"name": "SK하이닉스", "src": "1순위", "score": 60, "stop": 1}}},
-        "live": {"plans": {}, "watch": ["005930"]}, "earn": {"upcoming": {"005930": "2026-11-20"}, "good": {"000660": 1}},
+        "live": {"plans": {}, "watch": ["005930"]}, "earn": {"upcoming": {"005930": "2026-11-20", "123456": "2026-11-21"}, "good": {"000660": {"text": "좋음"}},
+                 "events": {"005930": {"name": "삼성전자", "bias": "기대 우세", "time": "장 시작 전"}},
+                 "analyst": {"005930": {"avg": 120, "up": 25.0}}},
         "chart": {"asOf": "2026-11-06", "scan": {"breakout": ["005930"]}, "stocks": {"005930": {"name": "삼성전자", "close": 1, "pct": 2, "signals": ["돌파"]}}},
         "names": {"005930": "삼성전자", "000660": "SK하이닉스"}}
 
@@ -46,6 +48,10 @@ MB._get_json = fake_json
 dk = MB.desk("KR")
 assert [p["name"] for p in dk["report"]["plans"]] == ["SK하이닉스", "삼성SDI"]          # 1순위 먼저
 assert dk["live"]["watch"][0]["name"] == "삼성전자" and dk["scan"]["breakout"][0]["signals"] == ["돌파"]
+e0 = dk["earn"]["upcoming"][0]
+ct = [c["t"] for c in e0["chips"]]
+assert e0["name"] == "삼성전자" and e0["time"] == "장 시작 전" and "호재" in ct and "실적 기대" in ct and "목표가 +25%" in ct, e0
+assert dk["earn"]["upcoming"][1]["name"] == "123456" and dk["earn"]["good"][0]["chips"][0]["t"] == "실적 좋음"   # 이름 못 찾으면 코드
 assert MB.search("삼성")[0]["code"] == "005930" and MB.search("123456")[0]["market"] == "KR" and MB.search("nvda")[0]["code"] == "NVDA"
 bb = [(f"2026-10-{i:02d}", 100 + i, 102 + i, 99 + i, 101 + i, 1000.0) for i in range(1, 31)]
 A.quotes = lambda syms: {}
