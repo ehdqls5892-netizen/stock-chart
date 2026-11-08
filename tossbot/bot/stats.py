@@ -12,7 +12,7 @@ import json
 from pathlib import Path
 
 SETUP_NAMES = {"gapdown": "갭하락 반등", "open": "장초반 출발", "orb": "시초 돌파", "hod": "고점 돌파", "vwap": "평균단가 반등", "plan": "데스크 계획",
-               "support": "지지선 반등", "r2g": "갭하락 회복", "sw_ep": "🧭스윙·재료 갭", "sw_hi52": "🧭스윙·52주 신고가", "sw_dip": "🧭스윙·하락장 저점", "?": "기타"}
+               "support": "지지선 반등", "r2g": "갭하락 회복", "sw_ep": "🧭스윙·재료 갭", "sw_hi52": "🧭스윙·52주 신고가", "sw_dip": "🧭스윙·하락장 저점", "sw_fs": "스윙·현재·미래 점수", "?": "기타"}
 _KEYS = [("갭하락 반등", "gapdown"), ("장초반", "open"), ("시초", "orb"), ("오늘 고점", "hod"), ("VWAP", "vwap"), ("데스크", "plan"),
          ("일봉", "support"), ("갭하락", "r2g")]
 

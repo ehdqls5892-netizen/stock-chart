@@ -10,8 +10,10 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import swing_data as SD  # noqa: E402
 import swingbt as B  # noqa: E402
+from bot import swing as SW  # noqa: E402  (현재·미래 점수 — 로봇과 같은 함수)
 
 SETUPS = {"kr": {"ep": {"gap": 0.04, "volx": 3}}, "us": {"hi52": {"volx": 1.5}, "dip": {"rsi": 10, "drop": 0.10}}}
 NAMES = {"ep": "큰 재료 갭(갭 상승+거래량 폭증+강한 마감)", "hi52": "52주 신고가 돌파+거래량",
@@ -37,6 +39,12 @@ def main():
         enrich_us(out["picks"], bars, (lambda c: yfs.get(c, c)) if m == "kr" else None)
     except Exception as e:
         print("실적·애널리스트·업종 정보 실패:", e, file=sys.stderr)
+    try:
+        fs = scan_now(m, bars, names, idx, (lambda c: yfs.get(c, c)) if m == "kr" else None)
+        out["picks"] = fs + out["picks"]
+        out["fs_count"] = len(fs)
+    except Exception as e:
+        print("현재·미래 점수 스캔 실패:", e, file=sys.stderr)
     try:
         out["etf"] = etf_metrics(m)
     except Exception as e:
@@ -101,6 +109,7 @@ def enrich_us(picks, bars, tick=None):
             if info.get("recommendationMean"):
                 ev["rec"] = round(float(info["recommendationMean"]), 2)
             ev["n_analysts"] = info.get("numberOfAnalystOpinions")
+            ev["fwd_eps"], ev["ttm_eps"] = info.get("forwardEps"), info.get("trailingEps")
         except Exception as e:
             ev["err"] = (ev.get("err", "") + f" info:{type(e).__name__}").strip()
         try:
@@ -119,6 +128,93 @@ def enrich_us(picks, bars, tick=None):
         ev = {k: v for k, v in ev.items() if v is not None and v == v}
         p["ev"] = ev
         print(p["code"], ev, file=sys.stderr)
+
+
+def _rows(b, n=30):
+    """swing_data 일봉 [(날짜, 시가, 고가, 저가, 종가, 거래량)] 그대로 최근 n개 (날짜는 date)."""
+    out = []
+    for x in b[-n:]:
+        d = x[0] if isinstance(x[0], dt.date) else dt.date.fromisoformat(str(x[0])[:10])
+        out.append((d, float(x[1]), float(x[2]), float(x[3]), float(x[4]), float(x[5] or 0)))
+    return out
+
+
+def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
+    """현재·미래 점수 스캔: 전체 종목을 '지금' 기준으로 점수 매겨 상위 종목을 후보(setup 'fs')로.
+    1) 차트(최근 봉 양봉·마감 위치·거래량 실린 상승·20일선·52주 신고가 근처·시장 추세)로 전 종목 1차 점수
+    2) 상위 top 개만 애널리스트·이익 성장·실적일·업종(미장 야후) / 증권사 의견·외국인·기관·이익 성장(국장 네이버) 붙여 최종 점수
+    3) 최종 점수 높은 순 keep 개. 뉴스는 로봇이 사기 직전에 최신으로 더함."""
+    mkt = 0
+    if idx:
+        si = B.prep(idx)
+        m50 = B.sma(si["c"], 50)
+        mkt = 1 if si["c"][-1] > m50[-1] else -1
+    first = []
+    for code, b in bars.items():
+        if len(b) < 60:
+            continue
+        r = _rows(b, 260)
+        c = r[-1][4]
+        tv = sum(x[4] * x[5] for x in r[-20:]) / 20
+        if c < (1000 if m == "kr" else 5) or tv < (3e9 if m == "kr" else 3e7):
+            continue
+        sc, why = SW.forward_score(m.upper(), r[-30:], c, {}, {}, 0)
+        hi = max(x[2] for x in r[-252:])
+        if c >= hi * 0.95:
+            sc += 1
+            why.append("＋52주 신고가 근처")
+        if mkt:
+            sc += mkt
+            why.append("＋시장 상승 추세(지수 50일선 위)" if mkt > 0 else "－시장 하락 추세(지수 50일선 아래)")
+        vols = [x[5] for x in r[-21:-1] if x[5]]
+        vx = r[-1][5] / (sum(vols) / len(vols)) if vols and r[-1][5] else 0
+        first.append((sc, vx, code, r, why))
+    first.sort(key=lambda t: (-t[0], -t[1]))
+    cand = []
+    for sc, vx, code, r, why in first[:top]:
+        c = r[-1][4]
+        trs = [max(r[i][2] - r[i][3], abs(r[i][2] - r[i - 1][4]), abs(r[i][3] - r[i - 1][4])) for i in range(len(r) - 14, len(r))]
+        atr = sum(trs) / len(trs)
+        cand.append({"code": code, "name": names.get(code, code), "setup": "fs", "close": round(c, 4),
+                     "stop": round(c - 2 * atr, 4), "atr": round(atr, 4), "score": sc, "_chart": why, "_rows": r[-30:]})
+    if m == "us":
+        try:
+            enrich_us(cand, bars, None)
+        except Exception as e:
+            print("미장 애널리스트 정보 실패:", e, file=sys.stderr)
+    else:
+        try:
+            enrich_us(cand, bars, tick)                       # 업종·실적일(있으면)
+        except Exception as e:
+            print("국장 업종 실패:", e, file=sys.stderr)
+        import requests
+        import estimates_snapshot as ES
+        ses = requests.Session()
+        ses.headers["User-Agent"] = "Mozilla/5.0 (stock-chart bot)"
+        for x in cand:
+            try:
+                row = ES.kr_api(x["code"], ses)
+                x.setdefault("ev", {})["est"] = {k: v for k, v in row.items() if v is not None and k != "code"}
+            except Exception as e:
+                print("국장 컨센서스 실패", x["code"], e, file=sys.stderr)
+    out = []
+    for x in cand:
+        ev = x.get("ev") or {}
+        if m == "us":
+            est = {"forwardEps": ev.get("fwd_eps"), "trailingEps": ev.get("ttm_eps")}
+        else:
+            est = ev.get("est") or {}
+        sc, why = SW.forward_score(m.upper(), x["_rows"], x["close"], est, ev, 0)
+        extra = [w for w in x["_chart"] if "52주" in w or "시장" in w]
+        sc += sum(1 if w.startswith("＋") else -1 for w in extra)
+        why += extra
+        x["score"] = sc
+        x["reason"] = f"현재·미래 점수 {sc:+d}: " + " ".join(why[:9])
+        x.pop("_chart", None)
+        x.pop("_rows", None)
+        out.append(x)
+    out.sort(key=lambda x: -x["score"])
+    return out[:keep]
 
 
 def etf_metrics(m):

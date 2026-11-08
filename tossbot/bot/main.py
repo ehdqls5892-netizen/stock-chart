@@ -856,8 +856,9 @@ class Bot:
     def split_picks(self, d):
         """후보를 '오늘 시장 상태에서 쓰는 방식'(picks)과 '시장 상태 때문에 쉬는 방식'(_off)으로 나눔 — 판단표에 둘 다 보여 줌."""
         on, below = set(self.swing_on()), set(self.cfg["daily_swing"].get("below_setups", []))
+        anyr = set(self.cfg["daily_swing"].get("any_regime", []))
         allp = [x for x in d.get("picks", []) if x.get("setup") in on]
-        d["picks"] = [x for x in allp if (x.get("setup") in below) != bool(d.get("regime"))]
+        d["picks"] = [x for x in allp if x.get("setup") in anyr or (x.get("setup") in below) != bool(d.get("regime"))]
         d["_off"] = [x for x in allp if x not in d["picks"]]
 
     def swing_table_text(self) -> str:
@@ -925,7 +926,7 @@ class Bot:
         today = now(self.m).date()
         cands = []
         for x in d["picks"]:
-            if (x.get("setup") in below) == bool(d.get("regime")):
+            if x.get("setup") not in set(c.get("any_regime", [])) and (x.get("setup") in below) == bool(d.get("regime")):
                 continue
             if x["code"] in self.broker.pos:
                 skip(x, "이미 보유 중")
@@ -1128,16 +1129,21 @@ class Bot:
         p.extra["sw_hi"] = hi
         p.extra["sw_days"] = held + 1
         close = bars[-1][3]
+        try:
+            fs, fw, brief = Bot.hold_score(self, p, close)
+        except Exception as e:
+            fs, fw, brief = None, [], ""
+            self.log(f"🧭 브리핑 오류 {p.name}: {e}")
+        xs = c.get("exit_forward_score")
+        if not why and xs is not None and fs is not None and fs <= xs and held >= 1:
+            why = (f"현재·미래 근거가 약해짐 (점수 {fs:+d} ≤ {xs:+d}): "
+                   + " ".join(w for w in fw if w.startswith("－"))[:120])
         if not why:
             try:
                 Bot.swing_add_on(self, p, bars, close)
             except Exception as e:
                 self.log(f"🧭 추가 매수 판단 오류 {p.name}: {e}")
         if why:
-            try:
-                brief = Bot.hold_brief(self, p, close)
-            except Exception:
-                brief = ""
             self.notify(f"🧭 스윙 정리 {p.name} ({held + 1}거래일째, {(close / p.entry - 1) * 100:+.1f}%) — {why}"
                         + (f"\n{brief}" if brief else ""))
             self.broker.flatten(p.symbol, f"스윙 정리: {why}", close)
@@ -1157,11 +1163,6 @@ class Bot:
         d = now(self.m).date().isoformat()
         if d not in p.extra.setdefault("days_held", []):
             p.extra["days_held"].append(d)
-        try:
-            brief = Bot.hold_brief(self, p, close)
-        except Exception as e:
-            brief = ""
-            self.log(f"🧭 브리핑 오류 {p.name}: {e}")
         self.notify(f"🧭 스윙 점검 {p.name} {held + 1}거래일째 · {money(self.m, close)} ({(close / p.entry - 1) * 100:+.1f}%) "
                     f"· 손절 {money(self.m, p.sl)}" + (f" · {note}" if note else "") + " · 계속 보유"
                     + (f"\n{brief}" if brief else ""))
@@ -1322,6 +1323,10 @@ class Bot:
         return why, txt, warn
 
     def hold_brief(self, p, last=None) -> str:
+        return Bot.hold_score(self, p, last)[2]
+
+    def hold_score(self, p, last=None) -> tuple:
+        """(현재·미래 점수 또는 None, 근거, 브리핑 글)"""
         """보유 종목의 지금 상황: 오늘 봉·거래량·20일선·애널리스트 목표가·이익 전망·(국장)외국인·기관·실적일·최근 뉴스.
         매일 장 마감 15분 전 점검 알림과 텔레그램 '분석' 에 붙음 (판단 재료 — 자동 매매 규칙은 따로)."""
         c = self.cfg["daily_swing"]
@@ -1337,6 +1342,7 @@ class Bot:
                 news = []
         last = last or (bars[-1][4] if bars else p.entry)
         txt = SW.brief_text(self.m, bars, last, est, p.extra.get("earn_react"), news, today, lambda v: money(self.m, v))
+        fs, fw = None, []
         try:
             from .news import NewsWatch
             nw = NewsWatch.__new__(NewsWatch)
@@ -1347,8 +1353,8 @@ class Bot:
                 txt = (f"🎯 현재·미래 점수 {fs:+d} ({SW.grade_of(fs)})" + (f" · 살 때 {was:+d}" if was is not None else "")
                        + ": " + " ".join(fw[:8]) + ("\n" + txt if txt else ""))
         except Exception:
-            pass
-        return txt
+            fs, fw = None, []
+        return fs, fw, txt
 
     def earn_presell(self, p, close) -> bool:
         """내일이 실적 반응일인데, 살 때 실적을 감안해 줄여 사지 않았고 아직 +1R 수익 쿠션이 없으며

@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: "15 9 * * 1-5"    # 국장: 18:15(한국) — 야후 일봉 반영 뒤
     - cron: "25 22 * * 1-5"   # 미장: 뉴욕 장 마감 뒤
-  push:                       # 신호 코드가 바뀌면 미장 후보를 바로 다시 만듦
+  push:                       # 신호 코드가 바뀌면 국장·미장 후보를 바로 다시 만듦
     branches: [main]
     paths: ["tossbot/tools/swing_picks.py"]
   workflow_dispatch:
@@ -25,6 +25,9 @@ jobs:
   picks:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    strategy:
+      matrix:
+        mm: ${{ fromJSON(github.event_name == 'push' && '["kr","us"]' || '["auto"]') }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,7 +38,8 @@ jobs:
       - name: 시장 정하기
         id: mk
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then M="${{ github.event.inputs.market }}";
+          if [ "${{ matrix.mm }}" != "auto" ]; then M="${{ matrix.mm }}";
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then M="${{ github.event.inputs.market }}";
           elif [ "${{ github.event.schedule }}" = "15 9 * * 1-5" ]; then M=kr; else M=us; fi
           echo "m=$M" >> $GITHUB_OUTPUT
       - name: 신호 계산

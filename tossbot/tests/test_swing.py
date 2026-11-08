@@ -403,3 +403,27 @@ why, txt, warn = M.Bot.cand_check(cz, {"code": "ZZ", "name": "Zz", "close": 93.5
 assert why and "근거 부족" in why, why
 cfg["daily_swing"]["min_forward_score"] = -99
 print("✅ 현재·미래 점수 시험 통과")
+
+# 20) 현재·미래 점수 방식(fs): 시장 상태와 상관없이 후보, 보유 중 점수가 0 이하로 떨어지면 정리
+cfg["market"] = "US"
+c["any_regime"] = ["fs"]
+bf = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker, bot.m = bf, "US"
+bot.risk = SimpleNamespace(kill_switch=lambda: False, halted=None, capital=5000)
+prices.update({"F1": 100.0})
+api.candles = lambda sym, iv, n: [{"timestamp": dt.datetime.now(M.TZ["US"]).isoformat(), "closePrice": "100", "highPrice": "101", "lowPrice": "99"}]
+bot.sw_picks = {"date": "2026-11-06", "regime": False, "index": {"close": 100.0},
+                "picks": [{"code": "F1", "name": "F1", "setup": "fs", "close": 100, "stop": 93, "atr": 3, "score": 5, "reason": "현재·미래 점수 +5", "ev": {"sector": "S"}}]}
+M.Bot.swing_enter(bot, None, "close")
+assert "F1" in bf.pos and bf.pos["F1"].extra["setup"] == "sw_fs", list(bf.pos)            # 시장 나쁨이어도 점수로 삼
+pf = bf.pos["F1"]
+pf.extra["sw_days"] = 2
+hist3 = [{"timestamp": (d0 + dt.timedelta(days=i)).isoformat(), "closePrice": str(100 + i * 0.1), "highPrice": str(101 + i * 0.1), "lowPrice": str(99 + i * 0.1)} for i in range(20)]
+api.candles = lambda sym, iv, n: hist3
+c["exit_forward_score"] = 0
+orig_hs = M.Bot.hold_score
+M.Bot.hold_score = lambda self, p, last=None: (-2, ["－최근 봉 음봉", "－이익 전망 하향 중"], "브리핑")
+M.Bot.swing_daily(bot, pf, 101.5)
+M.Bot.hold_score = orig_hs
+assert "F1" not in bf.pos and "근거가 약해짐" in bf.closed[-1].exit_reason, bf.closed[-1].exit_reason
+print("✅ 현재·미래 점수 방식 시험 통과")
