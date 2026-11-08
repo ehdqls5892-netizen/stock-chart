@@ -253,7 +253,7 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
             ev["tgt_chg"] = round(t1 / t0 - 1, 4)
         if m == "kr":
             ev.update(XS.dart(x["code"]))
-            nn = XS.naver_news(x["name"])
+            nn = XS.naver_news(x["name"]) or XS.naver_stock_news(x["code"])
             if nn:
                 ev["news"] = nn
     out = []

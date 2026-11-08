@@ -1300,6 +1300,18 @@ class Bot:
         bars.sort(key=lambda b: b[0])
         return bars
 
+    def stock_news(self, code, name):
+        """최근 기사 제목: 국장은 네이버 증권 종목 뉴스(종목 코드로 묶여 이름 혼동 없음) + 구글 뉴스, 미장은 구글 뉴스."""
+        out = []
+        try:
+            from .news import recent_news, naver_stock_news
+            if self.m == "KR":
+                out = naver_stock_news(code, 3)
+            out += recent_news(name, self.m)
+        except Exception:
+            pass
+        return list(dict.fromkeys(out))[:5]
+
     def corr_hit(self, sym, lim, n=60):
         """새 후보와 보유 스윙 종목의 최근 n일 일간 수익률 상관. 기준 넘는 첫 종목 → (이름, 상관) 또는 None."""
         held = [pp for pp in self.broker.pos.values() if pp.state in ("pending", "open") and pp.symbol != sym]
@@ -1340,11 +1352,8 @@ class Bot:
                    "numberOfAnalystOpinions": ev.get("n_analysts"), "eps_0q_current": ev.get("eps0q"), "eps_0q_30daysAgo": ev.get("eps0q_30d")}
         news = []
         if c.get("brief_news", True) and os.getenv("TOSSBOT_OFFLINE") != "1":
-            try:
-                from .news import recent_news
-                news = recent_news(x["name"], self.m)
-            except Exception:
-                news = []
+            news = Bot.stock_news(self, x["code"], x["name"]) + [t for t in (ev.get("news") or [])[:3]]
+            news = list(dict.fromkeys(news))[:5]
         bars = Bot.daily_full(self, x["code"])
         txt = SW.brief_text(self.m, bars, price, est, ev.get("react"), news, now(self.m).date(), lambda v: money(self.m, v))
         tone = 0
@@ -1403,11 +1412,7 @@ class Bot:
         est = Bot.est_row(self, p.symbol)
         news = []
         if c.get("brief_news", True) and os.getenv("TOSSBOT_OFFLINE") != "1":
-            try:
-                from .news import recent_news
-                news = recent_news(p.name, self.m)
-            except Exception:
-                news = []
+            news = Bot.stock_news(self, p.symbol, p.name)
         last = last or (bars[-1][4] if bars else p.entry)
         txt = SW.brief_text(self.m, bars, last, est, p.extra.get("earn_react"), news, today, lambda v: money(self.m, v))
         fs, fw = None, []

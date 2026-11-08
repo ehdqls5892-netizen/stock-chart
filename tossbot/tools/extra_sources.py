@@ -126,6 +126,12 @@ def naver_news(name: str, n: int = 8) -> list:
         return []
 
 
+def naver_stock_news(code: str, n: int = 8) -> list:
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+    from bot.news import naver_stock_news as f
+    return f(code, n, log=log)
+
+
 # ── Claude 판독 ───────────────────────────────────────────────────────────────
 def ai_read(market: str, x: dict, news: list) -> dict:
     key = os.getenv("ANTHROPIC_API_KEY", "").strip()

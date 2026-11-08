@@ -310,3 +310,43 @@ def recent_news(name: str, market: str, days: int = 2, n: int = 3, get=None) -> 
         if len(out) >= n:
             break
     return out
+
+
+_NS_LOGGED = False
+
+
+def naver_stock_news(code: str, n: int = 8, get=None, log=None) -> list:
+    """키 없이: 네이버 증권 종목 뉴스(종목 코드로 묶인 기사라 이름이 흔한 종목도 섞이지 않음)."""
+    global _NS_LOGGED
+    import requests
+    log = log or (lambda *a: None)
+    get = get or (lambda u: requests.get(u, timeout=10, headers={"User-Agent": "Mozilla/5.0 (tossbot news)"}))
+    try:
+        r = get(f"https://m.stock.naver.com/api/news/stock/{code}?pageSize={n}&page=1")
+        if not _NS_LOGGED:
+            log("네이버 증권 뉴스 응답 확인", code, r.status_code, r.text[:300].replace("\n", " "))
+            _NS_LOGGED = True
+        if r.status_code != 200:
+            return []
+        out = []
+
+        def walk(o):
+            if isinstance(o, dict):
+                t = o.get("title") or o.get("tit")
+                if isinstance(t, str) and t.strip():
+                    d = str(o.get("datetime") or o.get("dt") or "")[:8]
+                    t = re.sub(r"<[^>]+>|&quot;|&apos;|&amp;|&lt;|&gt;", "", t).strip()
+                    if t not in [x[1] for x in out]:
+                        out.append((d, t))
+                for v in o.values():
+                    if isinstance(v, (dict, list)):
+                        walk(v)
+            elif isinstance(o, list):
+                for v in o:
+                    walk(v)
+        walk(r.json())
+        out.sort(key=lambda x: x[0], reverse=True)
+        return [t for _, t in out[:n]]
+    except Exception as e:
+        log("네이버 증권 뉴스 실패", code, type(e).__name__)
+        return []
