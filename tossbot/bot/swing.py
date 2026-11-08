@@ -299,6 +299,22 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
         if len(bars) >= 20:
             ma20 = sum(b[4] for b in bars[-20:]) / 20
             add(1 if c >= ma20 else -1, f"20일선 {'위' if c >= ma20 else '아래'}")
+    longdown = False
+    if len(bars) >= 200:
+        c = price or bars[-1][4]
+        ma200 = sum(b[4] for b in bars[-200:]) / 200
+        hi = max(b[2] for b in bars[-252:])
+        dd = c / hi - 1
+        add(1 if c >= ma200 else -1, f"200일선 {'위(장기 상승)' if c >= ma200 else '아래(장기 하락)'}")
+        if dd <= -0.30:
+            add(-2, f"1년 고점 대비 {dd * 100:.0f}% (장기 하락 추세)")
+            longdown = c < ma200
+        if len(bars) >= 64:
+            r3 = c / bars[-64][4] - 1
+            if r3 <= -0.20:
+                add(-1, f"3개월 {r3 * 100:+.0f}%")
+            elif r3 >= 0.20:
+                add(1, f"3개월 {r3 * 100:+.0f}%")
     n = _num
     if market == "US":
         tg, rec = n(est.get("targetMeanPrice")), n(est.get("recommendationMean"))
@@ -348,7 +364,9 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
                 add(-1, f"이익 감소 예상 {g * 100:+.0f}%")
     if tg and price:
         up = tg / price - 1
-        if up >= 0.15:
+        if up >= 0.15 and longdown:
+            why.append(f"·목표가 {up * 100:+.0f}% 위지만 주가가 크게 빠진 뒤라 목표가가 늦게 내려오는 중일 수 있어 점수 안 줌")
+        elif up >= 0.15:
             add(1, f"목표가까지 {up * 100:+.0f}% 여력")
         elif up < 0:
             add(-1, f"목표가가 지금보다 낮음({up * 100:+.0f}%)")
@@ -357,6 +375,18 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
     elif news_tone < 0:
         add(-1, "최근 기사 악재가 많음")
     return sc, why
+
+
+def long_downtrend(bars: list, price: float | None = None) -> str | None:
+    """1년 고점 대비 -40% 이하이면서 200일선 아래 → 장기 하락 추세(사지 않음). 이유 글 또는 None."""
+    if len(bars) < 200:
+        return None
+    c = price or bars[-1][4]
+    ma200 = sum(b[4] for b in bars[-200:]) / 200
+    hi = max(b[2] for b in bars[-252:])
+    if c < ma200 and c / hi - 1 <= -0.40:
+        return f"장기 하락 추세 (1년 고점 대비 {(c / hi - 1) * 100:.0f}%, 200일선 아래) — 단기 반등만 보고 사지 않음"
+    return None
 
 
 def grade_of(score: int) -> str:

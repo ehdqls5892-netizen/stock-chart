@@ -158,7 +158,9 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
         tv = sum(x[4] * x[5] for x in r[-20:]) / 20
         if c < (1000 if m == "kr" else 5) or tv < (3e9 if m == "kr" else 3e7):
             continue
-        sc, why = SW.forward_score(m.upper(), r[-30:], c, {}, {}, 0)
+        if SW.long_downtrend(r, c):
+            continue                                      # 장기 하락 추세 종목은 후보에서 뺌
+        sc, why = SW.forward_score(m.upper(), r, c, {}, {}, 0)
         hi = max(x[2] for x in r[-252:])
         if c >= hi * 0.95:
             sc += 1
@@ -176,7 +178,7 @@ def scan_now(m, bars, names, idx, tick=None, top=40, keep=20):
         trs = [max(r[i][2] - r[i][3], abs(r[i][2] - r[i - 1][4]), abs(r[i][3] - r[i - 1][4])) for i in range(len(r) - 14, len(r))]
         atr = sum(trs) / len(trs)
         cand.append({"code": code, "name": names.get(code, code), "setup": "fs", "close": round(c, 4),
-                     "stop": round(c - 2 * atr, 4), "atr": round(atr, 4), "score": sc, "_chart": why, "_rows": r[-30:]})
+                     "stop": round(c - 2 * atr, 4), "atr": round(atr, 4), "score": sc, "_chart": why, "_rows": r})
     if m == "us":
         try:
             enrich_us(cand, bars, None)

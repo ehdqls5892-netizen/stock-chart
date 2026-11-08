@@ -1250,7 +1250,7 @@ class Bot:
     def daily_full(self, sym) -> list:
         bars = []
         try:
-            for cd in self.api.candles(sym, "1d", 30) or []:
+            for cd in self.api.candles(sym, "1d", 260) or []:
                 t = parse_ts(cd.get("timestamp"), self.m)
                 cl = f(cd.get("closePrice"))
                 if t and cl:
@@ -1316,6 +1316,9 @@ class Bot:
         rv, _ = SW.rev_state(ev)
         if rv == "down":
             warn.append("이익 전망 하향 중")
+        ld = SW.long_downtrend(bars, price)
+        if why is None and ld:
+            why = ld
         if why is None and fwhy and fs < c.get("min_forward_score", 2):
             why = f"현재·미래 근거 부족 (점수 {fs:+d}, 기준 {c.get('min_forward_score', 2):+d} 이상): " + " ".join(w for w in fwhy if w.startswith("－"))[:120]
         if bars and len(bars) >= 2 and bars[-1][0] == now(self.m).date() and price < bars[-1][1] * 0.97:
