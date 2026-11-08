@@ -30,8 +30,11 @@ def _dart_corp(key: str) -> dict:
     r = requests.get("https://opendart.fss.or.kr/api/corpCode.xml", params={"crtfc_key": key}, timeout=60)
     z = zipfile.ZipFile(io.BytesIO(r.content))
     xml = z.read(z.namelist()[0]).decode("utf-8", "replace")
-    for m in re.finditer(r"<corp_code>(\d+)</corp_code>.*?<stock_code>\s*(\d{6})\s*</stock_code>", xml, re.S):
-        _CORP[m.group(2)] = m.group(1)
+    for blk in re.findall(r"<list>(.*?)</list>", xml, re.S):          # 회사 하나씩 끊어서 (옆 회사 코드와 섞이지 않게)
+        cc = re.search(r"<corp_code>\s*(\d+)\s*</corp_code>", blk)
+        sc = re.search(r"<stock_code>\s*(\d{6})\s*</stock_code>", blk)
+        if cc and sc:
+            _CORP[sc.group(1)] = cc.group(1)
     log("DART 회사 코드", len(_CORP))
     return _CORP
 
@@ -44,7 +47,7 @@ def dart(code: str, today: dt.date | None = None) -> dict:
     key = os.getenv("DART_KEY", "").strip()
     if not key:
         return {}
-    out = {}
+    out, cc = {}, None
     try:
         cc = _dart_corp(key).get(code)
         if not cc:
@@ -69,8 +72,11 @@ def dart(code: str, today: dt.date | None = None) -> dict:
         for year, rc in ((y, "11014"), (y, "11012"), (y, "11013"), (y - 1, "11011")):
             r2 = requests.get("https://opendart.fss.or.kr/api/fnlttSinglAcnt.json", timeout=20,
                               params={"crtfc_key": key, "corp_code": cc, "bsns_year": str(year), "reprt_code": rc})
-            rows = (r2.json() or {}).get("list") or []
-            op = [x for x in rows if x.get("account_nm") == "영업이익" and x.get("fs_div") in ("CFS", "OFS")]
+            js2 = r2.json() or {}
+            rows = js2.get("list") or []
+            if js2.get("status") not in (None, "000", "013"):
+                log("DART 재무 응답", code, js2.get("status"), js2.get("message"))
+            op = [x for x in rows if str(x.get("account_nm", "")).replace(" ", "").startswith("영업이익") and x.get("fs_div") in ("CFS", "OFS")]
             if not op:
                 continue
             x = sorted(op, key=lambda z: z.get("fs_div") != "CFS")[0]
@@ -84,6 +90,7 @@ def dart(code: str, today: dt.date | None = None) -> dict:
             break
     except Exception as e:
         log("DART 실패", code, type(e).__name__, str(e)[:80])
+    log("DART", code, cc, {k: out.get(k) for k in ("op_yoy", "op_period", "prov_date", "dart_flags") if out.get(k)} or "공시 숫자 없음")
     return out
 
 
