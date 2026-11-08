@@ -752,7 +752,7 @@ class H(BaseHTTPRequestHandler):
                 if u.path == "/api/m/home":
                     out = MB.home()
                 elif u.path == "/api/m/picks":
-                    out = MB.picks(q.get("mk", "KR"))
+                    out = MB.live_or_night(q.get("mk", "KR"))
                 elif u.path == "/api/m/table":
                     out = {"text": MB.table(q.get("mk", "KR"))}
                 elif u.path == "/api/m/push":

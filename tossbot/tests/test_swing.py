@@ -537,3 +537,26 @@ M.Bot.swing_enter(bot, None, "close")
 c["estimates_url"] = ""
 assert "R1" not in br2.pos and any("손익비" in t for t in sent), sent
 print("✅ 손익비 하한 시험 통과")
+
+# 27) 장중 다시 고르기: 오늘 것이면 후보를 바꾸고, 시장이 -2% 넘게 빠지는 날엔 새로 안 삼
+import requests as _rq
+_orig_get = _rq.get
+c["live_picks_url"] = "https://x/{m}.json"
+c["live_guard_index_pct"] = -2.0
+bot.m = "US"
+base = {"date": "2026-11-06", "regime": True, "index": {"close": 100}, "picks": [{"code": "OLD", "name": "옛후보", "setup": "fs"}]}
+live = {"date": M.now("US").date().isoformat(), "made": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
+        "index": {"today_pct": -0.5}, "picks": [{"code": "NEW", "name": "새후보", "setup": "fs"}], "added": ["NEW"], "dropped": ["OLD"]}
+_rq.get = lambda url, timeout=None: SimpleNamespace(json=lambda: live)
+bot.sw_picks = dict(base)
+sent.clear()
+assert M.Bot.live_refresh(bot) and bot.sw_picks["picks"][0]["code"] == "NEW" and any("새로: 새후보" in t and "빠짐: 옛후보" in t for t in sent), sent
+live["index"]["today_pct"] = -2.4
+bot.sw_picks = dict(base)
+assert M.Bot.live_refresh(bot) and bot.sw_picks["picks"] == [] and any("새로 안 사요" in t for t in sent)
+live["date"] = "2020-01-01"
+bot.sw_picks = dict(base)
+assert not M.Bot.live_refresh(bot) and bot.sw_picks["picks"][0]["code"] == "OLD"                 # 오늘 것이 아니면 밤 후보 그대로
+_rq.get = _orig_get
+c["live_picks_url"] = ""
+print("✅ 장중 다시 고르기 시험 통과")

@@ -547,6 +547,26 @@ def next_buy_time(mk: str, now=None):
     return t.astimezone(dt.timezone.utc).isoformat()
 
 
+def live_or_night(mk: str) -> dict:
+    """장중 다시 고른 후보(오늘 것, 5시간 안)가 있으면 그걸, 없으면 밤 후보."""
+    import datetime as dt
+    from . import main as M
+    url = _cfg()["daily_swing"].get("live_picks_url")
+    if url:
+        d = _get_json(url.format(m=mk.lower()), 300) or {}
+        try:
+            age = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(d.get("made", ""))).total_seconds() / 3600
+        except ValueError:
+            age = 99
+        if d.get("picks") and d.get("date") == M.now(mk).date().isoformat() and age <= 5:
+            out = picks(mk, get=lambda u: d)
+            _PICKS.pop(mk.upper(), None)
+            out["live"] = True
+            out["index_today"] = (d.get("index") or {}).get("today_pct")
+            return out
+    return picks(mk)
+
+
 def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
     """오늘(다음 매수 시각에) 살 종목 예상: 봇과 같은 규칙(점수·AI 부정/중립·손익비·업종 2종목·빈자리·손실 한도)으로 미리 계산.
     최종 결정은 그 시각에 그날 봉·뉴스·현재가로 한 번 더 점검해서 바뀔 수 있음."""
@@ -561,7 +581,7 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
         except Exception:
             hold = []
     cap = cap if cap is not None else (A.capitals().get(mk) or 0)
-    d = pk if pk is not None else picks(mk)
+    d = pk if pk is not None else live_or_night(mk)
     held_codes = {h["symbol"] for h in hold}
     slots = max(0, c.get("max_pos", 6) - sum(1 for h in hold if h.get("swing")))
     smax = (c.get("earnings") or {}).get("sector_max") or 99
@@ -608,6 +628,7 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
         elif len(wait) < 3:
             wait.append(row)
     b = A.STATE.get("bots", {}).get(mk)
-    return {"market": mk, "date": d.get("date"), "at": next_buy_time(mk, now), "slots": slots, "buy": buy, "wait": wait,
+    return {"market": mk, "date": d.get("date"), "live": d.get("live", False), "index_today": d.get("index_today"),
+            "at": next_buy_time(mk, now), "slots": slots, "buy": buy, "wait": wait,
             "skip": skip[:12], "running": bool(b is not None and getattr(b, "phase", "") not in ("종료됨", "")),
             "robot": bool(A.running()) if hasattr(A, "running") else False}

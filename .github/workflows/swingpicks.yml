@@ -4,6 +4,8 @@ on:
   schedule:
     - cron: "15 9 * * 1-5"    # 국장: 18:15(한국) — 야후 일봉 반영 뒤
     - cron: "25 22 * * 1-5"   # 미장: 뉴욕 장 마감 뒤
+    - cron: "20 4 * * 1-5"    # 국장 장중 다시 고르기: 13:20(한국) — 마감 15분 전 매수에 오늘 흐름 반영
+    - cron: "30 18 * * 1-5"   # 미장 장중 다시 고르기: 뉴욕 13:30(겨울)/14:30(여름)
   push:                       # 신호 코드가 바뀌면 국장·미장 후보를 바로 다시 만듦
     branches: [main]
     paths: ["tossbot/tools/swing_picks.py", "tossbot/tools/extra_sources.py", "tossbot/bot/swing.py"]
@@ -13,12 +15,16 @@ on:
         description: "kr 또는 us"
         required: true
         default: "kr"
+      live:
+        description: "yes = 장중 다시 고르기"
+        required: false
+        default: "no"
 
 permissions:
   contents: write
 
 concurrency:
-  group: swingpicks-${{ github.event.inputs.market || github.event.schedule }}
+  group: swingpicks-${{ github.event.inputs.market || github.event.schedule }}-${{ github.event.inputs.live }}
   cancel-in-progress: false
 
 jobs:
@@ -40,8 +46,12 @@ jobs:
         run: |
           if [ "${{ matrix.mm }}" != "auto" ]; then M="${{ matrix.mm }}";
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then M="${{ github.event.inputs.market }}";
-          elif [ "${{ github.event.schedule }}" = "15 9 * * 1-5" ]; then M=kr; else M=us; fi
+          elif [ "${{ github.event.schedule }}" = "15 9 * * 1-5" ] || [ "${{ github.event.schedule }}" = "20 4 * * 1-5" ]; then M=kr; else M=us; fi
+          LIVE=""; BR=swingpicks-$M
+          if [ "${{ github.event.schedule }}" = "20 4 * * 1-5" ] || [ "${{ github.event.schedule }}" = "30 18 * * 1-5" ] || [ "${{ github.event.inputs.live }}" = "yes" ]; then LIVE="--live"; BR=swinglive-$M; fi
           echo "m=$M" >> $GITHUB_OUTPUT
+          echo "live=$LIVE" >> $GITHUB_OUTPUT
+          echo "br=$BR" >> $GITHUB_OUTPUT
       - name: 신호 계산
         env:                      # 있으면 켜짐, 없으면 건너뜀 (Settings → Secrets and variables → Actions)
           DART_KEY: ${{ secrets.DART_KEY }}
@@ -51,16 +61,16 @@ jobs:
           CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}              # 1차(전 후보) 기본 claude-haiku-5-5
           CLAUDE_MODEL_FINAL: ${{ vars.CLAUDE_MODEL_FINAL }}  # 2차(상위 후보) 기본 claude-opus-5-5
           CLAUDE_FINAL_N: ${{ vars.CLAUDE_FINAL_N }}          # 2차로 다시 읽을 후보 수 기본 10
-        run: python tossbot/tools/swing_picks.py ${{ steps.mk.outputs.m }} --out out 2> >(tee out.log >&2)
+        run: python tossbot/tools/swing_picks.py ${{ steps.mk.outputs.m }} ${{ steps.mk.outputs.live }} --out out 2> >(tee out.log >&2)
       - name: 올리기 (swingpicks-<m> 브랜치)
         if: always()
         run: |
           mkdir -p out && cp -f out.log out/run.log 2>/dev/null || true
           cd out
-          git init -q && git checkout -q -b swingpicks-${{ steps.mk.outputs.m }}
+          git init -q && git checkout -q -b ${{ steps.mk.outputs.br }}
           git config user.name "cof-bot" && git config user.email "cof-bot@users.noreply.github.com"
           git add -A && git commit -qm "스윙 신호 $(date -u +%F)"
-          BR=swingpicks-${{ steps.mk.outputs.m }}
-          [ -f picks.json ] || BR=$BR-log
+          BR=${{ steps.mk.outputs.br }}
+          [ -f picks.json ] || [ -f live.json ] || BR=$BR-log
           git branch -m "$BR"
           git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" "$BR"

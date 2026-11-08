@@ -26,6 +26,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("market", choices=["kr", "us"])
     ap.add_argument("--out", default="out")
+    ap.add_argument("--live", action="store_true", help="장중 다시 고르기: 오늘 흐름(진행 중 봉)으로 후보만 다시 → live.json")
     a = ap.parse_args()
     m = a.market
     if m == "kr":
@@ -37,6 +38,8 @@ def main():
         bars = SD.yf_bars({c: c.replace(".", "-") for c in names}, 2)
         idx = SD.yf_bars({"SPY": "SPY"}, 2).get("SPY")
     out = build(m, bars, names, idx)
+    if a.live:
+        return live_main(a, m, bars, names, idx, out, (lambda c: yfs.get(c, c)) if m == "kr" else None)
     try:
         enrich_us(out["picks"], bars, (lambda c: yfs.get(c, c)) if m == "kr" else None)
     except Exception as e:
@@ -62,6 +65,39 @@ def main():
         print("이름 목록 저장 실패:", e, file=sys.stderr)
     (Path(a.out) / "picks.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps({k: v for k, v in out.items() if k != "picks"}, ensure_ascii=False), len(out["picks"]), "picks")
+
+
+REUSE: dict = {}       # 장중 다시 고르기: 밤에 이미 AI 가 읽은 종목은 그 판독을 다시 씀 (비용 절약)
+
+
+def live_main(a, m, bars, names, idx, base, tick):
+    """장중(마감 약 2시간 전) 다시 고르기. 야후 일봉의 마지막 줄 = 오늘 진행 중인 봉 → 오늘 흐름이 반영된 점수.
+    밤 후보와 비교해 새로 들어온 종목·빠진 종목을 적어 live.json 으로. 로봇은 매수 직전에 이걸 우선 씀."""
+    import requests
+    prev = {}
+    try:
+        prev = requests.get(f"https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/swingpicks-{m}/picks.json", timeout=30).json()
+    except Exception as e:
+        print("밤 후보를 못 받음:", e, file=sys.stderr)
+    for x in prev.get("picks", []):
+        ai = (x.get("ev") or {}).get("ai")
+        if x.get("setup") == "fs" and ai:
+            REUSE[x["code"]] = ai
+    fs = scan_now(m, bars, names, idx, tick)
+    old_codes = [x["code"] for x in prev.get("picks", []) if x.get("setup") == "fs"][:20]
+    new_codes = [x["code"] for x in fs]
+    ix = base.get("index") or {}
+    try:
+        c0, c1 = (float(idx[-2][4]) if len(idx) > 1 else None), float(idx[-1][4])
+        ix["today_pct"] = round((c1 / c0 - 1) * 100, 2) if c0 else None
+    except Exception:
+        pass
+    out = {"market": m.upper(), "date": base.get("date"), "made": dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes"),
+           "live": True, "base_date": prev.get("date"), "regime": base.get("regime"), "index": ix, "picks": fs,
+           "added": [c for c in new_codes if c not in old_codes], "dropped": [c for c in old_codes if c not in new_codes]}
+    Path(a.out).mkdir(parents=True, exist_ok=True)
+    (Path(a.out) / "live.json").write_text(json.dumps(out, ensure_ascii=False, indent=1), encoding="utf-8")
+    print("장중 다시 고르기:", len(fs), "개 · 새로", len(out["added"]), "· 빠짐", len(out["dropped"]), "· 지수 오늘", ix.get("today_pct"))
 
 
 def react_day(ts: str) -> str:
@@ -369,8 +405,12 @@ def scan_now(m, bars, names, idx, tick=None, top=50, keep=20):
                 nws = []
         x["_news"] = nws
         x["_base"] = sc
-        ai = XS.ai_read(m.upper(), x, nws)
-        if ai:
+        ai = REUSE.get(x["code"]) or XS.ai_read(m.upper(), x, nws)
+        if ai and REUSE.get(x["code"]):
+            ev["ai"] = ai
+            x["score"] = sc = sc + int(ai.get("adj") or 0)
+            x["_reused"] = True
+        elif ai:
             ev["ai"] = ai
             x["score"] = sc = sc + ai["adj"]
         x.pop("_chart", None)
@@ -381,7 +421,7 @@ def scan_now(m, bars, names, idx, tick=None, top=50, keep=20):
     nf = int(os.getenv("CLAUDE_FINAL_N", "") or 10)
     for x in out[:nf]:
         ev = x["ev"]
-        if ev.get("dart_flags"):
+        if ev.get("dart_flags") or (x.get("_reused") and (ev.get("ai") or {}).get("final")):
             continue
         fin = XS.ai_final(m.upper(), x, x["_news"], ev.get("ai") or {})
         if fin:
@@ -398,6 +438,7 @@ def scan_now(m, bars, names, idx, tick=None, top=50, keep=20):
             x["reason"] += " · ⚠️ 최근 공시: " + " · ".join(ev["dart_flags"])
         x.pop("_news", None)
         x.pop("_base", None)
+        x.pop("_reused", None)
     out.sort(key=lambda x: (bool((x["ev"].get("ai") or {}).get("veto")) or bool(x.get("no_buy")), -x["score"]))
     if XS.USAGE:
         print("Claude 사용량(입력·출력 토큰):", XS.USAGE, file=sys.stderr)

@@ -902,6 +902,43 @@ class Bot:
         out.append("당일엔 시가가 손절선 아래·10% 넘게 갭, (마감 매수는) 장중 손절선 닿음, 현금 부족일 때만 결과가 달라져요.")
         return "\n".join(out)
 
+    def live_refresh(self) -> bool:
+        """장 마감 약 2시간 전에 오늘 흐름(진행 중인 봉)으로 다시 고른 후보(live.json)가 있으면 그걸로 바꿔서 삼.
+        시장 전체가 오늘 크게 빠지면(live_guard_index_pct) 오늘은 새로 안 삼."""
+        import requests
+        c = self.cfg["daily_swing"]
+        url = c.get("live_picks_url")
+        if not url or not self.sw_picks:
+            return False
+        try:
+            d = requests.get(url.format(m=self.m.lower()), timeout=20).json()
+        except Exception as e:
+            self.log(f"🧭 장중 다시 고른 후보를 못 받음: {e}")
+            return False
+        today = now(self.m).date().isoformat()
+        made = d.get("made") or ""
+        try:
+            age = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(made)).total_seconds() / 3600
+        except ValueError:
+            age = 99
+        if d.get("date") != today or age > 5 or not d.get("picks"):
+            self.log(f"🧭 장중 다시 고른 후보 없음(날짜 {d.get('date')}, {age:.1f}시간 전) — 밤 후보 그대로")
+            return False
+        ix = (d.get("index") or {}).get("today_pct")
+        g = c.get("live_guard_index_pct")
+        names = {x["code"]: x["name"] for x in d["picks"]}
+        old = {x["code"]: x["name"] for x in self.sw_picks.get("picks", [])}
+        add = [names[k] for k in d.get("added", []) if k in names][:6]
+        drop = [old.get(k, k) for k in d.get("dropped", [])][:6]
+        if g is not None and ix is not None and ix <= g:
+            self.sw_picks = {**self.sw_picks, "picks": []}
+            self.notify(f"🛑 오늘 {'코스피' if self.m == 'KR' else 'S&P500'}가 {ix:+.1f}% 빠지고 있어서 새로 안 사요 (시장 전체 흐름이 나쁜 날)")
+            return True
+        self.sw_picks = {**self.sw_picks, "picks": d["picks"], "live": True}
+        self.notify("🔄 오늘 흐름으로 후보를 다시 골랐어요" + (f" · 새로: {', '.join(add)}" if add else "")
+                    + (f" · 빠짐: {', '.join(drop)}" if drop else "") + (f" · 지수 오늘 {ix:+.1f}%" if ix is not None else ""))
+        return True
+
     def manual_buy(self, x, cash) -> float:
         """휴대폰 앱에서 고른 종목을 스윙 규칙 그대로(손절선·손실 한도·업종·열린 손실·점수·AI·공시·뉴스 점검) 사기.
         점검에 걸리면 이유를 알림으로 보내고 안 삼."""
@@ -2036,6 +2073,10 @@ class Bot:
                         and any(v == "close" for v in (swc.get("entry_at") or {}).values())):
                     self.sw_close_done = today
                     cash = self.fresh_cash(cash, force=True)
+                    try:
+                        Bot.live_refresh(self)
+                    except Exception as e:
+                        self.log(f"🧭 장중 다시 고르기 반영 오류: {e}")
                     try:
                         spent = self.swing_enter(cash, "close")
                         if cash is not None:
