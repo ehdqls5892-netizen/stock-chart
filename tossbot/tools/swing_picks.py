@@ -18,6 +18,7 @@ import swingbt as B  # noqa: E402
 from bot import swing as SW  # noqa: E402  (현재·미래 점수 — 로봇과 같은 함수)
 
 SETUPS = {"kr": {"ep": {"gap": 0.04, "volx": 3}}, "us": {"hi52": {"volx": 1.5}, "dip": {"rsi": 10, "drop": 0.10}}}
+MIN_RR = float(json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))["daily_swing"].get("min_rr", 1.5))
 NAMES = {"ep": "큰 재료 갭(갭 상승+거래량 폭증+강한 마감)", "hi52": "52주 신고가 돌파+거래량",
          "dip": "하락장 저점 매수(200일선 위 종목·3일 RSI 10↓·20일 고점 -10%↓)"}
 
@@ -447,8 +448,8 @@ def scan_now(m, bars, names, idx, tick=None, top=50, keep=20):
                 sc += adj
                 why.insert(0, txt)
                 x["rr"] = {"up": round(tu, 4), "stop": round(stop_pct, 4), "rr": round(rr, 2)}
-                if rr < 1.0:
-                    x["no_buy"] = "손익비 1 미만 — 이미 목표가 근처"
+                if rr < MIN_RR:
+                    x["no_buy"] = f"손익비 {rr:.1f} — 기준 {MIN_RR:g} 미만(목표가까지 남은 게 적음)"
         x["score"] = sc
         x["reason"] = f"현재·미래 점수 {sc:+d}: " + " ".join(why[:10])
         nws = ev.get("news") or []

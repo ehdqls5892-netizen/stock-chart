@@ -661,7 +661,7 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
     rg = c.get("risk_by_grade") or {}
     buy, wait, skip = [], [], []
     # 봇과 같은 순서: 보유 기간 안에 실적 발표가 없는 종목 먼저 (점수 순서는 그 안에서 유지)
-    for x in sorted(d.get("picks", []), key=lambda x: x.get("eplan", "ok") != "ok"):
+    for x in sorted(d.get("picks", []), key=lambda x: x.get("eplan", "ok") not in ("ok", "early")):
         ai = x.get("ai") or {}
         why = None
         sc = x.get("score") or 0
@@ -673,6 +673,8 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
             why = "AI 판독이 부정적"
         elif x.get("no_buy"):
             why = x["no_buy"]
+        elif c.get("min_rr") and (x.get("rr") or {}).get("rr") is not None and x["rr"]["rr"] < c["min_rr"]:
+            why = f"손익비 {x['rr']['rr']:.1f} (기준 {c['min_rr']:g} 미만)"
         elif sc < c.get("min_forward_score", 3):
             why = f"점수 {sc:+.0f} (기준 +{c.get('min_forward_score', 3)} 미만)"
         elif x.get("sector") and sec_n.get(x["sector"], 0) >= smax:
@@ -694,10 +696,10 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
         row = {"code": x["code"], "name": x["name"], "score": sc, "grade": g, "qty": q, "close": x.get("close"), "stop": x.get("stop"),
                "amount": money(mk, q * (x.get("close") or 0)), "loss": money(mk, q * per) if per > 0 else None,
                "small": small, "ai": ai.get("view"), "rr": (x.get("rr") or {}).get("rr"),
-               "earn_note": x.get("etxt") if x.get("eplan") == "hold" else None}
+               "earn_note": x.get("etxt") if x.get("eplan") in ("hold", "early") else None}
         if q < 1:
             skip.append({"code": x["code"], "name": x["name"],
-                         "why": "실적 갭이 커서 1주도 손실 한도를 넘음" if x.get("eplan") == "hold" else "손실 한도로는 1주도 안 됨(비싼 종목)"})
+                         "why": "실적 갭이 커서 1주도 손실 한도를 넘음" if x.get("eplan") in ("hold", "early") else "손실 한도로는 1주도 안 됨(비싼 종목)"})
             continue
         if len(buy) < slots:
             buy.append(row)

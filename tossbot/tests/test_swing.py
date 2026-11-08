@@ -506,7 +506,15 @@ assert "M1" in bm.pos and bot.sw_picks is keep, (list(bm.pos), bot.sw_picks)
 print("✅ 앱 봇으로 사기 시험 통과")
 
 # 25) 손익비·과열·AI 부정/중립: 목표가까지 남은 폭이 손절 폭보다 작으면 감점, AI 부정이면 안 삼, 중립이면 작게
-assert SW.rr_score(0.30, 0.10)[0] == 1 and SW.rr_score(0.17, 0.10)[0] == 0 and SW.rr_score(0.12, 0.10)[0] == -1
+assert SW.rr_score(0.35, 0.10)[0] == 2 and SW.rr_score(0.25, 0.10)[0] == 1 and SW.rr_score(0.17, 0.10)[0] == 0 and SW.rr_score(0.12, 0.10)[0] == -1
+# 실적 앞둔 종목: 판정 좋으면(점수 6↑·AI 부정 아님·전망치 하향 아님) 순서 그대로 + 갭 1.5배 기준으로 덜 줄임
+_ec = {"enabled": True, "window": {"ep": 10}, "default_gap": 0.07, "gap_mult": 2, "conf_score": 6, "conf_gap_mult": 1.5}
+_x = {"setup": "ep", "score": 8, "ev": {"react": "2026-11-12", "gap_avg": 0.08, "ai": {"view": "중립"}}}
+_pl, _per, _t = SW.earn_plan(_x, dt.date(2026, 11, 9), 100, 95, _ec, "KR")
+assert _pl == "early" and abs(_per - 12) < 1e-9 and "미리" in _t, (_pl, _per, _t)
+assert SW.earn_plan({**_x, "score": 5}, dt.date(2026, 11, 9), 100, 95, _ec, "KR")[0] == "hold"
+assert SW.earn_plan({**_x, "ev": {**_x["ev"], "ai": {"view": "부정"}}}, dt.date(2026, 11, 9), 100, 95, _ec, "KR")[0] == "hold"
+assert SW.earn_plan({**_x, "ev": {**_x["ev"], "eps0q": 0.9, "eps0q_30d": 1.0}}, dt.date(2026, 11, 9), 100, 95, _ec, "KR")[0] == "skip"
 assert SW.rr_score(0.05, 0.10)[0] == -2 and SW.rr_score(None, 0.1)[0] == 0
 hot = [(f"d{i}", 100, 101, 99, 100, 1000) for i in range(19)] + [("d19", 100, 150, 99, 150, 1000)]
 assert any("단기 과열" in w for w in SW.forward_score("US", hot, 150, {}, {}, 0)[1])

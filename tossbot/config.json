@@ -418,7 +418,7 @@
   "estimates_url": "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/estimates/{m}/{d}.csv", "brief_news": true, "tgt_below_pct": 5, "min_forward_score": 3, "exit_forward_score": 0,
     "risk_by_grade": {"A": 1.0, "B": 0.6},
     "max_corr": 0.8,
-    "min_rr": 1.0,
+    "min_rr": 1.5,
     "live_picks_url": "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/swinglive-{m}/live.json",
     "news_judge_url": "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/swingnews-{m}/news.json",
     "news_judge_hours": 6,
@@ -441,7 +441,7 @@
     "expire_days": 20,
     "_note": "백테스트 3년(tools/swingbt.py): 미장 52주 신고가(6종목·위험 0.5%) +51%·낙폭 12%, 국장 재료 갭 +28%·낙폭 12%. 단타(intraday)는 우위가 없어 꺼 둠 / 미장 하락 국면엔 저점 매수(dip): 백테스트 하락 국면만 +12%·낙폭 6% (무작위 +5%). 국장 저점 매수는 무작위보다 못해 안 씀 / 2026-11-02 손실 한도 1%로 상향(주 단위 백테스트: 미장 +113%·낙폭 13%, 국장 +104%·낙폭 16%), 안전장치 계좌 낙폭 15%·주 5%·하루 3%",
     "earnings": {"enabled": true, "window": {"hi52": 10, "dip": 7, "ep": 10}, "gap_mult": 2, "default_gap": 0.07,
-   "skip_if_rev_down": true, "sector_max": 2, "presell_x": 1.5,
+   "skip_if_rev_down": true, "sector_max": 2, "conf_score": 6, "conf_gap_mult": 1.5, "presell_x": 1.5,
    "kr_season": [["01-20", "02-20"], ["04-20", "05-20"], ["07-20", "08-20"], ["10-20", "11-20"]], "kr_season_gap": 0.08,
    "_note": "실적 반응일이 보유 예정 기간 안이면: 전망치 하향 중이면 안 삼, 아니면 '평균 실적 갭×2'가 나도 손실 한도 안으로 수량을 줄여 들고 감. 살 때 감안 안 한 보유 종목은 실적 전날 +1R 쿠션 없고 갭 위험이 한도 1.5배 넘으면 정리. 한 업종 최대 3종목. 백테스트 tools/earnbt.py"},
   "below_setups": [

@@ -143,9 +143,39 @@ def in_kr_season(today: dt.date, ec: dict) -> bool:
     return any(a <= md <= b for a, b in ec.get("kr_season") or [])
 
 
+def earn_conf(x: dict, ec: dict) -> tuple[bool, str]:
+    """실적 발표 전에 미리 사 둘 만큼 판정이 좋은가: 점수 높음 + AI 부정·매수 금지 아님 + 전망치 하향 아님 + 위험 공시 없음.
+    (실적 발표 주변에는 평균적으로 주가가 더 오르는 경향이 있고(실적 발표 프리미엄), 전망치가 오르는 종목은 서프라이즈 확률이 높음)"""
+    ev = x.get("ev") or {}
+    ai = ev.get("ai") or x.get("ai") or {}
+    sc = x.get("score")
+    if not isinstance(sc, (int, float)) or sc < ec.get("conf_score", 6):
+        return False, ""
+    if ai.get("veto") or ai.get("view") == "부정" or ev.get("dart_flags") or x.get("dart"):
+        return False, ""
+    rv, _ = rev_state(ev)
+    if rv == "down":
+        return False, ""
+    plus = [t for t, ok in (("AI 긍정", ai.get("view") == "긍정"), ("전망치 상향", rv == "up")) if ok]
+    return True, f"판정이 좋아서(점수 {sc:+.0f}{', ' + '·'.join(plus) if plus else ''}) 실적 전에 미리 삼"
+
+
 def earn_plan(x: dict, today: dt.date, entry: float, stop: float, ec: dict, market: str = "US") -> tuple[str, float, str]:
     """매수 전 실적 점검 → (결정, 수량 계산용 1주 위험, 설명).
-    결정: ok(실적 없음) / hold(실적 끼고 들고 감, 실적 갭 기준으로 작게) / skip(안 삼)."""
+    결정: ok(실적 없음) / early(실적 있지만 판정이 좋아 미리 삼 — 순서는 그대로, 갭 1.5배 기준으로 조금만 줄임)
+          / hold(실적 끼고 들고 감, 뒤로 미루고 갭 2배 기준으로 작게) / skip(안 삼)."""
+    pl, per, txt = _earn_plan(x, today, entry, stop, ec, market)
+    if pl == "hold":
+        ok, ctxt = earn_conf(x, ec)
+        if ok:
+            gm, gm2 = ec.get("gap_mult", 2), ec.get("conf_gap_mult", 1.5)
+            base = entry - stop
+            per2 = max(base, per * gm2 / gm) if per > base else base
+            return "early", per2, ctxt + " · " + txt.replace(f"{gm:g}배", f"{gm2:g}배")
+    return pl, per, txt
+
+
+def _earn_plan(x: dict, today: dt.date, entry: float, stop: float, ec: dict, market: str = "US") -> tuple[str, float, str]:
     ev = x.get("ev") or {}
     per = entry - stop
     react = ev.get("react")
@@ -500,10 +530,13 @@ def rr_score(tgt_up, stop_pct):
         return 0, None, None
     rr = tgt_up / stop_pct
     txt = f"손익비 {rr:.1f} (목표가까지 {tgt_up * 100:+.0f}% vs 손절 -{stop_pct * 100:.0f}%)"
+    # 목표가는 '1년 목표'라 몇 주 안에 다 오르지 않음 → 손익비가 넉넉해야(3 이상) 실제로 남는 게 큼
+    if rr >= 3:
+        return 2, "＋" + txt, rr
     if rr >= 2:
         return 1, "＋" + txt, rr
     if rr >= 1.5:
-        return 0, "·" + txt, rr
+        return 0, "·" + txt + " — 보통", rr
     if rr >= 1:
         return -1, "－" + txt + " — 남는 게 적음", rr
     return -2, "－" + txt + " — 이미 목표가 근처", rr

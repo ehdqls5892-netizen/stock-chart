@@ -1012,7 +1012,7 @@ class Bot:
             self.notify(f"🧭 스윙 후보 {len(later)}개({', '.join(x['name'] for x in later[:5])})는 장 시작 직후 말고 "
                         f"장 마감 15분 전에 오늘 흐름을 보고 살게요. 장중에 손절선까지 밀리면 안 사요.")
         # 실적이 보유 기간 안에 없는 종목 먼저 (점수 순서는 유지)
-        cands.sort(key=lambda x: SW.earn_plan(x, today, 100.0, 90.0, ec, self.m)[0] != "ok")
+        cands.sort(key=lambda x: SW.earn_plan(x, today, 100.0, 90.0, ec, self.m)[0] not in ("ok", "early"))   # 판정 좋은 실적주는 순서 그대로
         cands = cands if dry else cands[: max(0, slots) * 3]
         sec_n = {}
         for p0 in have:
@@ -1100,7 +1100,7 @@ class Bot:
             if str(d.get("date", "")) >= str(c.get("risk_by_setup_since", "9999")):
                 rp = (c.get("risk_by_setup") or {}).get(x.get("setup"), rp)      # 저점 매수 1.5% (보유 종목이 적고 낙폭이 낮음)
             q = SW.qty_for(cap, rp, c.get("cap_pct", 20), e, size_stop, None if cash is None else cash - spent)
-            if q < 1 and plan == "hold":
+            if q < 1 and plan in ("hold", "early"):
                 skip(x, f"{etxt}: 실적 갭이 커서 1주도 손실 한도를 넘음", loud=True)
                 continue
             if q < 1:
@@ -1121,7 +1121,7 @@ class Bot:
                 continue
             mrr = c.get("min_rr")
             if mrr and x.get("_rr") is not None and x["_rr"] < mrr:
-                skip(x, f"손익비 {x['_rr']:.1f} — 평균 목표가까지 남은 폭이 손절 폭보다 작아서(이미 목표가 근처) 안 사요", loud=True)
+                skip(x, f"손익비 {x['_rr']:.1f} (기준 {mrr:g} 이상) — 목표가까지 남은 폭이 손절 폭에 비해 작아서 안 사요", loud=True)
                 continue
             veto = (ev.get("ai") or {}).get("veto")
             if veto:
@@ -1190,7 +1190,7 @@ class Bot:
             base = dt.datetime.now(TZ["KR"]).date() if self.m == "US" else now(self.m).date()
             p.extra.update(sw=True, carry=True, setup="sw_" + x["setup"], sw_kind=x["setup"], sw_stop0=sl, sw_hi=e, sw_days=0,
                            expire=(base + dt.timedelta(days=c.get("expire_days", 20))).isoformat(),
-                           sector=sec, earn_react=ev.get("react"), earn_gap=ev.get("gap_avg"), earn_hold=plan == "hold",
+                           sector=sec, earn_react=ev.get("react"), earn_gap=ev.get("gap_avg"), earn_hold=plan in ("hold", "early"),
                            mkt_gap=mgap, entry_when=when, risk_pct=x.get("_rp"), tgt=x.get("_tgt"), fscore=x.get("_fscore"), fwhy=(x.get("_fwhy") or [])[:10],
                            grade=SW.grade_of(x["_fscore"]) if x.get("_fscore") is not None else None)
             if when == "close":
