@@ -668,6 +668,10 @@ def status() -> dict:
 
 
 PAGE = (Path(__file__).with_name("app.html")).read_text(encoding="utf-8")
+STATIC = {"/manifest.webmanifest": ("manifest.webmanifest", "application/manifest+json"),
+          "/sw.js": ("sw.js", "text/javascript; charset=utf-8"),
+          "/icon-192.png": ("icon-192.png", "image/png"), "/icon-512.png": ("icon-512.png", "image/png"),
+          "/apple-touch-icon.png": ("icon-180.png", "image/png")}
 
 
 def lan_ip() -> str:
@@ -691,7 +695,29 @@ class H(BaseHTTPRequestHandler):
         return self.client_address[0] in ("127.0.0.1", "::1")
 
     def _authed(self) -> bool:
-        return self._local() or pin_ok(self.headers.get("X-Pin"))
+        if self._local():
+            # Tailscale serve 로 들어온 요청(내 사설망 기기)은 로컬로 보임. APP_TS_USER 를 정하면 그 계정만 허용
+            want = os.getenv("APP_TS_USER", "").strip().lower()
+            got = (self.headers.get("Tailscale-User-Login") or "").strip().lower()
+            if want and got and got != want:
+                return False
+            return True
+        return pin_ok(self.headers.get("X-Pin"))
+
+    def _origin_ok(self) -> bool:
+        """다른 사이트가 이 로봇을 조작하지 못하게: 같은 주소(또는 내 Tailscale 주소)에서 온 요청만."""
+        from urllib.parse import urlparse
+        origin = self.headers.get("Origin", "")
+        if not origin:
+            return True
+        host = self.headers.get("Host", "")
+        fh = self.headers.get("X-Forwarded-Host", "")
+        o = urlparse(origin)
+        if origin in (f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}", f"http://{host}"):
+            return True
+        if o.scheme == "https" and o.netloc in (host, fh):
+            return True
+        return self._local() and o.scheme == "https" and o.hostname and o.hostname.endswith(".ts.net")
 
     def log_message(self, *a):
         pass
@@ -706,8 +732,33 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(b)
 
     def do_GET(self):
-        if self.path == "/" or self.path.startswith("/?"):
+        from urllib.parse import parse_qs, urlparse
+        u = urlparse(self.path)
+        mobile = "Mobile" in (self.headers.get("User-Agent") or "")
+        if u.path == "/m" or (u.path == "/" and mobile):
+            return self._send(200, (Path(__file__).with_name("mobile.html")).read_text(encoding="utf-8"), "text/html; charset=utf-8")
+        if u.path in STATIC:
+            f, ct = STATIC[u.path]
+            return self._send(200, (Path(__file__).with_name(f)).read_bytes(), ct)
+        if u.path == "/" or self.path.startswith("/?"):
             return self._send(200, PAGE, "text/html; charset=utf-8")
+        if u.path.startswith("/api/m/"):
+            if not self._authed():
+                return self._send(401, json.dumps({"need_pin": True}))
+            from . import mobile as MB
+            q = {k: v[0] for k, v in parse_qs(u.query).items()}
+            try:
+                if u.path == "/api/m/home":
+                    out = MB.home()
+                elif u.path == "/api/m/picks":
+                    out = MB.picks(q.get("mk", "KR"))
+                elif u.path == "/api/m/table":
+                    out = {"text": MB.table(q.get("mk", "KR"))}
+                else:
+                    return self._send(404, "{}")
+            except Exception as e:
+                out = {"error": f"{type(e).__name__}: {e}"}
+            return self._send(200, json.dumps(out, ensure_ascii=False, default=str))
         if self.path == "/api/status":
             if not self._authed():
                 return self._send(401, json.dumps({"need_pin": True}))
@@ -716,9 +767,7 @@ class H(BaseHTTPRequestHandler):
 
     def do_POST(self):
         # 다른 사이트가 이 PC 의 로봇을 조작하지 못하게: 같은 주소에서 온 요청만 받음
-        origin = self.headers.get("Origin", "")
-        host = self.headers.get("Host", "")
-        if origin and origin not in (f"http://127.0.0.1:{PORT}", f"http://localhost:{PORT}", f"http://{host}"):
+        if not self._origin_ok():
             return self._send(403, json.dumps({"msg": "허용되지 않은 요청"}))
         if not self._authed():
             return self._send(401, json.dumps({"msg": "PIN 이 맞지 않아요", "need_pin": True}))
@@ -727,6 +776,15 @@ class H(BaseHTTPRequestHandler):
             body = json.loads(self.rfile.read(n) or b"{}")
         except ValueError:
             body = {}
+        if self.path.startswith("/api/m/"):
+            if self.headers.get("X-Req") != "1":
+                return self._send(403, json.dumps({"msg": "허용되지 않은 요청"}))
+            from . import mobile as MB
+            try:
+                out = MB.post(self.path, body)
+            except Exception as e:
+                out = {"msg": f"오류: {type(e).__name__}: {e}"}
+            return self._send(200, json.dumps(out, ensure_ascii=False, default=str))
         if self.path == "/api/start":
             msg = start("live" if body.get("mode") == "live" else "paper", bool(body.get("repeat", True)))
         elif self.path == "/api/capital":
@@ -756,6 +814,8 @@ def main():
     tc.lock_fn = lock_cmd
     tc.holdings_fn, tc.set_lock_fn, tc.sell_one_fn, tc.lock_all_fn = holdings, set_lock, sell_one, lock_all
     tc.etf_fn = etf_cmd
+    from . import mobile as MB
+    MB.make(tc)
     if tc.enabled:
         tc.start()
         threading.Thread(target=_briefing_loop, args=(lambda t: tc.send(t),), daemon=True).start()

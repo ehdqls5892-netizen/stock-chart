@@ -7,7 +7,7 @@ REPO="ehdqls5892-netizen/stock-chart"
 apply_src() {   # $1 = 새 tossbot 폴더. 시험 통과하면 적용하고 다시 켬
   SRC="$1"
   echo "새 버전 시험 중…"
-  if ! (cd "$SRC" && for t in tests.test_setups tests.test_capital tests.test_pyramid tests.test_desk tests.test_exit tests.test_premarket tests.test_review tests.test_diversify tests.test_news tests.test_guard tests.test_reconcile tests.test_lock tests.test_prealert tests.test_holdings tests.test_quality tests.test_swing tests.test_etf tests.test_shadow; do
+  if ! (cd "$SRC" && for t in tests.test_setups tests.test_capital tests.test_pyramid tests.test_desk tests.test_exit tests.test_premarket tests.test_review tests.test_diversify tests.test_news tests.test_guard tests.test_reconcile tests.test_lock tests.test_prealert tests.test_holdings tests.test_quality tests.test_swing tests.test_etf tests.test_shadow tests.test_mobile; do
           [ -f "tests/${t#tests.}.py" ] || continue
           "$DIR/.venv/bin/python" -m "$t" >/tmp/tb-test.log 2>&1 || { echo "❌ 시험 실패: $t"; tail -5 /tmp/tb-test.log; exit 1; }
         done); then
@@ -94,5 +94,21 @@ UNIT
     echo "✅ 자동 업데이트 켬: 매일 한국 시간 06:40 (미장 끝나고 국장 전)에 새 버전이 있으면 시험 후 적용해요"
     systemctl list-timers tossbot-update.timer --no-pager | head -3 ;;
   자동확인) update_github ;;
-  *) echo "tb 상태 | tb 기록 | tb 실시간 | tb 확인 | tb 시험 | tb 재시작 | tb 끄기 | tb 키 | tb 업데이트 | tb 업데이트 zip | tb 자동업데이트" ;;
+  앱|app)   # 휴대폰 앱: Tailscale(내 기기끼리만 연결되는 사설망)로만 열림. 인터넷에는 안 열림
+    if ! command -v tailscale >/dev/null 2>&1; then
+      echo "== Tailscale 설치 (1분)"; curl -fsSL https://tailscale.com/install.sh | sh || { echo "설치 실패"; exit 1; }
+    fi
+    if ! tailscale status >/dev/null 2>&1; then
+      echo "== 로그인: 아래에 나오는 https://login.tailscale.com/… 주소를 휴대폰이나 PC 브라우저에서 열고,"
+      echo "   휴대폰 Tailscale 앱과 '같은 계정'으로 로그인하세요. 로그인하면 여기가 저절로 넘어가요."
+      sudo tailscale up --hostname=tossbot || exit 1
+    fi
+    echo "== 앱 주소 열기 (처음이면 'HTTPS 켜기' 링크가 나올 수 있어요 → 브라우저로 열어 Enable 누르기)"
+    sudo tailscale serve --bg 8777 || exit 1
+    U=$(tailscale status --json | .venv/bin/python -c "import json,sys;print(json.load(sys.stdin)['Self']['DNSName'].rstrip('.'))")
+    echo
+    echo "✅ 휴대폰 앱 주소: https://$U/m"
+    echo "   휴대폰에서 Tailscale 앱을 켠 상태로 위 주소를 Safari 로 열고 → 공유 → '홈 화면에 추가'"
+    notify "📱 휴대폰 앱 주소: https://$U/m (휴대폰 Tailscale 앱이 켜져 있어야 열려요 · Safari 공유 → 홈 화면에 추가)" ;;
+  *) echo "tb 앱 | tb 상태 | tb 기록 | tb 실시간 | tb 확인 | tb 시험 | tb 재시작 | tb 끄기 | tb 키 | tb 업데이트 | tb 업데이트 zip | tb 자동업데이트" ;;
 esac
