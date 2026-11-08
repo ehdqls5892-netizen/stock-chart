@@ -103,9 +103,18 @@ def naver_news(name: str, n: int = 8) -> list:
     if not cid or not sec:
         return []
     try:
-        r = requests.get("https://openapi.naver.com/v1/search/news.json", timeout=15,
-                         params={"query": name, "display": n, "sort": "date"},
-                         headers={"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": sec})
+        # 2026-07 부터 새 발급은 NAVER API HUB(네이버 클라우드) — 먼저 HUB, 안 되면 예전 개발자센터 주소
+        r = requests.get("https://naverapihub.apigw.ntruss.com/search/v1/news", timeout=15,
+                         params={"query": name, "display": n, "sort": "date", "format": "json"},
+                         headers={"X-NCP-APIGW-API-KEY-ID": cid, "X-NCP-APIGW-API-KEY": sec})
+        if r.status_code != 200:
+            log("네이버 API HUB 응답", r.status_code, r.text[:120])
+            r = requests.get("https://openapi.naver.com/v1/search/news.json", timeout=15,
+                             params={"query": name, "display": n, "sort": "date"},
+                             headers={"X-Naver-Client-Id": cid, "X-Naver-Client-Secret": sec})
+        if r.status_code != 200:
+            log("네이버 뉴스 응답", r.status_code, r.text[:120])
+            return []
         out = []
         for it in (r.json() or {}).get("items") or []:
             t = re.sub(r"<[^>]+>|&quot;|&apos;|&amp;|&lt;|&gt;", "", it.get("title", ""))
