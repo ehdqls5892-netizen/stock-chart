@@ -196,6 +196,26 @@ def briefs() -> str:
     return "\n".join(out) if len(out) > 1 else "로봇이 관리하는 보유 종목이 없어요"
 
 
+_ACCT = {"t": 0.0, "v": None}
+
+
+def _account_qty():
+    """실전일 때 토스 계좌의 실제 보유 수량 {종목: 수량} (1분 기억). 못 읽으면 None → 로봇 기록 그대로 보여 줌."""
+    import time as _t
+    mode = STATE.get("mode") or M.load_settings().get("resume")
+    if mode != "live" or os.getenv("TOSSBOT_OFFLINE") == "1":
+        return None
+    if _t.time() - _ACCT["t"] < 60:
+        return _ACCT["v"]
+    try:
+        items = (M.shared_api().holdings() or {}).get("items", [])
+        v = {str(h.get("symbol")): int(float(h.get("quantity") or 0)) for h in items}
+    except Exception:
+        v = None
+    _ACCT.update(t=_t.time(), v=v)
+    return v
+
+
 def holdings() -> list:
     """로봇이 관리하는 보유 종목 (국장·미장 함께)."""
     out = []
@@ -220,6 +240,17 @@ def holdings() -> list:
                             "entry": d.get("entry"), "sl": d.get("sl"), "last": None, "pct": None,
                             "locked": bool(ex.get("locked")), "state": "open", "days": len(ex.get("days_held", [])),
                             "swing": bool(ex.get("sw")), "etf": bool(ex.get("etf_long"))})
+    acct = _account_qty()
+    if acct is not None:                      # 실전: 실제 토스 계좌에 없는 종목은 빼고, 수량은 계좌 기준으로
+        keep = []
+        for h in out:
+            q = acct.get(h["symbol"], 0)
+            if q <= 0:
+                continue
+            if h.get("qty") and q < h["qty"]:
+                h["qty"] = q
+            keep.append(h)
+        out = keep
     miss = [h for h in out if not h["last"]]
     if miss:                                  # 장 밖이거나 아직 체결이 없으면 토스 현재가(마지막 가격)로
         px = quotes([h["symbol"] for h in miss])

@@ -407,7 +407,7 @@ async function openProfits(month){
   if(r.months.length>1||(r.months[0]&&r.months[0].month!==r.month))
     h+=`<div class="card"><b>달별</b>${r.months.map(m=>`<div class="row" style="margin-top:6px;cursor:pointer" onclick="openProfits('${m.month}')"><span>${mm(m.month)}</span><span class="sp"></span><b class="${cls(m.krw)}">${smoney(m.krw,"KR")}</b><span class="small muted" style="margin-left:6px">${m.n}건 ›</span></div>`).join("")}</div>`;
   h+=`<div class="card"><b>판 기록</b>${r.trades.map(t=>`<div class="h"><div class="row"><span class="nm">${FL[t.mk]} ${esc(t.name||t.code)}</span><span class="sp"></span><b class="${cls(t.pnl)}">${smoney(t.pnl,t.mk)}</b></div>
-    <div class="muted small">${day(t.t)} · ${t.qty}주 · ${money(t.entry,t.mk)} → ${money(t.exit,t.mk)} (${pct(t.pct)})${t.part?" · 일부 익절":""}</div>
+    <div class="muted small">${day(t.t)} · ${t.qty}주 · ${money(t.entry,t.mk)} → ${money(t.exit,t.mk)} (${pct(t.pct)})${t.part?(t.pnl>=0?" · 일부 익절":" · 일부 매도"):""}</div>
     <div class="why">${esc(t.why)}</div></div>`).join("")||`<div class="empty">이 달에 판 기록이 없어요</div>`}</div>`;
   $("prf-b").innerHTML=h;
 }

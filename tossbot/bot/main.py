@@ -1288,9 +1288,10 @@ class Bot:
         if not why and tp_c.get("enabled") and not p.extra.get("tgt_done") and p.qty >= 2 and hasattr(self.broker, "sell_part"):
             try:
                 tgt = SW.cons_target(self.m, Bot.est_row(self, p.symbol) or {}) or p.extra.get("tgt")
-                if tgt and close >= tgt * (1 - tp_c.get("near_pct", 0) / 100):
+                be = round_tick(self.m, p.entry * (1 + cost), "up")
+                # 목표가가 산 값보다 낮으면(이미 목표가 위에서 산 경우) '도달'이 아님 — 손해 보고 파는 일 막음
+                if tgt and tgt > be and close > be and close >= tgt * (1 - tp_c.get("near_pct", 0) / 100):
                     q = max(1, int(p.qty * tp_c.get("frac", 0.5)))
-                    be = round_tick(self.m, p.entry * (1 + cost), "up")
                     if self.broker.sell_part(p, q, close, f"애널리스트 목표가({money(self.m, tgt)}) 도달 — 일부 익절", be if close > be else None):
                         p.extra["tgt_done"] = True
                         self.notify(f"🎯 {p.name} 증권사 평균 목표가 {money(self.m, tgt)} 도달 → {q}주 익절, 나머지 {p.qty}주는 "
