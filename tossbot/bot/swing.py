@@ -331,6 +331,23 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
             add(1 if c >= ma20 else -1, f"20일선 {'위' if c >= ma20 else '아래'}")
             if c >= ma20 * 1.15:
                 add(-1, f"20일선보다 {(c / ma20 - 1) * 100:+.0f}% 높아 단기 과열(쉬어 갈 수 있음)")
+        if len(bars) >= 25:                      # 20일선 방향: 내려가는 중이면 아직 하락 흐름
+            ma20_5 = sum(b[4] for b in bars[-25:-5]) / 20
+            if ma20 < ma20_5 * 0.99:
+                add(-1, "20일선이 내려가는 중(하락 흐름)")
+        if len(bars) >= 60:                      # 60일선: 중기 추세
+            ma60 = sum(b[4] for b in bars[-60:]) / 60
+            add(1 if c >= ma60 else -1, f"60일선 {'위(중기 상승)' if c >= ma60 else '아래(중기 하락)'}")
+        if len(bars) >= 21:                      # 거래량 흐름: 최근 5일이 평소보다 많은데 가격 방향은?
+            v5 = [b[5] for b in bars[-5:] if b[5]]
+            v20 = [b[5] for b in bars[-25:-5] if b[5]]
+            if v5 and v20:
+                vr = (sum(v5) / len(v5)) / (sum(v20) / len(v20))
+                p5 = c / bars[-6][4] - 1 if bars[-6][4] else 0
+                if vr >= 1.3 and p5 > 0.02:
+                    add(1, f"최근 5일 거래량 {vr:.1f}배 늘며 상승(돈이 들어옴)")
+                elif vr >= 1.3 and p5 < -0.02:
+                    add(-1, f"최근 5일 거래량 {vr:.1f}배 늘며 하락(돈이 빠짐)")
     longdown = False
     if len(bars) >= 200:
         c = price or bars[-1][4]
@@ -386,11 +403,13 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
             fo, og, lab = f5, o5, "최근 5일 "
         else:
             fo, og, lab = n(est.get("foreignerPureBuyQuant")), n(est.get("organPureBuyQuant")), ""
-        if fo is not None and og is not None:
+        if fo is not None and og is not None:      # 큰손(외국인·기관) 흐름은 차트만큼 중요 → 2점
             if fo > 0 and og > 0:
-                add(1, f"{lab}외국인·기관 동반 순매수")
+                add(2, f"{lab}외국인·기관 동반 순매수")
             elif fo < 0 and og < 0:
-                add(-1, f"{lab}외국인·기관 동반 순매도")
+                add(-2, f"{lab}외국인·기관 동반 순매도")
+            elif fo > 0 or og > 0:
+                why.append(f"·{lab}{'외국인' if fo > 0 else '기관'}만 순매수({'기관' if fo > 0 else '외국인'}은 순매도)")
         ce, le = n(est.get("ti_cnsEps")), n(est.get("ti_eps"))
         if ce is not None and le and le > 0:
             g = ce / le - 1
@@ -523,11 +542,15 @@ def cons_target(market: str, est: dict):
     return _num((est or {}).get("targetMeanPrice" if market == "US" else "cs_priceTargetMean")) or None
 
 
+RR_STOP_FLOOR = 0.06
+
+
 def rr_score(tgt_up, stop_pct):
     """손익비 = 애널리스트 평균 목표가까지 남은 % ÷ 손절선까지 %.
     2 이상 +1 / 1.5~2 0 / 1~1.5 −1 / 1 미만 −2 (목표가까지 남은 게 손절 폭보다 작으면 사 봐야 남는 게 적음). → (점수, 설명, 손익비)"""
     if tgt_up is None or not stop_pct or stop_pct <= 0:
         return 0, None, None
+    stop_pct = max(stop_pct, RR_STOP_FLOOR)   # 덜 움직이는 종목은 손절 폭이 작아 손익비가 부풀려짐 → 최소 6%로 계산
     rr = tgt_up / stop_pct
     txt = f"손익비 {rr:.1f} (목표가까지 {tgt_up * 100:+.0f}% vs 손절 -{stop_pct * 100:.0f}%)"
     # 목표가는 '1년 목표'라 몇 주 안에 다 오르지 않음 → 손익비가 넉넉해야(3 이상) 실제로 남는 게 큼
