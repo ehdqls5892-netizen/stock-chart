@@ -198,3 +198,23 @@ _s = [t for t in _MB.profits("2026-11", fx=1400, dirs={"KR": _kr, "US": _us}, hi
 assert _s["fx_in"] == 1340.7 and _s["fx_out"] == 1357.9 and 3850 < _s["krw"] < 3950, _s
 _MB.toss_fx.__defaults__ = (None,)
 print("✅ 토스 환율 판매 수익 시험 통과")
+# 토스 거래내역으로 판매수익: 스탠리 6주(1340.70원에 삼) → 3주씩 2번 판매(1357.90원) = 토스 앱 +7,770원
+class _TA:
+    account_seq = 1
+    def transactions(self, types, frm, to, cursor, limit):
+        return {"transactions": [
+            {"transactionType": "SELL", "currency": "USD", "symbol": "SWK", "quantity": "3", "amount": "356.595", "commission": "0.35", "tax": "0.01", "netAmount": "356.235", "exchangeRate": None, "settlementDate": "2026-11-11", "isCancellation": False},
+            {"transactionType": "SELL", "currency": "USD", "symbol": "SWK", "quantity": "3", "amount": "356.52", "commission": "0.35", "tax": "0.01", "netAmount": "356.16", "exchangeRate": None, "settlementDate": "2026-11-11", "isCancellation": False},
+            {"transactionType": "SELL", "currency": "KRW", "symbol": "005930", "quantity": "10", "amount": "1100000", "commission": "200", "tax": "2000", "netAmount": "1097800", "exchangeRate": None, "settlementDate": "2026-11-06", "isCancellation": False},
+            {"transactionType": "BUY", "currency": "USD", "symbol": "SWK", "quantity": "6", "amount": "715.02", "commission": "0.71", "tax": "0", "netAmount": "715.73", "exchangeRate": "1340.70", "settlementDate": "2026-11-07", "isCancellation": False},
+            {"transactionType": "BUY", "currency": "KRW", "symbol": "005930", "quantity": "10", "amount": "1000000", "commission": "150", "tax": "0", "netAmount": "1000150", "exchangeRate": None, "settlementDate": "2026-10-30", "isCancellation": False}],
+            "hasNext": False}
+    def stocks(self, syms):
+        return [{"symbol": "SWK", "name": "스탠리 블랙 앤 데커"}]
+_r = _MB.toss_profits("2026-11", api=_TA(), now_rate=1357.9)
+_sw = [t for t in _r["trades"] if t["code"] == "SWK"]
+assert abs(sum(t["krw"] for t in _sw) - 7770) < 40, [t["krw"] for t in _sw]
+assert all(t["est"] for t in _sw) and _sw[0]["t"] == "2026-11-10" and _sw[0]["name"].startswith("스탠리")
+_kr = [t for t in _r["trades"] if t["code"] == "005930"][0]
+assert abs(_kr["krw"] - (1097800 - 1000150)) < 1e-6 and _r["cur"]["n"] == 3
+print("✅ 토스 거래내역 판매수익 시험 통과", round(sum(t["krw"] for t in _sw)))
