@@ -155,3 +155,8 @@ assert "새로 안 사요" in _r["msg"] and _MB.nobuy_state()["KR"] is True and 
 _MB.post("/api/m/nobuy", {"market": "KR", "on": False})
 assert _MB.nobuy_state()["KR"] is False
 print("✅ 오늘 새로 사지 않기 시험 통과")
+_r = _MB.post("/api/m/exclude", {"market": "KR", "symbol": "068270", "on": True})
+assert "안 사요" in _r["msg"] and _st["exclude"]["KR"]["codes"] == ["068270"], _st
+_MB.post("/api/m/exclude", {"market": "KR", "symbol": "068270", "on": False})
+assert _st["exclude"]["KR"]["codes"] == []
+print("✅ 종목 빼기 시험 통과")

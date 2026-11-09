@@ -994,6 +994,10 @@ class Bot:
         if not manual and (load_settings().get("nobuy") or {}).get(self.m) == now(self.m).date().isoformat():
             self.notify("🛑 오늘은 새로 사지 않기로 해 둬서 매수 안 했어요 (보유 종목 손절·관리는 그대로)")
             return 0.0
+        exd = (load_settings().get("exclude") or {}).get(self.m) or {}
+        if not manual and exd.get("date") == now(self.m).date().isoformat() and exd.get("codes"):
+            d = {**d, "picks": [x for x in d["picks"] if str(x.get("code")) not in set(exd["codes"])]}
+            self.log(f"🧭 오늘 뺀 종목은 안 사요: {', '.join(exd['codes'])}")
         have = [p for p in self.broker.pos.values() if p.extra.get("sw") and p.state in ("pending", "open", "closing")]
         slots = c.get("max_pos", 6) - len(have)
         below = set(c.get("below_setups", []))

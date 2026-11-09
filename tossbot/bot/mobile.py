@@ -148,6 +148,19 @@ def post(path: str, body: dict) -> dict:
         return {"msg": A.set_lock(mk, sym, bool(body.get("on")))}
     if path == "/api/m/lockall":
         return {"msg": A.lock_all()}
+    if path == "/api/m/exclude":          # 오늘 이 종목만 빼기 (다음 후보가 대신 들어감)
+        from .main import load_settings, save_settings, now
+        if mk not in ("KR", "US") or not sym:
+            return {"error": "종목을 골라 주세요"}
+        st = load_settings()
+        today = now(mk).date().isoformat()
+        e = st.setdefault("exclude", {}).get(mk) or {}
+        codes = e.get("codes", []) if e.get("date") == today else []
+        on = bool(body.get("on", True))
+        codes = sorted(set(codes) | {sym}) if on else [c for c in codes if c != sym]
+        st["exclude"][mk] = {"date": today, "codes": codes}
+        save_settings(st)
+        return {"msg": "🚫 오늘은 이 종목 안 사요 (예비 종목이 대신 들어가요)" if on else "✅ 다시 후보에 넣었어요"}
     if path == "/api/m/nobuy":            # 오늘 하루 새로 사지 않기 (보유 종목 관리는 그대로)
         from .main import load_settings, save_settings, now
         if mk not in ("KR", "US"):
@@ -685,6 +698,12 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
     sec_n: dict = {}
     rg = c.get("risk_by_grade") or {}
     buy, wait, skip = [], [], []
+    try:
+        from .main import load_settings as _ls, now as _nw
+        _e = (_ls().get("exclude") or {}).get(mk) or {}
+        excl = set(_e.get("codes") or []) if _e.get("date") == _nw(mk).date().isoformat() else set()
+    except Exception:
+        excl = set()
     # 봇과 같은 순서: 보유 기간 안에 실적 발표가 없는 종목 먼저 (점수 순서는 그 안에서 유지)
     for x in sorted(d.get("picks", []), key=lambda x: x.get("eplan", "ok") not in ("ok", "early")):
         ai = x.get("ai") or {}
@@ -696,6 +715,8 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
             why = "AI 매수 금지: " + str(ai["veto"])[:30]
         elif ai.get("view") == "부정":
             why = "AI 판독이 부정적"
+        elif str(x["code"]) in excl:
+            why = "🚫 오늘 직접 뺀 종목 (탭해서 다시 넣기)"
         elif x.get("no_buy"):
             why = x["no_buy"]
         elif c.get("min_rr") and (x.get("rr") or {}).get("rr") is not None and x["rr"]["rr"] < c["min_rr"]:
