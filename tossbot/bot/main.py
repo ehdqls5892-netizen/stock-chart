@@ -1955,7 +1955,11 @@ class Bot:
                     if sym in self.broker.pos and self.broker.pos[sym].state == "open":
                         self.broker.flatten(sym, "직접 매도 (텔레그램 보유종목)", st.last if st else None, force=True)
                 undecided = [p for p in self.broker.pos.values() if p.extra.get("carry_done") != today]
-                if n >= self.close_t or (n >= flatten_t and not undecided):
+                # 장 마감 무렵 매수가 아직 안 끝났으면 기다림 (보유 종목이 하나도 없는 날 마감 매수를 건너뛰던 문제 고침)
+                close_pending = (self.sw_picks and getattr(self, "sw_close_done", "") != today and not self.stop_req
+                                 and n < flatten_t + dt.timedelta(minutes=10)
+                                 and any(v == "close" for v in (swc.get("entry_at") or {}).values()))
+                if n >= self.close_t or (n >= flatten_t and not undecided and not close_pending):
                     break
                 if self.risk.kill_switch() and self.broker.open_count():
                     for sym in list(self.broker.pos):
