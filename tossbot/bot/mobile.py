@@ -291,6 +291,35 @@ def profits(month: str | None = None, fx: float | None = None, dirs=None, hist=N
             "trades": sorted([r for r in rows if (r["t"] or "").startswith(month)], key=lambda r: r["t"] or "", reverse=True)}
 
 
+def probe(api=None) -> dict:
+    """진단: 토스 계좌 거래내역(최근 판 것)·보유 원본 — 원화 판매수익을 토스와 똑같이 맞추려고 필드 확인용. 계좌번호는 가림."""
+    import datetime as dt
+    from . import main as M
+    a = api or M.shared_api()
+    out = {}
+    try:
+        if a.account_seq is None and hasattr(a, "accounts"):
+            acc = a.accounts() or []
+            a.account_seq = (acc[0] if isinstance(acc, list) and acc else {}).get("accountSeq")
+    except Exception as e:
+        out["acct_err"] = str(e)[:200]
+    frm = (dt.date.today() - dt.timedelta(days=10)).isoformat()
+    for k, fn in (("sell", lambda: a.transactions(["SELL"], frm, None, None, 3)),
+                  ("exchange", lambda: a.transactions(["EXCHANGE_IN", "EXCHANGE_OUT"], frm, None, None, 3)),
+                  ("holdings", lambda: a.holdings())):
+        try:
+            out[k] = fn()
+        except Exception as e:
+            out[k] = {"error": str(e)[:300]}
+    txt = json.dumps(out, ensure_ascii=False)
+    txt = re.sub(r'("(?:accountNo|accountNumber|accountSeq)"\s*:\s*)"?[^",}]+"?', r'\1"***"', txt)
+    try:
+        (DIR.parent / "logs" / "probe.json").write_text(txt, encoding="utf-8")
+    except Exception:
+        pass
+    return {"raw": txt[:20000]}
+
+
 def home() -> dict:
     from . import app as A
     try:

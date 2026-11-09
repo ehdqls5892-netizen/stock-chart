@@ -188,6 +188,19 @@ class TossAPI:
     def holdings(self):
         return self.req("GET", "/api/v1/holdings", "ASSET", account=True)
 
+    def transactions(self, types=None, frm=None, to=None, cursor=None, limit=50):
+        """계좌 거래내역(매매·환전·배당·수수료). 날짜는 결제일(KST) 기준."""
+        p = {"limit": limit}
+        if types:
+            p["transactionTypes"] = ",".join(types)
+        if frm:
+            p["from"] = frm
+        if to:
+            p["to"] = to
+        if cursor:
+            p["cursor"] = cursor
+        return self.req("GET", "/api/v1/transactions", "ASSET", p, account=True) or {}
+
     def buying_power(self, currency="KRW"):
         return self.req("GET", "/api/v1/buying-power", "ORDER_INFO", {"currency": currency}, account=True)
 

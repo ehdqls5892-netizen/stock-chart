@@ -225,7 +225,7 @@ function vBrief(){
   if(sub==="log")return vLog(seg);
   const btn=(k,t)=>`<button class="sm" onclick="runCmd('${k}')">${t}</button>`;
   let h=seg+`<div class="card"><b>보고서</b><div class="muted small">텔레그램 버튼과 같은 내용이에요. 분석은 종목마다 몇 초 걸려요.</div>
-    <div class="btns">${btn("분석","📰 보유 분석")}${btn("성적","📈 성적")}</div><div class="btns">${btn("진단","🔍 진단")}${btn("매수기록","🧾 매수 기록")}${btn("스윙","🧭 스윙")}</div><div class="btns"><button class="sm" onclick="openProfits()">💰 판매 수익</button></div></div>`;
+    <div class="btns">${btn("분석","📰 보유 분석")}${btn("성적","📈 성적")}</div><div class="btns">${btn("진단","🔍 진단")}${btn("매수기록","🧾 매수 기록")}${btn("스윙","🧭 스윙")}</div><div class="btns"><button class="sm" onclick="openProfits()">💰 판매 수익</button><button class="sm" onclick="openProbe()">🔧 토스 원본</button></div></div>`;
   h+=Object.entries(T).reverse().map(([k,v])=>`<div class="card"><div class="row"><b>${esc(k)}</b><span class="sp"></span><span class="small muted">${esc(v.at)}</span></div>
     ${v.busy?`<div class="why"><span class="spin"></span> 모으는 중…</div>`:v.texts.map(t=>`<pre style="margin-top:8px">${esc(t)}</pre>`).join("")}</div>`).join("");
   $("v").innerHTML=h;
@@ -394,6 +394,11 @@ function sellStk(){const d=curStk;ask("💰 지금 팔까요?",`${d.name} ${d.ho
 let PU=null;
 function seen(){try{return +localStorage.getItem("seen")||0}catch(e){return 0}}
 async function badge(){try{const r=await api("/api/m/inbox?n=30");const n=(r.items||[]).filter(x=>x.t*1000>seen()&&x.level!=="low").length;const b=$("bdg");b.textContent=n>9?"9+":n;b.style.display=n?"block":"none";return r}catch(e){}}
+async function openProbe(){
+  $("prf").style.display="block";document.body.style.overflow="hidden";$("prf-b").innerHTML=`<div class="card empty"><span class="spin"></span></div>`;
+  const r=await api("/api/m/probe");
+  $("prf-b").innerHTML=`<div class="card"><b>🔧 토스 거래내역 원본 (진단용)</b><div class="why">이 화면을 캡처해서 보내 주세요. 계좌번호는 가려져 있어요.</div><pre class="why" style="white-space:pre-wrap;word-break:break-all;font-size:11px">${esc((r&&r.raw)||JSON.stringify(r))}</pre></div>`;
+}
 async function openProfits(month){
   $("prf").style.display="block";document.body.style.overflow="hidden";$("prf-b").innerHTML=`<div class="card empty"><span class="spin"></span></div>`;
   const r=await api("/api/m/profits"+(month?`?month=${month}`:""));

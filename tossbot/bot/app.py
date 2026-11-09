@@ -57,6 +57,8 @@ def start(mode: str, repeat: bool = True) -> str:
                 STATE["bots"][mk] = b
                 try:
                     b.run()
+                    if getattr(b, "locked_out", False):       # 같은 시장 로봇이 이미 돌고 있음 → 이 줄은 조용히 끝냄
+                        return
                 except Exception as e:
                     STATE["errors"][mk] = f"{e}"
                     b.log(f"❌ 오류로 멈춤: {e}")
@@ -795,6 +797,8 @@ class H(BaseHTTPRequestHandler):
                 elif u.path == "/api/m/plan":
                     hs = holdings()
                     out = {mk: MB.plan(mk, hold=[h for h in hs if h["market"] == mk]) for mk in ("KR", "US")}
+                elif u.path == "/api/m/probe":
+                    out = MB.probe()
                 elif u.path == "/api/m/profits":
                     out = MB.profits(q.get("month") or None)
                 elif u.path == "/api/m/version":
@@ -910,4 +914,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # 'python -m bot.app' 로 켜면 이 파일이 __main__ 과 bot.app 두 번 읽혀서 로봇 상태(STATE)가 둘로 나뉨
+    # (앱 버튼으로 시작하면 로봇이 한 벌 더 켜져 주문이 두 번 나가던 원인) → 항상 bot.app 하나만 씀
+    import importlib
+    importlib.import_module("bot.app").main()

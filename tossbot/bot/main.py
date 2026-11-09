@@ -1822,7 +1822,8 @@ class Bot:
                 fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
             except OSError:
                 lockf.close()
-                self.notify(f"⚠️ {FLAG[self.m]} 같은 시장 로봇이 이미 하나 돌고 있어서 두 번째는 켜지 않았어요 (같은 주문이 두 번 나가는 걸 막음)")
+                self.locked_out = True
+                self.log("⚠️ 같은 시장 로봇이 이미 하나 돌고 있어서 두 번째는 켜지 않았어요 (같은 주문이 두 번 나가는 걸 막음)")
                 self.phase = "종료됨"
                 return None
         except ImportError:                      # 윈도우: 잠금 없이
