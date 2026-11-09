@@ -21,6 +21,26 @@ from .api import TossError
 from .util import TZ, add_ticks, f, money, price_str, round_tick
 
 
+
+_FX = {"v": None, "t": 0.0}
+
+
+def fx_now():
+    """원/달러 환율(야후, 10분 기억). 못 받으면 직전 값 또는 None."""
+    import time as _t
+    if _FX["v"] and _t.time() - _FX["t"] < 600:
+        return _FX["v"]
+    try:
+        import requests
+        r = requests.get("https://query1.finance.yahoo.com/v8/finance/chart/KRW=X", params={"range": "1d", "interval": "1d"},
+                         headers={"User-Agent": "Mozilla/5.0"}, timeout=6).json()
+        v = float(r["chart"]["result"][0]["meta"]["regularMarketPrice"])
+        if 800 < v < 3000:
+            _FX.update(v=v, t=_t.time())
+    except Exception:
+        _FX["t"] = _t.time()                     # 실패해도 10분 동안은 다시 안 물어봄(매매가 느려지지 않게)
+    return _FX["v"]
+
 @dataclass
 class Position:
     symbol: str
@@ -83,6 +103,12 @@ class BaseBroker:
 
     def _journal(self, kind: str, p: Position, **kw):
         day = self.today().isoformat()
+        if self.m == "US":                       # 원화 손익 계산용: 그때 환율을 같이 적어 둠
+            fx = fx_now()
+            if fx:
+                kw.setdefault("fx", fx)
+                if kind in ("entry", "armed") and not p.extra.get("fx_in"):
+                    p.extra["fx_in"] = fx
         rec = {"t": dt.datetime.now().isoformat(timespec="seconds"), "kind": kind, **asdict(p), **kw}
         with open(self.dir / f"trades-{day}.jsonl", "a", encoding="utf-8") as fp:
             fp.write(json.dumps(rec, ensure_ascii=False) + "\n")
@@ -364,7 +390,7 @@ class BaseBroker:
 
     def record_partial(self, p: Position, qty: int, price: float, label: str = "나눠 익절"):
         part = Position(p.symbol, p.name, qty, p.entry, p.tp, p.sl, p.reason, p.opened_at, state="closed",
-                        extra={k: p.extra[k] for k in ("setup", "grade") if k in p.extra})
+                        extra={k: p.extra[k] for k in ("setup", "grade", "fx_in") if k in p.extra})
         part.exit_price, part.exit_reason = price, label
         part.pnl = self.calc_pnl(part, price)
         self.closed.append(part)

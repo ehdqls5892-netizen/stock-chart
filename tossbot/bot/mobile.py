@@ -154,7 +154,34 @@ def _journal_dir(mk: str) -> Path:
     return M.ROOT / "logs" / ("paper" if mode == "paper" else "live") / mk
 
 
-def profits(month: str | None = None, fx: float | None = None, dirs=None) -> dict:
+_FXH = {"t": 0.0, "v": {}}
+
+
+def fx_hist(get=None) -> dict:
+    """원/달러 일별 종가 {YYYY-MM-DD: 환율} (최근 1년, 1시간 기억) — 예전 거래의 살 때·팔 때 환율 추정용."""
+    if _FXH["v"] and time.time() - _FXH["t"] < 3600:
+        return _FXH["v"]
+    try:
+        import datetime as dt
+        r = (get or (lambda u, p: requests.get(u, params=p, headers={"User-Agent": "Mozilla/5.0"}, timeout=8).json()))(
+            "https://query1.finance.yahoo.com/v8/finance/chart/KRW=X", {"range": "1y", "interval": "1d"})
+        res = r["chart"]["result"][0]
+        v = {dt.datetime.utcfromtimestamp(t).date().isoformat(): c
+             for t, c in zip(res["timestamp"], res["indicators"]["quote"][0]["close"]) if c}
+        _FXH.update(t=time.time(), v=v)
+    except Exception:
+        _FXH["t"] = time.time()
+    return _FXH["v"]
+
+
+def _fx_on(day: str, hist: dict, fallback: float) -> float:
+    if not hist or not day:
+        return fallback
+    ks = [k for k in hist if k <= day]
+    return hist[max(ks)] if ks else fallback
+
+
+def profits(month: str | None = None, fx: float | None = None, dirs=None, hist=None) -> dict:
     """판 기록(익절·손절·일부 익절)에서 월별 실현 손익. 미장은 지금 환율로 원화 환산(토스 앱의 환차손익과는 조금 다를 수 있음)."""
     import datetime as dt
     import json as _j
@@ -170,6 +197,7 @@ def profits(month: str | None = None, fx: float | None = None, dirs=None) -> dic
                 if r.get("kind") not in ("exit", "partial") or r.get("pnl") is None:
                     continue
                 rows.append({"t": r.get("t"), "mk": mk, "code": r.get("symbol"), "name": r.get("name"), "qty": r.get("qty"),
+                             "fx_in": (r.get("extra") or {}).get("fx_in"), "fx_out": r.get("fx"), "opened": (r.get("opened_at") or "")[:10],
                              "entry": r.get("entry"), "exit": r.get("exit_price"), "pnl": r.get("pnl"),
                              "pct": ((r["exit_price"] / r["entry"] - 1) * 100) if r.get("exit_price") and r.get("entry") else None,
                              "why": (r.get("exit_reason") or "")[:60], "part": r.get("kind") == "partial"})
@@ -180,16 +208,28 @@ def profits(month: str | None = None, fx: float | None = None, dirs=None) -> dic
         except Exception:
             fx = None
     fx = fx or 1400.0
+    if hist is None and any(r["mk"] == "US" and not (r["fx_in"] and r["fx_out"]) for r in rows):
+        hist = fx_hist()
     for r in rows:
-        r["krw"] = r["pnl"] * (fx if r["mk"] == "US" else 1)
+        if r["mk"] != "US":
+            r["krw"] = r["pnl"]
+            continue
+        # 토스처럼 원화로: 산 날 환율로 산 금액, 판 날 환율로 판 금액, 수수료는 판 날 환율로
+        fi = r["fx_in"] or _fx_on(r["opened"] or (r["t"] or "")[:10], hist or {}, fx)
+        fo = r["fx_out"] or _fx_on((r["t"] or "")[:10], hist or {}, fx)
+        q, e, x = r["qty"] or 0, r["entry"] or 0, r["exit"] or 0
+        cost = q * (x - e) - r["pnl"]
+        r["krw"] = q * (x * fo - e * fi) - cost * fo
+        r["fx_in"], r["fx_out"] = round(fi, 2), round(fo, 2)
+        r["fx_gain"] = q * e * (fo - fi)
     months = {}
     for r in rows:
         m = (r["t"] or "")[:7]
         x = months.setdefault(m, {"month": m, "krw": 0.0, "KR": 0.0, "US": 0.0, "n": 0, "win": 0})
         x["krw"] += r["krw"]
-        x[r["mk"]] += r["pnl"]
+        x[r["mk"]] += r["krw"] if r["mk"] == "US" else r["pnl"]
         x["n"] += 1
-        x["win"] += 1 if r["pnl"] > 0 else 0
+        x["win"] += 1 if r["krw"] > 0 else 0
     month = month or dt.date.today().strftime("%Y-%m")
     cur = months.get(month) or {"month": month, "krw": 0.0, "KR": 0.0, "US": 0.0, "n": 0, "win": 0}
     return {"month": month, "fx": fx, "cur": cur, "months": sorted(months.values(), key=lambda x: x["month"], reverse=True),
