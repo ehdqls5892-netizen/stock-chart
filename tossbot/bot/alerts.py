@@ -147,6 +147,39 @@ def check(mk: str, quotes=None, bars=None, rankings=None, names=None, now_fn=Non
 
 _upd_done: set = set()
 UPDATE_AT = {"KR": ("Asia/Seoul", 7, 30), "US": ("America/New_York", 8, 30)}   # 장 시작 약 1시간 반 전
+# 매수 시각 앞뒤로는 다시 켜지지 않게 (국장 15:15·미장 15:45 매수) — 이 시간 밖이면 새 버전이 나오면 30분 안에 자동 적용
+QUIET = {"KR": ("Asia/Seoul", (14, 50), (15, 40)), "US": ("America/New_York", (15, 20), (16, 10))}
+_last_poll = [0.0]
+
+
+def quiet_now(now_utc) -> bool:
+    from zoneinfo import ZoneInfo
+    for tz, a, b in QUIET.values():
+        t = now_utc.astimezone(ZoneInfo(tz))
+        if t.weekday() < 5 and a <= (t.hour, t.minute) < b:
+            return True
+    return False
+
+
+def poll_update(now_utc=None, latest=None, run=None) -> str | None:
+    """30분마다: GitHub 에 로봇 새 버전이 있으면(앱 '업데이트' 칸과 같은 비교) 매수 시각 앞뒤가 아닐 때 자동 적용."""
+    import datetime as dt
+    now_utc = now_utc or dt.datetime.now(dt.timezone.utc)
+    if time.time() - _last_poll[0] < 1800 and not latest:
+        return None
+    _last_poll[0] = time.time()
+    if quiet_now(now_utc):
+        return None
+    from . import mobile as MB
+    v = latest or MB.version()
+    if v.get("up_to_date") is not False:
+        return None
+    if run:
+        return run(v)
+    from .telegram_ctl import TelegramControl
+    msg = TelegramControl.update_now(None)
+    print("새 버전 자동 적용", v.get("latest_sha"), msg)
+    return msg
 
 
 def auto_update(now_utc=None, run=None) -> str | None:
@@ -222,7 +255,7 @@ def _loop():
             except Exception:
                 pass
         try:
-            auto_update()
+            auto_update() or poll_update()
         except Exception as e:
             print("자동 업데이트 오류", e)
         time.sleep(120)

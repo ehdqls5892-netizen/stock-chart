@@ -240,7 +240,7 @@ def version(get=None) -> dict:
     bad = root / ".last_fail"
     if bad.exists():
         out["fail"] = dt.datetime.fromtimestamp(bad.stat().st_mtime, dt.timezone.utc).isoformat(timespec="seconds")
-    js = _get_json("https://api.github.com/repos/ehdqls5892-netizen/stock-chart/commits?path=tossbot&per_page=1", 300, get)
+    js = _get_json("https://api.github.com/repos/ehdqls5892-netizen/stock-chart/commits?path=tossbot&per_page=1", 60, get)
     try:
         c = js[0]
         out["latest_sha"] = c["sha"][:7]

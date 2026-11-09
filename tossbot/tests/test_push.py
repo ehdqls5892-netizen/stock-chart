@@ -103,3 +103,13 @@ assert _r == ["KR"]
 AL.auto_update(_dt.datetime(2026, 11, 10, 13, 35, tzinfo=_dt.timezone.utc), run=_r.append)   # 뉴욕 08:35
 assert _r == ["KR", "US"], _r
 print("✅ 자동 업데이트 시험 통과")
+
+# 7) 새 버전이 나오면 30분 안에 자동 적용 — 매수 시각 앞뒤(국장 14:50~15:40, 미장 15:20~16:10)는 피함
+_kst2 = lambda h, m: _dt.datetime(2026, 11, 10, h, m, tzinfo=_dt.timezone(_dt.timedelta(hours=9))).astimezone(_dt.timezone.utc)
+assert AL.quiet_now(_kst2(15, 10)) and not AL.quiet_now(_kst2(11, 0))
+_got = []
+assert AL.poll_update(_kst2(15, 10), latest={"up_to_date": False}, run=_got.append) is None and not _got
+AL.poll_update(_kst2(11, 0), latest={"up_to_date": False}, run=_got.append)
+AL.poll_update(_kst2(11, 0), latest={"up_to_date": True}, run=_got.append)
+assert len(_got) == 1, _got
+print("✅ 새 버전 자동 적용 시험 통과")
