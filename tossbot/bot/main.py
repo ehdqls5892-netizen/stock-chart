@@ -819,7 +819,23 @@ class Bot:
         d = d if d is not None else (self.sw_picks or {})
         if str(d.get("date", "")) < str(c.get("entry_at_since", "")):
             return "open"
+        eo = c.get("early_conf") or {}
+        if eo.get("enabled") and Bot.early_ok(self, x):
+            return "open"                         # 확신 높은 종목: 마감까지 안 기다리고 장 시작 후 흐름 확인되면 바로 삼
         return (c.get("entry_at") or {}).get(x.get("setup"), "open")
+
+    def early_ok(self, x) -> bool:
+        """확신 종목 = 점수 높음 + AI 부정·매수 금지 아님 + 손익비 충분 + 실적 전 전망치 하향 아님."""
+        eo = self.cfg["daily_swing"].get("early_conf") or {}
+        ai = (x.get("ev") or {}).get("ai") or {}
+        rr = (x.get("rr") or {}).get("rr")
+        if not isinstance(x.get("score"), (int, float)) or x["score"] < eo.get("score", 8):
+            return False
+        if ai.get("veto") or ai.get("view") == "부정" or x.get("no_buy"):
+            return False
+        if rr is not None and rr < eo.get("min_rr", 2.0):
+            return False
+        return True
 
     def swing_preview(self):
         """장 시작 전 대기 중: 다음 장 후보(picks.json)가 새로 만들어졌으면 판단표를 한 번 미리 보냄.
@@ -1014,7 +1030,8 @@ class Bot:
             else:
                 cands.append(x)
         later = [] if dry or manual else [x for x in cands if Bot.swing_timing(self, x, d) != when]
-        cands = cands if dry or manual else [x for x in cands if Bot.swing_timing(self, x, d) == when]
+        cands = cands if dry or manual else [x for x in cands if Bot.swing_timing(self, x, d) == when
+                                             or (when == "close" and Bot.swing_timing(self, x, d) == "open")]   # 아침에 못 산 확신 종목은 마감에 다시 봄
         if when == "open" and later and slots > 0:
             self.notify(f"🧭 스윙 후보 {len(later)}개({', '.join(x['name'] for x in later[:5])})는 장 시작 직후 말고 "
                         f"장 마감 15분 전에 오늘 흐름을 보고 살게요. 장중에 손절선까지 밀리면 안 사요.")
@@ -1071,6 +1088,10 @@ class Bot:
             rg = (c.get("max_rel_gap_by_setup") or {}).get(x.get("setup"))
             if rg and not dry and mgap is not None and (e / x["close"] - 1) - mgap >= rg / 100:
                 skip(x, f"밤사이 시장보다 {((e / x['close'] - 1) - mgap) * 100:.1f}%p 더 뛰어 열림 (재료로 급등한 갭은 안 쫓아감, 기준 {rg:g}%p)", loud=True)
+                continue
+            eo = c.get("early_conf") or {}
+            if when == "open" and not dry and eo.get("enabled") and Bot.early_ok(self, x) and e > x["close"] * (1 + eo.get("max_up_pct", 7) / 100):
+                skip(x, f"확신 종목이지만 벌써 {(e / x['close'] - 1) * 100:+.1f}% 올라 있어 추격 안 함 (기준 +{eo.get('max_up_pct', 7):g}%) — 마감 무렵 다시 봄", loud=True)
                 continue
             if c.get("red_flag_news", True) and not getattr(self, "_offline", False):
                 try:

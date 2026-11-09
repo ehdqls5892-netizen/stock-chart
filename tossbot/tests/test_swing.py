@@ -568,3 +568,13 @@ assert not M.Bot.live_refresh(bot) and bot.sw_picks["picks"][0]["code"] == "OLD"
 _rq.get = _orig_get
 c["live_picks_url"] = ""
 print("✅ 장중 다시 고르기 시험 통과")
+
+# 확신 종목(점수 8↑·AI 부정 아님·손익비 2↑)은 장 시작 후 바로, 나머지는 마감 무렵
+_b = M.Bot.__new__(M.Bot)
+_b.cfg = {"daily_swing": {"entry_at_since": "2026-11-02", "entry_at": {"fs": "close"}, "early_conf": {"enabled": True, "score": 8, "min_rr": 2.0}}}
+_d = {"date": "2026-11-09"}
+assert M.Bot.swing_timing(_b, {"setup": "fs", "score": 9, "rr": {"rr": 3.0}, "ev": {"ai": {"view": "중립"}}}, _d) == "open"
+assert M.Bot.swing_timing(_b, {"setup": "fs", "score": 7, "rr": {"rr": 3.0}}, _d) == "close"
+assert M.Bot.swing_timing(_b, {"setup": "fs", "score": 9, "rr": {"rr": 1.8}}, _d) == "close"
+assert M.Bot.swing_timing(_b, {"setup": "fs", "score": 9, "ev": {"ai": {"view": "부정"}}}, _d) == "close"
+print("✅ 확신 종목 아침 매수 시험 통과")
