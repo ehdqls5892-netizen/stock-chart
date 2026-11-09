@@ -145,3 +145,13 @@ _v = _MB.version(get=lambda u: [{"sha": "abcdef123", "commit": {"committer": {"d
 assert _v["up_to_date"] is False
 _MB._CACHE.clear()
 print("✅ 버전 표시 시험 통과")
+
+# 오늘 새로 사지 않기
+import bot.main as _M  # noqa: E402
+_st = {}
+_M.load_settings, _M.save_settings = (lambda: _st), (lambda d: _st.update(d))
+_r = _MB.post("/api/m/nobuy", {"market": "KR", "on": True})
+assert "새로 안 사요" in _r["msg"] and _MB.nobuy_state()["KR"] is True and _MB.nobuy_state()["US"] is False, _r
+_MB.post("/api/m/nobuy", {"market": "KR", "on": False})
+assert _MB.nobuy_state()["KR"] is False
+print("✅ 오늘 새로 사지 않기 시험 통과")

@@ -116,6 +116,12 @@ def table(mk: str) -> str:
         return f"판단표를 만들지 못했어요: {e}"
 
 
+def nobuy_state() -> dict:
+    from .main import load_settings, now
+    nb = load_settings().get("nobuy") or {}
+    return {mk: nb.get(mk) == now(mk).date().isoformat() for mk in ("KR", "US")}
+
+
 def home() -> dict:
     from . import app as A
     s = A.status()
@@ -127,6 +133,10 @@ def home() -> dict:
     s["holdings"] = hs
     s["capitals"] = A.capitals()
     s["log"] = s.get("log", [])[-120:]
+    try:
+        s["nobuy"] = nobuy_state()
+    except Exception:
+        s["nobuy"] = {}
     return s
 
 
@@ -138,6 +148,21 @@ def post(path: str, body: dict) -> dict:
         return {"msg": A.set_lock(mk, sym, bool(body.get("on")))}
     if path == "/api/m/lockall":
         return {"msg": A.lock_all()}
+    if path == "/api/m/nobuy":            # 오늘 하루 새로 사지 않기 (보유 종목 관리는 그대로)
+        from .main import load_settings, save_settings, now
+        if mk not in ("KR", "US"):
+            return {"error": "시장을 골라 주세요"}
+        st = load_settings()
+        nb = st.setdefault("nobuy", {})
+        today = now(mk).date().isoformat()
+        on = bool(body.get("on"))
+        if on:
+            nb[mk] = today
+        else:
+            nb.pop(mk, None)
+        save_settings(st)
+        nm = {"KR": "국장", "US": "미장"}[mk]
+        return {"msg": f"🛑 {nm} 오늘({today})은 새로 안 사요 · 보유 종목 손절·관리는 그대로" if on else f"✅ {nm} 오늘 다시 평소처럼 사요"}
     if path == "/api/m/sell":
         return {"msg": A.sell_one(mk, sym)}
     if path == "/api/m/stop":

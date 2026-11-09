@@ -142,6 +142,9 @@ function planCard(){
   if(D&&!D.running)h+=`<div class="veto" style="background:var(--warn-soft);color:var(--warn)">로봇이 꺼져 있어서 지금은 아무것도 안 사요. 설정 → 🔴 실전 시작을 눌러야 아래대로 사요.</div>`;
   for(const mk of ["KR","US"]){const p=PL[mk];if(!p)continue;
     h+=`<div style="margin-top:12px"><div class="row"><b>${FL[mk]} ${NM[mk]}</b><span class="chip ${p.live?"B":""}">${p.live?"오늘 흐름 반영":"어젯밤 기준"}</span><span class="sp"></span><span class="small muted">내 시간 ${t(p.at)} 매수</span></div>`;
+    const nb=(D&&D.nobuy||{})[mk];
+    h+=`<div class="btns" style="margin-top:6px"><button class="sm${nb?" pri":""}" onclick="noBuy('${mk}',${!nb})">${nb?"✅ 오늘 다시 사기":"🛑 오늘 새로 사지 않기"}</button></div>`;
+    if(nb)h+=`<div class="veto" style="background:var(--warn-soft);color:var(--warn)">오늘은 새로 안 사요 · 보유 종목 손절·관리는 그대로예요</div>`;
     if(p.index_today!=null)h+=`<div class="why">지수 오늘 ${p.index_today>0?"+":""}${p.index_today}%${p.index_today<=-2?" — 시장이 크게 빠지는 날이라 새로 안 사요":""}</div>`;
     h+=p.buy.length?p.buy.map(x=>`<div class="pk"><div class="row" style="flex-wrap:wrap;row-gap:4px"><span class="nm b" onclick="openStock('${mk}','${esc(x.code)}')">${esc(x.name)} ›</span><span class="chip ${x.grade}">${x.grade} ${x.score>0?"+":""}${Math.round(x.score)}</span>${x.small?`<span class="bz y">작게</span>`:`<span class="bz g">정상</span>`}<span class="sp"></span><span class="b">≈${x.qty}주</span></div>
       <div class="kv"><span>약 <b>${esc(x.amount)}</b></span><span class="down">손절 ${money(x.stop,mk)}</span>${x.loss?`<span>최대 손실 약 ${esc(x.loss)}</span>`:""}${x.rr?`<span>손익비 ${x.rr}</span>`:""}</div>${x.earn_note?`<div class="why">📅 ${esc(x.earn_note)}</div>`:""}</div>`).join("")
@@ -266,6 +269,7 @@ async function verCard(){const v=await api("/api/m/version");const el=$("verc");
    +(v.latest_msg?`<div class="muted">최신 변경: ${esc(v.latest_msg.slice(0,40))}…</div>`:"")}
 function startBot(m){ask(m==="live"?"🔴 실전 시작":"▶️ 연습 시작",m==="live"?"실제 돈으로 주문해요.":"연습 모드로 시작해요.",async()=>{const r=await api("/api/m/start",{mode:m});toast(r.msg);load()})}
 function stopBot(h){ask(h==="sell"?"💰 전부 팔고 끄기":"⏹ 로봇 끄기",h==="sell"?"보유 종목을 전부 시장가로 팔고 멈춰요 (잠긴 종목도).":"보유 종목은 토스 서버 손절 주문을 걸어 둔 채로 멈춰요.",async()=>{const r=await api("/api/m/stop",{how:h});toast(r.msg);load()})}
+function noBuy(mk,on){ask(on?"🛑 오늘 새로 사지 않기":"✅ 오늘 다시 사기",on?`${NM[mk]} 오늘은 새 종목을 사지 않아요. 보유 종목 손절·관리는 그대로예요.`:`${NM[mk]} 오늘 다시 평소처럼 사요.`,async()=>{const r=await api("/api/m/nobuy",{market:mk,on});toast(r.msg||r.error);await load();vHome()})}
 function lockAll(){ask("🔒 전부 잠금","보유 종목을 전부 장 마감 정리 없이 들고 가요.",async()=>{const r=await api("/api/m/lockall",{});toast(r.msg);load()})}
 function resume(){ask("▶️ 재개","계좌 낙폭 한도로 멈춘 매수를 다시 시작해요.",async()=>{const r=await api("/api/m/resume",{});toast(r.msg)})}
 async function setCap(m){const v=$("cap"+m).value.trim();if(!v)return;let n=v.replace(/[,원$\s]/g,"");if(/만$/.test(n))n=String(parseFloat(n)*10000);const r=await api("/api/m/capital",{market:m,amount:n});toast(r.msg);load()}

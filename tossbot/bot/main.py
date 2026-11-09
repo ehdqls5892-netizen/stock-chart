@@ -991,6 +991,9 @@ class Bot:
         if self.risk.kill_switch() or self.risk.halted:
             self.log(f"🧭 스윙 매수 건너뜀: {self.risk.halted or '긴급 정지'}")
             return 0.0
+        if not manual and (load_settings().get("nobuy") or {}).get(self.m) == now(self.m).date().isoformat():
+            self.notify("🛑 오늘은 새로 사지 않기로 해 둬서 매수 안 했어요 (보유 종목 손절·관리는 그대로)")
+            return 0.0
         have = [p for p in self.broker.pos.values() if p.extra.get("sw") and p.state in ("pending", "open", "closing")]
         slots = c.get("max_pos", 6) - len(have)
         below = set(c.get("below_setups", []))
