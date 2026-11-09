@@ -168,202 +168,8 @@ def _journal_dir(mk: str) -> Path:
     return M.ROOT / "logs" / ("paper" if mode == "paper" else "live") / mk
 
 
-_FXH = {"t": 0.0, "v": {}}
-
-
-def fx_hist(get=None) -> dict:
-    """원/달러 일별 종가 {YYYY-MM-DD: 환율} (최근 1년, 1시간 기억) — 예전 거래의 살 때·팔 때 환율 추정용."""
-    if _FXH["v"] and time.time() - _FXH["t"] < 3600:
-        return _FXH["v"]
-    try:
-        import datetime as dt
-        r = (get or (lambda u, p: requests.get(u, params=p, headers={"User-Agent": "Mozilla/5.0"}, timeout=8).json()))(
-            "https://query1.finance.yahoo.com/v8/finance/chart/KRW=X", {"range": "1y", "interval": "1d"})
-        res = r["chart"]["result"][0]
-        v = {dt.datetime.utcfromtimestamp(t).date().isoformat(): c
-             for t, c in zip(res["timestamp"], res["indicators"]["quote"][0]["close"]) if c}
-        _FXH.update(t=time.time(), v=v)
-    except Exception:
-        _FXH["t"] = time.time()
-    return _FXH["v"]
-
-
-_TFX: dict = {}
-
-
-def toss_fx(ts: str | None, api=None):
-    """그 시각의 토스 환율(rate) — 토스 앱 판매수익과 같은 기준. 한 번 받은 값은 파일에 기억."""
-    import datetime as dt
-    import json as _j
-    if not ts:
-        return None
-    try:
-        d = dt.datetime.fromisoformat(ts)
-        d = d.astimezone() if d.tzinfo is None else d
-        key = d.isoformat(timespec="minutes")
-    except Exception:
-        return None
-    f = DIR.parent / "logs" / "fx_toss.json"
-    if not _TFX:
-        try:
-            _TFX.update({k: v for k, v in _j.loads(f.read_text(encoding="utf-8")).items() if k != "_fail"})
-        except Exception:
-            pass
-    if key in _TFX:
-        return _TFX[key] or None
-    if _TFX.get("_fail", 0) >= 3:                 # 토스 환율 조회가 계속 안 되면 이번엔 포기(일별 환율로)
-        return None
-    try:
-        from . import main as M
-        r = (api or M.shared_api()).exchange_rate(d.isoformat(timespec="seconds"))
-        v = float(r.get("rate") or 0) or None
-    except Exception:
-        v = None
-    if not v:
-        _TFX["_fail"] = _TFX.get("_fail", 0) + 1
-    if v:
-        _TFX[key] = v
-        try:
-            f.parent.mkdir(parents=True, exist_ok=True)
-            f.write_text(_j.dumps(_TFX), encoding="utf-8")
-        except Exception:
-            pass
-    return v
-
-
-def _fx_on(day: str, hist: dict, fallback: float) -> float:
-    if not hist or not day:
-        return fallback
-    ks = [k for k in hist if k <= day]
-    return hist[max(ks)] if ks else fallback
-
-
-_TP = {"t": 0.0, "v": None}
-
-
-def _bday_back(d, n: int):
-    import datetime as dt
-    while n > 0:
-        d -= dt.timedelta(days=1)
-        if d.weekday() < 5:
-            n -= 1
-    return d
-
-
-def toss_profits(month: str | None = None, api=None, now_rate=None, names=None) -> dict | None:
-    """토스 계좌 거래내역으로 판매수익을 토스 앱과 같은 방식으로 계산 (원화).
-    - 판 금액 = (판매금액 − 수수료 − 세금) × 판 날 환율, 산 금액 = 이동평균 매입가(산 금액+수수료+세금, 산 날 환율)
-    - 결제 전(미장 다음 날, 국장 이틀 뒤) 거래는 토스가 환율을 아직 안 알려 줘서 지금 토스 환율로 '예상' 표시."""
-    import datetime as dt
-    from . import main as M
-    if api is None and time.time() - _TP["t"] < 300 and _TP["v"] is not None and _TP["v"][0] == month:
-        return _TP["v"][1]
-    a = api or M.shared_api()
-    if a.account_seq is None and hasattr(a, "accounts"):
-        acc = a.accounts() or []
-        a.account_seq = (acc[0] if isinstance(acc, list) and acc else {}).get("accountSeq")
-    month = month or dt.date.today().strftime("%Y-%m")
-    m0 = dt.date.fromisoformat(month + "-01")
-    txs, cur = [], None
-    for _ in range(40):                                   # 1년 치 매수·매도 (이동평균 매입가 계산용)
-        r = a.transactions(["BUY", "SELL"], (m0 - dt.timedelta(days=365)).isoformat(), None, cur, 100) or {}
-        txs += r.get("transactions") or []
-        cur = r.get("nextCursor")
-        if not r.get("hasNext") or not cur:
-            break
-    if now_rate is None:
-        try:
-            now_rate = float((a.exchange_rate() or {}).get("rate") or 0) or None
-        except Exception:
-            now_rate = None
-    names = dict(names or {})
-    miss = sorted({t.get("symbol") for t in txs if t.get("symbol") and not names.get(t.get("symbol"))})
-    if miss:
-        try:
-            for x in a.stocks(miss[:200]) or []:
-                names[x.get("symbol")] = x.get("name") or x.get("symbol")
-        except Exception:
-            pass
-    f = lambda v: float(v) if v not in (None, "") else 0.0
-    # 오래된 것부터 (결제일 순, 같은 날은 목록 역순)
-    txs = [t for t in txs if not t.get("isCancellation")]
-    order = sorted(range(len(txs)), key=lambda i: (txs[i].get("settlementDate") or "", -i))
-    book, rows = {}, []
-    for i in order:
-        t = txs[i]
-        us = t.get("currency") == "USD"
-        rate = f(t.get("exchangeRate")) if us else 1.0
-        est = us and not rate
-        if est:
-            rate = now_rate or 0.0
-        q = f(t.get("quantity"))
-        sym = t.get("symbol")
-        b = book.setdefault(sym, {"q": 0.0, "cost": 0.0, "known": True})
-        if t.get("transactionType") == "BUY":
-            b["q"] += q
-            b["cost"] += (f(t.get("amount")) + f(t.get("commission")) + f(t.get("tax"))) * rate
-            continue
-        if q <= 0:
-            continue
-        sd = dt.date.fromisoformat(t["settlementDate"]) if t.get("settlementDate") else None
-        trade = _bday_back(sd, 1 if us else 2) if sd else None
-        if b["q"] >= q - 1e-9 and b["q"] > 0:
-            avg = b["cost"] / b["q"]
-            buy_krw = avg * q
-            b["q"] -= q
-            b["cost"] -= buy_krw
-            known = True
-        else:                                            # 1년 안에 산 기록이 없음 → 손익 계산 못 함
-            buy_krw, known = None, False
-            b["q"], b["cost"] = 0.0, 0.0
-        sell_krw = f(t.get("netAmount")) * rate
-        rows.append({"t": (trade.isoformat() if trade else (t.get("settlementDate") or "")), "mk": "US" if us else "KR",
-                     "code": sym, "name": (names or {}).get(sym) or sym, "qty": q,
-                     "exit": (f(t.get("amount")) / q) if q else None, "usd": f(t.get("netAmount")) if us else None,
-                     "fx_out": round(rate, 2) if us else None, "est": est, "known": known,
-                     "krw": (sell_krw - buy_krw) if known else None, "buy_krw": buy_krw, "sell_krw": sell_krw,
-                     "fees_krw": (f(t.get("commission")) + f(t.get("tax"))) * rate})
-    months = {}
-    for r in rows:
-        if r["krw"] is None:
-            continue
-        mm = r["t"][:7]
-        x = months.setdefault(mm, {"month": mm, "krw": 0.0, "KR": 0.0, "US": 0.0, "n": 0, "win": 0})
-        x["krw"] += r["krw"]
-        x[r["mk"]] += r["krw"]
-        x["n"] += 1
-        x["win"] += 1 if r["krw"] > 0 else 0
-    curm = months.get(month) or {"month": month, "krw": 0.0, "KR": 0.0, "US": 0.0, "n": 0, "win": 0}
-    out = {"month": month, "source": "toss", "fx": now_rate, "cur": curm,
-           "months": sorted([m for m in months.values() if m["month"] >= (m0 - dt.timedelta(days=200)).strftime("%Y-%m")],
-                            key=lambda x: x["month"], reverse=True),
-           "trades": sorted([r for r in rows if r["t"].startswith(month)], key=lambda r: r["t"], reverse=True),
-           "pending": any(r["est"] for r in rows if r["t"].startswith(month))}
-    if api is None:
-        _TP.update(t=time.time(), v=(month, out))
-    return out
-
-
-def profits(month: str | None = None, fx: float | None = None, dirs=None, hist=None, toss=None) -> dict:
-    if toss is None and dirs is None:                     # 실전: 토스 계좌 거래내역 그대로 (토스 앱 판매수익과 같게)
-        from . import app as A
-        if (A.STATE.get("mode") or "live") == "live" and os.getenv("TOSSBOT_OFFLINE") != "1":
-            try:
-                names = {}
-                try:
-                    for mk in ("KR", "US"):
-                        for r in _journal_rows(mk):
-                            names[r.get("symbol")] = r.get("name")
-                    for h in A.holdings():
-                        names[h["symbol"]] = h["name"]
-                except Exception:
-                    pass
-                r = toss_profits(month, names=names)
-                if r:
-                    return r
-            except Exception as e:
-                print("토스 판매수익 조회 실패 → 로봇 기록으로", e)
-    """판 기록(익절·손절·일부 익절)에서 월별 실현 손익. 미장은 지금 환율로 원화 환산(토스 앱의 환차손익과는 조금 다를 수 있음)."""
+def profits(month: str | None = None, dirs=None, **_) -> dict:
+    """로봇이 사고판 기록(익절·손절·일부 매도)만으로 월별 판매 수익. 국장은 원, 미장은 달러 그대로."""
     import datetime as dt
     import json as _j
     rows = []
@@ -378,55 +184,21 @@ def profits(month: str | None = None, fx: float | None = None, dirs=None, hist=N
                 if r.get("kind") not in ("exit", "partial") or r.get("pnl") is None:
                     continue
                 rows.append({"t": r.get("t"), "mk": mk, "code": r.get("symbol"), "name": r.get("name"), "qty": r.get("qty"),
-                             "fx_in": (r.get("extra") or {}).get("fx_in"), "fx_out": r.get("fx"), "opened": (r.get("opened_at") or "")[:10],
-                             "opened_at": r.get("opened_at"),
                              "entry": r.get("entry"), "exit": r.get("exit_price"), "pnl": r.get("pnl"),
                              "pct": ((r["exit_price"] / r["entry"] - 1) * 100) if r.get("exit_price") and r.get("entry") else None,
                              "why": (r.get("exit_reason") or "")[:60], "part": r.get("kind") == "partial"})
-    if fx is None and any(r["mk"] == "US" for r in rows):
-        try:
-            from . import app as A
-            fx = A.fx_usdkrw()
-        except Exception:
-            fx = None
-    fx = fx or 1400.0
-    if toss is None:
-        from . import app as A
-        toss = (A.STATE.get("mode") or "live") == "live" and os.getenv("TOSSBOT_OFFLINE") != "1"
-    month = month or __import__("datetime").date.today().strftime("%Y-%m")
-    for r in rows:                                # 환율 기록이 없는 예전 거래: 그 시각의 토스 환율로 (보는 달만)
-        if r["mk"] == "US" and toss and (r["t"] or "").startswith(month):
-            if not r["fx_in"]:
-                r["fx_in"] = toss_fx(r["opened_at"])
-            if not r["fx_out"]:
-                r["fx_out"] = toss_fx(r["t"])
-    if hist is None and any(r["mk"] == "US" and not (r["fx_in"] and r["fx_out"]) for r in rows):
-        hist = fx_hist()
-    for r in rows:
-        if r["mk"] != "US":
-            r["krw"] = r["pnl"]
-            continue
-        # 토스처럼 원화로: 산 날 환율로 산 금액, 판 날 환율로 판 금액, 수수료는 판 날 환율로
-        fi = r["fx_in"] or _fx_on(r["opened"] or (r["t"] or "")[:10], hist or {}, fx)
-        fo = r["fx_out"] or _fx_on((r["t"] or "")[:10], hist or {}, fx)
-        q, e, x = r["qty"] or 0, r["entry"] or 0, r["exit"] or 0
-        cost = q * (x - e) - r["pnl"]
-        r["krw"] = q * (x * fo - e * fi) - cost * fo
-        r["fx_in"], r["fx_out"] = round(fi, 2), round(fo, 2)
-        r["fx_gain"] = q * e * (fo - fi)
     months = {}
     for r in rows:
         m = (r["t"] or "")[:7]
-        x = months.setdefault(m, {"month": m, "krw": 0.0, "KR": 0.0, "US": 0.0, "n": 0, "win": 0})
-        x["krw"] += r["krw"]
-        x[r["mk"]] += r["krw"] if r["mk"] == "US" else r["pnl"]
+        x = months.setdefault(m, {"month": m, "KR": 0.0, "US": 0.0, "nKR": 0, "nUS": 0, "n": 0, "win": 0})
+        x[r["mk"]] += r["pnl"]
+        x["n" + r["mk"]] += 1
         x["n"] += 1
-        x["win"] += 1 if r["krw"] > 0 else 0
+        x["win"] += 1 if r["pnl"] > 0 else 0
     month = month or dt.date.today().strftime("%Y-%m")
-    cur = months.get(month) or {"month": month, "krw": 0.0, "KR": 0.0, "US": 0.0, "n": 0, "win": 0}
-    return {"month": month, "fx": fx, "cur": cur, "months": sorted(months.values(), key=lambda x: x["month"], reverse=True),
+    cur = months.get(month) or {"month": month, "KR": 0.0, "US": 0.0, "nKR": 0, "nUS": 0, "n": 0, "win": 0}
+    return {"month": month, "cur": cur, "months": sorted(months.values(), key=lambda x: x["month"], reverse=True),
             "trades": sorted([r for r in rows if (r["t"] or "").startswith(month)], key=lambda r: r["t"] or "", reverse=True)}
-
 
 def probe(api=None) -> dict:
     """진단: 토스 계좌 거래내역(최근 판 것)·보유 원본 — 원화 판매수익을 토스와 똑같이 맞추려고 필드 확인용. 계좌번호는 가림."""
@@ -474,7 +246,7 @@ def home() -> dict:
     s["log"] = s.get("log", [])[-120:]
     try:
         p = profits()
-        s["month_pnl"] = {"month": p["month"], "krw": p["cur"]["krw"], "n": p["cur"]["n"], "win": p["cur"]["win"]}
+        s["month_pnl"] = {"month": p["month"], "KR": p["cur"]["KR"], "US": p["cur"]["US"], "n": p["cur"]["n"]}
     except Exception:
         s["month_pnl"] = None
     try:

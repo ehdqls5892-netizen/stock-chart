@@ -163,7 +163,7 @@ function vHome(){
   hs.forEach(h=>{if(h.pnl!=null){if(h.fx){tot+=h.pnl*h.fx;val+=(h.value||0)*h.fx}else fxok=false}});
   let h=`<div class="card"><div class="muted small">보유 평가손익${fxok?" (원화 환산)":""}</div>
     <div class="big ${cls(tot)}">${hs.length?smoney(tot,"KR"):"보유 없음"}</div>
-    ${D.month_pnl?`<div class="row" style="margin-top:8px;cursor:pointer" onclick="openProfits()"><span class="muted small">${+D.month_pnl.month.slice(5)}월 판매 수익 (확정)</span><span class="sp"></span><b class="${cls(D.month_pnl.krw)}">${smoney(D.month_pnl.krw,"KR")}</b><span class="small muted" style="margin-left:6px">${D.month_pnl.n}건 ›</span></div>`:""}</div>`;
+    ${D.month_pnl?`<div class="row" style="margin-top:8px;cursor:pointer" onclick="openProfits()"><span class="muted small">${+D.month_pnl.month.slice(5)}월 봇 판매 수익</span><span class="sp"></span><b class="${cls(D.month_pnl.KR)}">🇰🇷 ${smoney(D.month_pnl.KR,"KR")}</b><b class="${cls(D.month_pnl.US)}" style="margin-left:8px">🇺🇸 ${smoney(D.month_pnl.US,"US")}</b><span class="small muted" style="margin-left:6px">›</span></div>`:""}</div>`;
   h+=`<div class="grid2">`+Object.entries(D.markets||{}).map(([mk,x])=>`<div class="card mk">
      <h3>${FL[mk]} ${NM[mk]}</h3><div class="muted small">${esc(x.phase||"")}</div>
      <div class="v ${cls(x.realized)}">${smoney(x.realized||0,mk)}</div><div class="muted small">오늘 확정 · 매수 ${x.trades||0}회</div>
@@ -225,7 +225,7 @@ function vBrief(){
   if(sub==="log")return vLog(seg);
   const btn=(k,t)=>`<button class="sm" onclick="runCmd('${k}')">${t}</button>`;
   let h=seg+`<div class="card"><b>보고서</b><div class="muted small">텔레그램 버튼과 같은 내용이에요. 분석은 종목마다 몇 초 걸려요.</div>
-    <div class="btns">${btn("분석","📰 보유 분석")}${btn("성적","📈 성적")}</div><div class="btns">${btn("진단","🔍 진단")}${btn("매수기록","🧾 매수 기록")}${btn("스윙","🧭 스윙")}</div><div class="btns"><button class="sm" onclick="openProfits()">💰 판매 수익</button><button class="sm" onclick="openProbe()">🔧 토스 원본</button></div></div>`;
+    <div class="btns">${btn("분석","📰 보유 분석")}${btn("성적","📈 성적")}</div><div class="btns">${btn("진단","🔍 진단")}${btn("매수기록","🧾 매수 기록")}${btn("스윙","🧭 스윙")}</div><div class="btns"><button class="sm" onclick="openProfits()">💰 판매 수익</button></div></div>`;
   h+=Object.entries(T).reverse().map(([k,v])=>`<div class="card"><div class="row"><b>${esc(k)}</b><span class="sp"></span><span class="small muted">${esc(v.at)}</span></div>
     ${v.busy?`<div class="why"><span class="spin"></span> 모으는 중…</div>`:v.texts.map(t=>`<pre style="margin-top:8px">${esc(t)}</pre>`).join("")}</div>`).join("");
   $("v").innerHTML=h;
@@ -405,23 +405,15 @@ async function openProfits(month){
   if(!r||r.error){$("prf-b").innerHTML=`<div class="card empty">불러오지 못했어요</div>`;return}
   const c=r.cur, mm=m=>`${m.slice(0,4)}년 ${+m.slice(5)}월`;
   const day=t=>{const d=new Date(t);return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`};
-  let h=`<div class="card"><div class="muted small">${mm(r.month)} 판매 수익 (팔아서 확정된 손익)</div>
-    <div class="big ${cls(c.krw)}">${smoney(c.krw,"KR")}</div>
-    <div class="muted small">${c.n}건 · 이익 ${c.win}건 · 손실 ${c.n-c.win}건${c.n?` · 승률 ${Math.round(c.win/c.n*100)}%`:""}</div>
-    <div class="muted small">🇰🇷 국장 ${smoney(c.KR,"KR")} · 🇺🇸 미장 ${smoney(c.US,"KR")}${r.source==="toss"?" · 토스 계좌 거래내역으로 계산(수수료·세금·환율 포함)":" (로봇 기록으로 계산 — 토스와 조금 다를 수 있어요)"}</div></div>`;
-  if(r.months.length>1||(r.months[0]&&r.months[0].month!==r.month))
-    h+=`<div class="card"><b>달별</b>${r.months.map(m=>`<div class="row" style="margin-top:6px;cursor:pointer" onclick="openProfits('${m.month}')"><span>${mm(m.month)}</span><span class="sp"></span><b class="${cls(m.krw)}">${smoney(m.krw,"KR")}</b><span class="small muted" style="margin-left:6px">${m.n}건 ›</span></div>`).join("")}</div>`;
-  if(r.source==="toss"){
-    h+=`<div class="card"><b>판 기록</b> <span class="small muted">토스 계좌 거래내역 기준</span>${r.trades.map(t=>`<div class="h"><div class="row"><span class="nm">${FL[t.mk]} ${esc(t.name||t.code)}</span><span class="sp"></span><b class="${cls(t.krw)}">${t.krw==null?"–":smoney(t.krw,"KR")}</b></div>
-      <div class="muted small">${t.t.slice(5).replace("-","/")} · ${+t.qty}주 판매${t.exit?` · ${money(t.exit,t.mk)}`:""}${t.est?` · <span style="color:var(--warn)">결제 전 예상</span>`:""}</div>
-      ${t.known?`<div class="muted small">판 금액 ${money(t.sell_krw,"KR")} − 산 금액 ${money(t.buy_krw,"KR")}${t.mk==="US"?` · 판매 환율 ${t.fx_out}원`:""}</div>`:`<div class="muted small">1년 안에 산 기록이 없어 손익 계산 안 함</div>`}</div>`).join("")||`<div class="empty">이 달에 판 기록이 없어요</div>`}</div>`;
-    if(r.pending)h+=`<div class="card why">'결제 전 예상'은 토스가 아직 환율을 확정하지 않은 거래예요(미장은 다음 날, 국장은 이틀 뒤 확정). 지금 토스 환율로 계산했고, 확정되면 토스 앱과 똑같아져요.</div>`;
-    $("prf-b").innerHTML=h;return;
-  }
-  h+=`<div class="card"><b>판 기록</b>${r.trades.map(t=>`<div class="h"><div class="row"><span class="nm">${FL[t.mk]} ${esc(t.name||t.code)}</span><span class="sp"></span><b class="${cls(t.krw)}">${smoney(t.krw,"KR")}</b></div>
-    <div class="muted small">${day(t.t)} · ${t.qty}주 · ${money(t.entry,t.mk)} → ${money(t.exit,t.mk)} (${pct(t.pct)})${t.part?(t.krw>=0?" · 일부 익절":" · 일부 매도"):""}</div>
-    ${t.mk==="US"?`<div class="muted small">달러 ${smoney(t.pnl,"US")} · 환율 ${Math.round(t.fx_in)}→${Math.round(t.fx_out)}원 (환차 ${smoney(t.fx_gain,"KR")})</div>`:""}
-    <div class="why">${esc(t.why)}</div></div>`).join("")||`<div class="empty">이 달에 판 기록이 없어요</div>`}</div>`;
+  let h=`<div class="card"><div class="muted small">${mm(r.month)} 봇 판매 수익 (로봇이 판 것만)</div>
+    <div class="row" style="margin-top:6px"><span>🇰🇷 국장</span><span class="sp"></span><b class="big ${cls(c.KR)}" style="font-size:22px">${smoney(c.KR,"KR")}</b></div>
+    <div class="row"><span>🇺🇸 미장</span><span class="sp"></span><b class="big ${cls(c.US)}" style="font-size:22px">${smoney(c.US,"US")}</b></div>
+    <div class="muted small">${c.n}건 · 이익 ${c.win}건 · 손실 ${c.n-c.win}건${c.n?` · 승률 ${Math.round(c.win/c.n*100)}%`:""} · 수수료·세금 뺀 금액(미장은 달러 기준)</div></div>`;
+  if(r.months.length)
+    h+=`<div class="card"><b>달별</b>${r.months.map(m=>`<div class="row" style="margin-top:6px;cursor:pointer" onclick="openProfits('${m.month}')"><span>${mm(m.month)}</span><span class="sp"></span><b class="${cls(m.KR)}">${smoney(m.KR,"KR")}</b><b class="${cls(m.US)}" style="margin-left:8px">${smoney(m.US,"US")}</b><span class="small muted" style="margin-left:6px">${m.n}건 ›</span></div>`).join("")}</div>`;
+  h+=`<div class="card"><b>판 기록</b>${r.trades.map(t=>`<div class="h"><div class="row"><span class="nm">${FL[t.mk]} ${esc(t.name||t.code)}</span><span class="sp"></span><b class="${cls(t.pnl)}">${smoney(t.pnl,t.mk)}</b></div>
+    <div class="muted small">${day(t.t)} · ${t.qty}주 · ${money(t.entry,t.mk)} → ${money(t.exit,t.mk)} (${pct(t.pct)})${t.part?(t.pnl>=0?" · 일부 익절":" · 일부 매도"):""}</div>
+    <div class="why">${esc(t.why)}</div></div>`).join("")||`<div class="empty">이 달에 로봇이 판 기록이 없어요</div>`}</div>`;
   $("prf-b").innerHTML=h;
 }
 async function openInbox(){
