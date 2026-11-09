@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -174,6 +175,49 @@ def fx_hist(get=None) -> dict:
     return _FXH["v"]
 
 
+_TFX: dict = {}
+
+
+def toss_fx(ts: str | None, api=None):
+    """그 시각의 토스 환율(rate) — 토스 앱 판매수익과 같은 기준. 한 번 받은 값은 파일에 기억."""
+    import datetime as dt
+    import json as _j
+    if not ts:
+        return None
+    try:
+        d = dt.datetime.fromisoformat(ts)
+        d = d.astimezone() if d.tzinfo is None else d
+        key = d.isoformat(timespec="minutes")
+    except Exception:
+        return None
+    f = DIR.parent / "logs" / "fx_toss.json"
+    if not _TFX:
+        try:
+            _TFX.update({k: v for k, v in _j.loads(f.read_text(encoding="utf-8")).items() if k != "_fail"})
+        except Exception:
+            pass
+    if key in _TFX:
+        return _TFX[key] or None
+    if _TFX.get("_fail", 0) >= 3:                 # 토스 환율 조회가 계속 안 되면 이번엔 포기(일별 환율로)
+        return None
+    try:
+        from . import main as M
+        r = (api or M.shared_api()).exchange_rate(d.isoformat(timespec="seconds"))
+        v = float(r.get("rate") or 0) or None
+    except Exception:
+        v = None
+    if not v:
+        _TFX["_fail"] = _TFX.get("_fail", 0) + 1
+    if v:
+        _TFX[key] = v
+        try:
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(_j.dumps(_TFX), encoding="utf-8")
+        except Exception:
+            pass
+    return v
+
+
 def _fx_on(day: str, hist: dict, fallback: float) -> float:
     if not hist or not day:
         return fallback
@@ -181,7 +225,7 @@ def _fx_on(day: str, hist: dict, fallback: float) -> float:
     return hist[max(ks)] if ks else fallback
 
 
-def profits(month: str | None = None, fx: float | None = None, dirs=None, hist=None) -> dict:
+def profits(month: str | None = None, fx: float | None = None, dirs=None, hist=None, toss=None) -> dict:
     """판 기록(익절·손절·일부 익절)에서 월별 실현 손익. 미장은 지금 환율로 원화 환산(토스 앱의 환차손익과는 조금 다를 수 있음)."""
     import datetime as dt
     import json as _j
@@ -198,6 +242,7 @@ def profits(month: str | None = None, fx: float | None = None, dirs=None, hist=N
                     continue
                 rows.append({"t": r.get("t"), "mk": mk, "code": r.get("symbol"), "name": r.get("name"), "qty": r.get("qty"),
                              "fx_in": (r.get("extra") or {}).get("fx_in"), "fx_out": r.get("fx"), "opened": (r.get("opened_at") or "")[:10],
+                             "opened_at": r.get("opened_at"),
                              "entry": r.get("entry"), "exit": r.get("exit_price"), "pnl": r.get("pnl"),
                              "pct": ((r["exit_price"] / r["entry"] - 1) * 100) if r.get("exit_price") and r.get("entry") else None,
                              "why": (r.get("exit_reason") or "")[:60], "part": r.get("kind") == "partial"})
@@ -208,6 +253,16 @@ def profits(month: str | None = None, fx: float | None = None, dirs=None, hist=N
         except Exception:
             fx = None
     fx = fx or 1400.0
+    if toss is None:
+        from . import app as A
+        toss = (A.STATE.get("mode") or "live") == "live" and os.getenv("TOSSBOT_OFFLINE") != "1"
+    month = month or __import__("datetime").date.today().strftime("%Y-%m")
+    for r in rows:                                # 환율 기록이 없는 예전 거래: 그 시각의 토스 환율로 (보는 달만)
+        if r["mk"] == "US" and toss and (r["t"] or "").startswith(month):
+            if not r["fx_in"]:
+                r["fx_in"] = toss_fx(r["opened_at"])
+            if not r["fx_out"]:
+                r["fx_out"] = toss_fx(r["t"])
     if hist is None and any(r["mk"] == "US" and not (r["fx_in"] and r["fx_out"]) for r in rows):
         hist = fx_hist()
     for r in rows:

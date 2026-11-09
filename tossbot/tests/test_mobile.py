@@ -171,7 +171,7 @@ _kr, _us = _P(_tf.mkdtemp()), _P(_tf.mkdtemp())
     {"t": "2026-10-30T15:20:00", "kind": "exit", "symbol": "000660", "name": "SK하이닉스", "qty": 1, "entry": 100, "exit_price": 90, "pnl": -10, "exit_reason": "손절"}]), encoding="utf-8")
 (_us / "trades-2026-11-09.jsonl").write_text(_json.dumps({"t": "2026-11-09T15:45:00", "kind": "partial", "symbol": "SWK", "name": "Stanley", "qty": 3,
                                                          "entry": 119.17, "exit_price": 118.9, "pnl": -0.81, "exit_reason": "목표가 도달 — 일부 익절"}), encoding="utf-8")
-_p = _MB.profits("2026-11", fx=1400, dirs={"KR": _kr, "US": _us}, hist={})
+_p = _MB.profits("2026-11", fx=1400, dirs={"KR": _kr, "US": _us}, hist={}, toss=False)
 assert _p["cur"]["n"] == 2 and abs(_p["cur"]["krw"] - (1000 - 0.81 * 1400)) < 1e-6, _p["cur"]
 assert _p["trades"][0]["part"] and _p["trades"][0]["mk"] == "US"
 assert [m["month"] for m in _p["months"]] == ["2026-11", "2026-10"] and _p["months"][1]["krw"] == -10
@@ -179,12 +179,22 @@ print("✅ 판매 수익 시험 통과")
 # 토스처럼 산 날·판 날 환율로 원화 손익 (스탠리 예: 달러로는 -$1.64 인데 환율이 올라 원화로는 이익)
 (_us / "trades-2026-11-09.jsonl").write_text(_json.dumps({"t": "2026-11-09T15:45:00", "kind": "partial", "symbol": "SWK", "name": "Stanley", "qty": 3,
     "entry": 119.17, "exit_price": 118.86, "pnl": -1.64, "fx": 1357.9, "extra": {"fx_in": 1340.7}, "exit_reason": "x"}), encoding="utf-8")
-_p = _MB.profits("2026-11", fx=1400, dirs={"KR": _kr, "US": _us}, hist={})
+_p = _MB.profits("2026-11", fx=1400, dirs={"KR": _kr, "US": _us}, hist={}, toss=False)
 _s = [t for t in _p["trades"] if t["mk"] == "US"][0]
 assert 3800 < _s["krw"] < 4000 and _s["fx_gain"] > 0, _s
 _h = {"2026-11-02": 1340.7, "2026-11-09": 1357.9}
 (_us / "trades-2026-11-09.jsonl").write_text(_json.dumps({"t": "2026-11-09T15:45:00", "kind": "exit", "symbol": "SWK", "name": "Stanley", "qty": 3,
     "entry": 119.17, "exit_price": 118.86, "pnl": -1.64, "opened_at": "2026-11-03T09:31:00", "exit_reason": "x"}), encoding="utf-8")
-_s = [t for t in _MB.profits("2026-11", fx=1400, dirs={"KR": _kr, "US": _us}, hist=_h)["trades"] if t["mk"] == "US"][0]
+_s = [t for t in _MB.profits("2026-11", fx=1400, dirs={"KR": _kr, "US": _us}, hist=_h, toss=False)["trades"] if t["mk"] == "US"][0]
 assert 3800 < _s["krw"] < 4000, _s                                   # 예전 거래(환율 기록 없음)는 그날 환율로
 print("✅ 원화 판매 수익 시험 통과")
+# 토스 환율 API로 예전 거래 계산 (살 때 1340.70, 팔 때 1357.90 → 토스 판매수익과 같게)
+_MB._TFX.clear()
+class _FA:
+    def exchange_rate(self, t):
+        return {"rate": "1340.70" if t.startswith("2026-11-03") else "1357.90"}
+_MB.toss_fx.__defaults__ = (_FA(),)
+_s = [t for t in _MB.profits("2026-11", fx=1400, dirs={"KR": _kr, "US": _us}, hist={}, toss=True)["trades"] if t["mk"] == "US"][0]
+assert _s["fx_in"] == 1340.7 and _s["fx_out"] == 1357.9 and 3850 < _s["krw"] < 3950, _s
+_MB.toss_fx.__defaults__ = (None,)
+print("✅ 토스 환율 판매 수익 시험 통과")

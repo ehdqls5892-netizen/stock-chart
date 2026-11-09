@@ -174,6 +174,13 @@ class TossAPI:
             "type": type_, "marketCountry": market, "duration": duration, "count": count,
             "excludeInvestmentCaution": str(exclude_caution).lower()}) or {}
 
+    def exchange_rate(self, date_time: str | None = None, base="USD", quote="KRW"):
+        """토스 환율(그 시각 기준). rate = 토스가 쓰는 환율, midRate = 중간 환율."""
+        p = {"baseCurrency": base, "quoteCurrency": quote}
+        if date_time:
+            p["dateTime"] = date_time
+        return self.req("GET", "/api/v1/exchange-rate", "MARKET_INFO", p) or {}
+
     def calendar(self, market: str):
         return self.req("GET", f"/api/v1/market-calendar/{market}", "MARKET_INFO")
 

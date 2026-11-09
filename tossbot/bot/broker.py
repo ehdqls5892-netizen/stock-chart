@@ -103,8 +103,14 @@ class BaseBroker:
 
     def _journal(self, kind: str, p: Position, **kw):
         day = self.today().isoformat()
-        if self.m == "US":                       # 원화 손익 계산용: 그때 환율을 같이 적어 둠
-            fx = fx_now()
+        if self.m == "US":                       # 원화 손익 계산용: 그때 토스 환율을 같이 적어 둠
+            fx = None
+            if getattr(self, "api", None) is not None and kind in ("entry", "armed", "exit", "partial"):
+                try:
+                    fx = float((self.api.exchange_rate() or {}).get("rate") or 0) or None
+                except Exception:
+                    fx = None
+            fx = fx or fx_now()
             if fx:
                 kw.setdefault("fx", fx)
                 if kind in ("entry", "armed") and not p.extra.get("fx_in"):
