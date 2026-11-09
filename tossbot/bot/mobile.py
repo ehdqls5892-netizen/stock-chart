@@ -122,8 +122,86 @@ def nobuy_state() -> dict:
     return {mk: nb.get(mk) == now(mk).date().isoformat() for mk in ("KR", "US")}
 
 
+_SYNC = {}
+
+
+def sync_holdings(now_fn=None):
+    """장 밖(로봇이 쉬는 중)이라도 앱을 열면 실제 토스 계좌와 보유를 맞춤: 체결 확인 → 계좌에 없는 종목은 목록에서 뺌. 1분에 한 번."""
+    from . import app as A
+    from . import main as M
+    for mk in ("KR", "US"):
+        b = A.STATE.get("bots", {}).get(mk)
+        br = getattr(b, "broker", None)
+        if b is None or br is None or getattr(b, "loop_on", False) or not hasattr(br, "reconcile"):
+            continue                              # 장중엔 로봇이 1분마다 직접 맞춤
+        if time.time() - _SYNC.get(mk, 0) < 60:
+            continue
+        _SYNC[mk] = time.time()
+        try:
+            if hasattr(br, "api"):
+                for p in br.pos.values():
+                    p.last_check = 0
+                br.poll((now_fn or M.now)(mk), {})
+            br.reconcile()
+        except Exception as e:
+            print("보유 맞추기 실패", mk, e)
+
+
+def _journal_dir(mk: str) -> Path:
+    from . import app as A
+    from . import main as M
+    mode = A.STATE.get("mode") or M.load_settings().get("resume") or "live"
+    return M.ROOT / "logs" / ("paper" if mode == "paper" else "live") / mk
+
+
+def profits(month: str | None = None, fx: float | None = None, dirs=None) -> dict:
+    """판 기록(익절·손절·일부 익절)에서 월별 실현 손익. 미장은 지금 환율로 원화 환산(토스 앱의 환차손익과는 조금 다를 수 있음)."""
+    import datetime as dt
+    import json as _j
+    rows = []
+    for mk in ("KR", "US"):
+        d = (dirs or {}).get(mk) or _journal_dir(mk)
+        for f in sorted(Path(d).glob("trades-*.jsonl")) if Path(d).exists() else []:
+            for line in f.read_text(encoding="utf-8").splitlines():
+                try:
+                    r = _j.loads(line)
+                except Exception:
+                    continue
+                if r.get("kind") not in ("exit", "partial") or r.get("pnl") is None:
+                    continue
+                rows.append({"t": r.get("t"), "mk": mk, "code": r.get("symbol"), "name": r.get("name"), "qty": r.get("qty"),
+                             "entry": r.get("entry"), "exit": r.get("exit_price"), "pnl": r.get("pnl"),
+                             "pct": ((r["exit_price"] / r["entry"] - 1) * 100) if r.get("exit_price") and r.get("entry") else None,
+                             "why": (r.get("exit_reason") or "")[:60], "part": r.get("kind") == "partial"})
+    if fx is None and any(r["mk"] == "US" for r in rows):
+        try:
+            from . import app as A
+            fx = A.fx_usdkrw()
+        except Exception:
+            fx = None
+    fx = fx or 1400.0
+    for r in rows:
+        r["krw"] = r["pnl"] * (fx if r["mk"] == "US" else 1)
+    months = {}
+    for r in rows:
+        m = (r["t"] or "")[:7]
+        x = months.setdefault(m, {"month": m, "krw": 0.0, "KR": 0.0, "US": 0.0, "n": 0, "win": 0})
+        x["krw"] += r["krw"]
+        x[r["mk"]] += r["pnl"]
+        x["n"] += 1
+        x["win"] += 1 if r["pnl"] > 0 else 0
+    month = month or dt.date.today().strftime("%Y-%m")
+    cur = months.get(month) or {"month": month, "krw": 0.0, "KR": 0.0, "US": 0.0, "n": 0, "win": 0}
+    return {"month": month, "fx": fx, "cur": cur, "months": sorted(months.values(), key=lambda x: x["month"], reverse=True),
+            "trades": sorted([r for r in rows if (r["t"] or "").startswith(month)], key=lambda r: r["t"] or "", reverse=True)}
+
+
 def home() -> dict:
     from . import app as A
+    try:
+        sync_holdings()
+    except Exception:
+        pass
     s = A.status()
     try:
         hs = A.holdings()
@@ -133,6 +211,11 @@ def home() -> dict:
     s["holdings"] = hs
     s["capitals"] = A.capitals()
     s["log"] = s.get("log", [])[-120:]
+    try:
+        p = profits()
+        s["month_pnl"] = {"month": p["month"], "krw": p["cur"]["krw"], "n": p["cur"]["n"], "win": p["cur"]["win"]}
+    except Exception:
+        s["month_pnl"] = None
     try:
         s["nobuy"] = nobuy_state()
     except Exception:

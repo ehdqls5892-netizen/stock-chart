@@ -160,3 +160,19 @@ assert "안 사요" in _r["msg"] and _st["exclude"]["KR"]["codes"] == ["068270"]
 _MB.post("/api/m/exclude", {"market": "KR", "symbol": "068270", "on": False})
 assert _st["exclude"]["KR"]["codes"] == []
 print("✅ 종목 빼기 시험 통과")
+
+# 판매 수익: 월별 합계·미장 원화 환산·일부 익절 포함
+import json as _json, tempfile as _tf  # noqa: E402
+from pathlib import Path as _P  # noqa: E402
+_kr, _us = _P(_tf.mkdtemp()), _P(_tf.mkdtemp())
+(_kr / "trades-2026-11-03.jsonl").write_text("\n".join(_json.dumps(r, ensure_ascii=False) for r in [
+    {"t": "2026-11-03T15:20:00", "kind": "exit", "symbol": "005930", "name": "삼성전자", "qty": 10, "entry": 100, "exit_price": 110, "pnl": 1000, "exit_reason": "익절"},
+    {"t": "2026-11-03T09:00:00", "kind": "entry", "symbol": "000660", "name": "SK하이닉스", "qty": 1, "entry": 100, "pnl": 0},
+    {"t": "2026-10-30T15:20:00", "kind": "exit", "symbol": "000660", "name": "SK하이닉스", "qty": 1, "entry": 100, "exit_price": 90, "pnl": -10, "exit_reason": "손절"}]), encoding="utf-8")
+(_us / "trades-2026-11-09.jsonl").write_text(_json.dumps({"t": "2026-11-09T15:45:00", "kind": "partial", "symbol": "SWK", "name": "Stanley", "qty": 3,
+                                                         "entry": 119.17, "exit_price": 118.9, "pnl": -0.81, "exit_reason": "목표가 도달 — 일부 익절"}), encoding="utf-8")
+_p = _MB.profits("2026-11", fx=1400, dirs={"KR": _kr, "US": _us})
+assert _p["cur"]["n"] == 2 and abs(_p["cur"]["krw"] - (1000 - 0.81 * 1400)) < 1e-6, _p["cur"]
+assert _p["trades"][0]["part"] and _p["trades"][0]["mk"] == "US"
+assert [m["month"] for m in _p["months"]] == ["2026-11", "2026-10"] and _p["months"][1]["krw"] == -10
+print("✅ 판매 수익 시험 통과")

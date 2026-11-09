@@ -1811,6 +1811,31 @@ class Bot:
 
     # ───────── 본 루프 ─────────
     def run(self):
+        """같은 시장 로봇이 동시에 두 개 돌면(같은 주문이 두 번 나감) 안 되므로 시장별 잠금 파일로 하나만 돌게 함."""
+        lockf = None
+        try:
+            import fcntl
+            (ROOT / "logs").mkdir(exist_ok=True)
+            lockf = open(ROOT / "logs" / f"run-{self.m}-{self.mode}.lock", "w")
+            try:
+                fcntl.flock(lockf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except OSError:
+                lockf.close()
+                self.notify(f"⚠️ {FLAG[self.m]} 같은 시장 로봇이 이미 하나 돌고 있어서 두 번째는 켜지 않았어요 (같은 주문이 두 번 나가는 걸 막음)")
+                self.phase = "종료됨"
+                return None
+        except ImportError:                      # 윈도우: 잠금 없이
+            lockf = None
+        try:
+            return self._run()
+        finally:
+            if lockf:
+                try:
+                    lockf.close()
+                except Exception:
+                    pass
+
+    def _run(self):
         live = self.mode == "live"
         self.phase = "시작 중"
         if live and not self.cfg["live"].get("enabled"):
