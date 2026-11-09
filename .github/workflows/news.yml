@@ -1,9 +1,9 @@
-name: 종목 뉴스 AI 판정 (장중 1시간마다)
+name: 종목 뉴스 AI 판정 (하루 한 번, 매수 전)
 
 on:
   schedule:
-    - cron: "5 23,0-6 * * 0-5"   # 국장: 한국 08:05~15:05 매시간 (일~금 UTC = 한국 월~금)
-    - cron: "35 13-21 * * 1-5"   # 미장: 뉴욕 프리장~마감 매시간 (겨울 08:35~16:35)
+    - cron: "5 4 * * 1-5"      # 국장: 하루 한 번, 한국 13:05 (13:20 장중 다시 고르기·15:15 매수 직전)
+    - cron: "55 17 * * 1-5"    # 미장: 하루 한 번, 뉴욕 겨울 12:55 (13:30 다시 고르기·15:45 매수 직전)
   workflow_dispatch:
     inputs:
       market:
@@ -32,7 +32,7 @@ jobs:
         id: mk
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then M="${{ github.event.inputs.market }}";
-          elif [ "${{ github.event.schedule }}" = "5 23,0-6 * * 0-5" ]; then M=kr; else M=us; fi
+          elif [ "${{ github.event.schedule }}" = "5 4 * * 1-5" ]; then M=kr; else M=us; fi
           echo "m=$M" >> $GITHUB_OUTPUT
       - name: 판정
         env:

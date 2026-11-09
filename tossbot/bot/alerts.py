@@ -209,7 +209,7 @@ _last_nj: dict = {}
 
 
 def hold_news(mk: str, news_fn=None, claude=None):
-    """1시간마다 보유 종목 최신 기사를 서버에서 바로 AI 판정 (.env 에 ANTHROPIC_API_KEY 가 있을 때만).
+    """하루 한 번(현지 13시 이후, 매수 전) 보유 종목 최신 기사를 서버에서 바로 AI 판정 (.env 에 ANTHROPIC_API_KEY 가 있을 때만).
     새로 '악재'가 되면 알림, '심한 악재'면 더 강하게 알림 (자동으로 팔지는 않음 — 손절선이 지켜 줌)."""
     import os
     from . import app as A
@@ -220,15 +220,19 @@ def hold_news(mk: str, news_fn=None, claude=None):
     from . import push
     if not os.getenv("ANTHROPIC_API_KEY", "").strip() and not claude:
         return
-    if time.time() - _last_nj.get(mk, 0) < 3300:
-        return
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    t = dt.datetime.now(ZoneInfo("Asia/Seoul" if mk == "KR" else "America/New_York"))
+    day = t.date().isoformat()
+    if not claude and (_last_nj.get(mk) == day or t.hour < 13):
+        return                                   # 하루 한 번, 매수 2시간쯤 전(현지 13시 이후)에만
     b = A.STATE.get("bots", {}).get(mk)
     if b is None or not getattr(b, "loop_on", False):
         return
     hold = [p for p in b.broker.pos.values() if p.state == "open"]
     if not hold:
         return
-    _last_nj[mk] = time.time()
+    _last_nj[mk] = day
 
     def f(code, name):
         h = N.naver_stock_news(code, 8) if mk == "KR" and code.isdigit() else []
