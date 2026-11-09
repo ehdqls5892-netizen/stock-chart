@@ -1,23 +1,74 @@
 {
  "market": "us",
- "date": "2026-11-05",
- "updatedAt": "2026-11-05T14:51+00:00",
- "plans": {},
+ "date": "2026-11-09",
+ "updatedAt": "2026-11-09T17:51+00:00",
+ "plans": {
+  "GOOGL": {
+   "name": "알파벳",
+   "stop": 276.92,
+   "entryLow": 282.93,
+   "entryHigh": 288.93,
+   "t1": 331.45,
+   "src": "장중 1순위",
+   "t2": 400.37,
+   "score": 75
+  }
+ },
  "watch": [
-  "APP",
-  "QCOM",
-  "ARM",
-  "MU",
-  "U",
-  "SNAP",
+  "AMD",
   "NVDA",
-  "Z",
-  "AAMI",
-  "CNK",
-  "FSLR",
-  "JBLU",
-  "LH",
-  "MTRN"
+  "CEG",
+  "AMAT",
+  "CSCO",
+  "ARHS",
+  "AIZ",
+  "BAM",
+  "ABG",
+  "AAPL",
+  "GOOGL"
  ],
- "earn_good": {}
+ "earn_good": {},
+ "names": {
+  "AMD": "AMD",
+  "NVDA": "엔비디아",
+  "CEG": "컨스텔레이션에너지",
+  "AMAT": "어플라이드 머티어리얼즈",
+  "GOOGL": "알파벳",
+  "AMZN": "아마존",
+  "MSFT": "마이크로소프트",
+  "TSLA": "테슬라",
+  "CSCO": "시스코",
+  "ARHS": "아하우스",
+  "AIZ": "어슈어런트",
+  "BAM": "브룩필드 자산운용",
+  "ABG": "애즈버리 오토모티브",
+  "AAPL": "애플",
+  "196170": "알테오젠"
+ },
+ "impact": {
+  "NVDA": {
+   "impact": "악재",
+   "title": "엔비디아 CEO 조사, 주가 -5%"
+  },
+  "AMD": {
+   "impact": "호재",
+   "title": "AMD·반도체 장비주 급등"
+  },
+  "AMAT": {
+   "impact": "호재",
+   "title": "AMD·반도체 장비주 급등"
+  },
+  "CEG": {
+   "impact": "호재",
+   "title": "컨스텔레이션에너지 깜짝 실적"
+  },
+  "GOOGL": {
+   "impact": "호재",
+   "title": "구글, 새 AI 칩 2종 발표"
+  },
+  "196170": {
+   "impact": "악재",
+   "title": "알테오젠, 美 약값 규칙에 급락"
+  }
+ }
 }
