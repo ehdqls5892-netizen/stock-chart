@@ -700,6 +700,10 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
             why = x["no_buy"]
         elif c.get("min_rr") and (x.get("rr") or {}).get("rr") is not None and x["rr"]["rr"] < c["min_rr"]:
             why = f"손익비 {x['rr']['rr']:.1f} (기준 {c['min_rr']:g} 미만)"
+        elif c.get("max_ext20") and any("단기 과열" in t for t in (x.get("cons") or [])):
+            why = "20일선보다 너무 높이 떠 있어 단기 과열"
+        elif c.get("max_stop_pct") and x.get("close") and x.get("stop") and (x["close"] - x["stop"]) / x["close"] > c["max_stop_pct"]:
+            why = f"손절 폭 {(x['close'] - x['stop']) / x['close'] * 100:.0f}% — 너무 넓음"
         elif sc < c.get("min_forward_score", 3):
             why = f"점수 {sc:+.0f} (기준 +{c.get('min_forward_score', 3)} 미만)"
         elif x.get("sector") and sec_n.get(x["sector"], 0) >= smax:

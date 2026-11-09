@@ -1494,6 +1494,14 @@ class Bot:
         rv, _ = SW.rev_state(ev)
         if rv == "down":
             warn.append("이익 전망 하향 중")
+        mx = c.get("max_ext20")                       # 20일선보다 너무 높이 떠 있으면(단기 과열) 안 삼 — 후보가 많으니 굳이 위험 안 짐
+        if why is None and mx and len(bars) >= 20 and price:
+            ma20 = sum(b[4] for b in bars[-20:]) / 20
+            if price >= ma20 * (1 + mx):
+                why = f"20일선보다 {(price / ma20 - 1) * 100:+.0f}% 높이 떠 있어 단기 과열 — 쉬어 갈 때 다시 봄"
+        ms = c.get("max_stop_pct")                    # 손절 폭이 너무 넓으면 한 번 틀릴 때 많이 잃음 → 안 삼
+        if why is None and ms and price and x.get("stop") and (price - float(x["stop"])) / price > ms:
+            why = f"손절 폭 {(price - float(x['stop'])) / price * 100:.0f}% — 너무 넓어서(기준 {ms * 100:.0f}%) 안 사요"
         ld = SW.long_downtrend(bars, price)
         if why is None and ld:
             ok, nev = SW.turnaround(fwhy)
