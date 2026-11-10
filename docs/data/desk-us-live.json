@@ -1,74 +1,63 @@
 {
  "market": "us",
- "date": "2026-11-09",
- "updatedAt": "2026-11-09T17:51+00:00",
- "plans": {
-  "GOOGL": {
-   "name": "알파벳",
-   "stop": 276.92,
-   "entryLow": 282.93,
-   "entryHigh": 288.93,
-   "t1": 331.45,
-   "src": "장중 1순위",
-   "t2": 400.37,
-   "score": 75
-  }
- },
+ "date": "2026-11-10",
+ "updatedAt": "2026-11-10T17:51+00:00",
+ "plans": {},
  "watch": [
-  "AMD",
+  "AAON",
+  "SANM",
+  "TTWO",
   "NVDA",
-  "CEG",
-  "AMAT",
-  "CSCO",
-  "ARHS",
-  "AIZ",
-  "BAM",
-  "ABG",
-  "AAPL",
-  "GOOGL"
+  "GEV",
+  "GFL",
+  "SKYD",
+  "NET",
+  "TIGO",
+  "RIOT"
  ],
  "earn_good": {},
  "names": {
-  "AMD": "AMD",
+  "AAON": "에이온",
+  "SANM": "산미나",
+  "TTWO": "테이크투",
+  "TTD": "트레이드데스크",
+  "RKLB": "로켓랩",
   "NVDA": "엔비디아",
-  "CEG": "컨스텔레이션에너지",
-  "AMAT": "어플라이드 머티어리얼즈",
-  "GOOGL": "알파벳",
-  "AMZN": "아마존",
-  "MSFT": "마이크로소프트",
-  "TSLA": "테슬라",
-  "CSCO": "시스코",
-  "ARHS": "아하우스",
-  "AIZ": "어슈어런트",
-  "BAM": "브룩필드 자산운용",
-  "ABG": "애즈버리 오토모티브",
-  "AAPL": "애플",
-  "196170": "알테오젠"
+  "GEV": "GE버노바",
+  "GFL": "GFL 인바이런멘탈",
+  "SKYD": "스카이댄스",
+  "NET": "클라우드플레어",
+  "TIGO": "밀리콤",
+  "RIOT": "라이엇 플랫폼스"
  },
  "impact": {
   "NVDA": {
    "impact": "악재",
-   "title": "엔비디아 CEO 조사, 주가 -5%"
+   "title": "엔비디아 CEO 의혹 확대, 이틀째 약세"
   },
-  "AMD": {
-   "impact": "호재",
-   "title": "AMD·반도체 장비주 급등"
-  },
-  "AMAT": {
-   "impact": "호재",
-   "title": "AMD·반도체 장비주 급등"
-  },
-  "CEG": {
-   "impact": "호재",
-   "title": "컨스텔레이션에너지 깜짝 실적"
-  },
-  "GOOGL": {
-   "impact": "호재",
-   "title": "구글, 새 AI 칩 2종 발표"
-  },
-  "196170": {
+  "GEV": {
    "impact": "악재",
-   "title": "알테오젠, 美 약값 규칙에 급락"
+   "title": "AI 전력주 약세, 소프트뱅크 손실 여파"
+  },
+  "SANM": {
+   "impact": "호재",
+   "title": "실적 깜짝주 급등: 산미나·AAON"
+  },
+  "AAON": {
+   "impact": "호재",
+   "title": "실적 깜짝주 급등: 산미나·AAON"
+  },
+  "TTWO": {
+   "impact": "호재",
+   "title": "테이크투, GTA6 예약 호조에 상승"
+  },
+  "TTD": {
+   "impact": "악재",
+   "title": "트레이드데스크, 시간외 급등 모두 반납"
+  },
+  "RKLB": {
+   "impact": "악재",
+   "title": "로켓랩, 손실 커져 하락"
   }
  }
 }
