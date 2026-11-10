@@ -12,6 +12,7 @@ from bot.broker import PaperBroker
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 c = cfg["daily_swing"]
 c["need_target"] = False   # 시험 종목엔 목표가가 없음 (목표가 필수 규칙은 아래에서 따로 시험)
+c["min_chart_q"] = -99
 c["red_flag_news"] = False          # 시험에선 인터넷 뉴스 안 봄 (아래 12번에서 따로 시험)
 c["brief_news"] = False
 c["min_forward_score"] = -99         # 기존 시험은 점수 문턱 없이 (아래 19번에서 따로 시험)
@@ -586,3 +587,19 @@ _b = [(dt.date(2026, 9, 1) + dt.timedelta(days=i), 100, 101, 99, 100, 1000) for 
 assert SW.spike_note(_b, 128) and "급등" in SW.spike_note(_b, 128)
 assert SW.spike_note(_b[:40], 100) is None
 print("✅ 급등 직후 추격 금지 시험 통과")
+
+# 차트 모양 점수: 건강한 상승 > 0, 하루 급등 뒤 버티기·하락 ≤ -2
+import random as _rd  # noqa: E402
+_rd.seed(1)
+def _mk(path, vol=None):
+    out, prev = [], path[0]
+    for i, cc in enumerate(path):
+        o = prev * (1 + _rd.uniform(-0.005, 0.005))
+        out.append((dt.date(2026, 1, 1) + dt.timedelta(days=i), o, max(o, cc) * 1.005, min(o, cc) * 0.995, cc, (vol[i] if vol else 1000)))
+        prev = cc
+    return out
+assert SW.chart_quality(_mk([100 * (1.004 ** i) * (1 + 0.01 * ((-1) ** i)) for i in range(120)]))[0] > 0
+_kx = [130 + _rd.uniform(-2, 2) for i in range(110)] + [170] + [174 + _rd.uniform(-2, 1) for i in range(9)]
+assert SW.chart_quality(_mk(_kx, [1000] * 110 + [15000] + [1500] * 9))[0] <= -2
+assert SW.chart_quality(_mk([100 * (0.996 ** i) for i in range(120)]))[0] <= -2
+print("✅ 차트 모양 점수 시험 통과")

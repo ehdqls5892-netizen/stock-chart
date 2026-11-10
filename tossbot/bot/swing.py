@@ -338,6 +338,10 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
         if len(bars) >= 60:                      # 60일선: 중기 추세
             ma60 = sum(b[4] for b in bars[-60:]) / 60
             add(1 if c >= ma60 else -1, f"60일선 {'위(중기 상승)' if c >= ma60 else '아래(중기 하락)'}")
+        cq, cqw = chart_quality(bars)
+        for w in cqw:
+            sc += 1 if w.startswith("＋") else -(3 if "급등" in w else 1)
+            why.append(w)
         if len(bars) >= 21:                      # 거래량 흐름: 최근 5일이 평소보다 많은데 가격 방향은?
             v5 = [b[5] for b in bars[-5:] if b[5]]
             v20 = [b[5] for b in bars[-25:-5] if b[5]]
@@ -544,6 +548,63 @@ def cons_target(market: str, est: dict):
 
 
 RR_STOP_FLOOR = 0.06
+
+
+def chart_quality(bars) -> tuple:
+    """차트 '모양' 점수 (−6~+5) — 신호 몇 개를 더하는 게 아니라 최근 20일 흐름이 건강한지 봄.
+    1) 추세 구조: 20일선이 오르고 60일선 위 + 주가가 20일선 위   2) 꾸준함: 최근 20일 중 20일선 위 마감 비율
+    3) 저점이 높아지나   4) 오르는 날 거래량 > 내리는 날 거래량(가장 큰 하루는 빼고)   5) 최근 3일 봉(양봉·윗꼬리)
+    6) 하루 급등에 기댄 상승인지(20일 상승의 대부분이 하루에 몰렸으면 크게 감점)"""
+    if len(bars) < 70:
+        return 0, []
+    o = [b[1] for b in bars]
+    h = [b[2] for b in bars]
+    l = [b[3] for b in bars]
+    c = [b[4] for b in bars]
+    v = [b[5] or 0 for b in bars]
+    sc, why = 0, []
+
+    def add(x, t):
+        nonlocal sc
+        sc += x
+        why.append(("＋" if x > 0 else "－") + "차트 모양: " + t)
+    ma = lambda k, end: sum(c[end - k:end]) / k
+    n = len(c)
+    m20, m20p, m60 = ma(20, n), ma(20, n - 5), ma(60, n)
+    if c[-1] > m20 > m60 and m20 > m20p:
+        add(1, "20일선이 오르고 60일선 위 (건강한 상승)")
+    elif c[-1] < m20 and m20 < m20p:
+        add(-1, "20일선 아래 + 20일선 하락")
+    above = sum(1 for i in range(n - 20, n) if c[i] > ma(20, i + 1))
+    if above >= 15:
+        add(1, f"최근 20일 중 {above}일 20일선 위 마감 (꾸준함)")
+    elif above <= 6:
+        add(-1, f"최근 20일 중 {above}일만 20일선 위 (약함)")
+    lo1, lo0 = min(l[-10:]), min(l[-20:-10])
+    if lo1 > lo0 * 1.01:
+        add(1, "저점이 높아지는 중")
+    elif lo1 < lo0 * 0.99:
+        add(-1, "저점이 낮아지는 중")
+    idx = sorted(range(n - 20, n), key=lambda i: -v[i])[1:]          # 가장 큰 하루(재료 급등일)는 빼고
+    upv = sum(v[i] for i in idx if c[i] > c[i - 1])
+    dnv = sum(v[i] for i in idx if c[i] < c[i - 1])
+    if dnv and upv / dnv >= 1.3:
+        add(1, "오르는 날 거래량이 더 많음 (사는 힘)")
+    elif upv and dnv / upv >= 1.3:
+        add(-1, "내리는 날 거래량이 더 많음 (파는 힘)")
+    bull = sum(1 for i in range(n - 3, n) if c[i] > o[i])
+    rng = h[-1] - l[-1]
+    wick = (h[-1] - max(o[-1], c[-1])) / rng if rng else 0
+    if bull >= 2 and wick < 0.4:
+        add(1, f"최근 3일 중 양봉 {bull}개")
+    elif bull <= 1 or wick >= 0.5:
+        add(-1, "최근 봉 약함 (" + (f"양봉 {bull}/3" if bull <= 1 else "") + (" · " if bull <= 1 and wick >= 0.5 else "") + ("긴 윗꼬리" if wick >= 0.5 else "") + ")")
+    g20 = c[-1] / c[-21] - 1 if c[-21] else 0
+    jumps = [c[i] / c[i - 1] - 1 for i in range(n - 20, n) if c[i - 1]]
+    big = max(jumps) if jumps else 0
+    if big >= 0.12 and g20 > 0 and big >= g20 * 0.6:
+        add(-3, f"20일 상승 {g20 * 100:+.0f}% 중 대부분이 하루 {big * 100:+.0f}% 급등 (한 번 튄 뒤 버티는 모양)")
+    return sc, why
 
 
 def spike_note(bars, price, days=10, jump=0.15, ext=0.10):

@@ -1539,12 +1539,19 @@ class Bot:
             ma20 = sum(b[4] for b in bars[-20:]) / 20
             if price >= ma20 * (1 + mx):
                 why = f"20일선보다 {(price / ma20 - 1) * 100:+.0f}% 높이 떠 있어 단기 과열 — 쉬어 갈 때 다시 봄"
-        if why is None and c.get("skip_spike", True):
+        cq, cqw = SW.chart_quality(bars)
+        x["_cq"] = cq
+        if why is None and cq <= c.get("min_chart_q", -2):
+            why = f"차트 모양이 나빠요 (모양 점수 {cq:+d}): " + " ".join(w.replace("차트 모양: ", "") for w in cqw if w.startswith("－"))[:120]
+        if why is None and c.get("skip_spike", False):
             sp = SW.spike_note(bars, price)
             if sp:
                 why = sp
         if why is None and c.get("need_target") and rr0 is None:
-            why = "증권사 목표가가 없어 오를 여지(손익비)를 확인할 수 없음 — 확실한 종목만 삼"
+            good = cq >= c.get("no_target_chart_q", 3) or nj.get("impact") == "호재" or \
+                ((x.get("ev") or {}).get("op_yoy") or 0) >= 0.2 and not (x.get("ev") or {}).get("op_stale")
+            if not good:
+                why = f"증권사 목표가가 없고 차트 모양({cq:+d})·호재도 충분하지 않음 — 목표가 없는 종목은 차트가 아주 좋거나 호재가 있을 때만"
         ms = c.get("max_stop_pct")                    # 손절 폭이 너무 넓으면 한 번 틀릴 때 많이 잃음 → 안 삼
         if why is None and ms and price and x.get("stop") and (price - float(x["stop"])) / price > ms:
             why = f"손절 폭 {(price - float(x['stop'])) / price * 100:.0f}% — 너무 넓어서(기준 {ms * 100:.0f}%) 안 사요"

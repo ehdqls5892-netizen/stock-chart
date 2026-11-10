@@ -793,6 +793,22 @@ def live_or_night(mk: str) -> dict:
     return picks(mk)
 
 
+_CQ = {}
+
+
+def _cq(x):
+    """매수 직전과 같은 차트 모양 점수 (일봉은 1분 재사용)."""
+    k = x["code"]
+    if k not in _CQ or time.time() - _CQ[k][0] > 120:
+        try:
+            from . import swing as SW
+            v = SW.chart_quality(bars(k))
+        except Exception:
+            v = (0, [])
+        _CQ[k] = (time.time(), v)
+    return _CQ[k][1]
+
+
 def _spike(mk, x):
     try:
         from . import swing as SW
@@ -848,10 +864,11 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
             why = f"손익비 {x['rr']['rr']:.1f} (기준 {c['min_rr']:g} 미만)"
         elif c.get("max_ext20") and any("단기 과열" in t for t in (x.get("cons") or [])):
             why = "20일선보다 너무 높이 떠 있어 단기 과열"
-        elif c.get("need_target") and (x.get("rr") or {}).get("rr") is None:
-            why = "증권사 목표가가 없어 손익비 확인 불가"
-        elif c.get("skip_spike", True) and len(buy) < slots + 3 and _spike(mk, x):
-            why = _spike(mk, x)
+        elif len(buy) < slots + 3 and _cq(x)[0] <= c.get("min_chart_q", -2):
+            why = "차트 모양이 나빠요: " + " ".join(w.replace("－차트 모양: ", "") for w in _cq(x)[1] if w.startswith("－"))[:80]
+        elif c.get("need_target") and (x.get("rr") or {}).get("rr") is None and len(buy) < slots + 3 \
+                and _cq(x)[0] < c.get("no_target_chart_q", 3) and not any("호재" in t for t in (x.get("pros") or [])):
+            why = "목표가 없음 + 차트·호재가 아주 좋진 않음"
         elif c.get("max_stop_pct") and x.get("close") and x.get("stop") and (x["close"] - x["stop"]) / x["close"] > c["max_stop_pct"]:
             why = f"손절 폭 {(x['close'] - x['stop']) / x['close'] * 100:.0f}% — 너무 넓음"
         elif sc < c.get("min_forward_score", 3):
