@@ -628,7 +628,7 @@ def _fake_cc(self, x, price):
     x["_fscore"] = {"A1": 2, "A2": 7, "A3": 9}[x["code"]]
     return ("차트 나쁨" if x["code"] == "A3" else None), "", []
 M.Bot.cand_check = _fake_cc
-rb = SimpleNamespace(cfg=cfg, m="US", log=print)
+rb = SimpleNamespace(cfg=cfg, m="US", log=print, notify=print)
 cs = [{"code": c, "name": c} for c in ("A1", "A2", "A3")]
 got = M.Bot.rerank(rb, cs, {"A1": 10, "A2": 10, "A3": 10}, dt.date(2026, 11, 3), {}, False)
 M.Bot.cand_check = _cc
