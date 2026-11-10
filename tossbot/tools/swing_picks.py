@@ -174,6 +174,8 @@ def enrich_us(picks, bars, tick=None):
                 past = sorted(((ts.strftime("%Y-%m-%d"), r.get("Reported EPS"), r.get("Surprise(%)"))
                                for ts, r in df.iterrows() if r.get("Reported EPS") == r.get("Reported EPS")
                                and r.get("Reported EPS") is not None), reverse=True)
+                if past and past[0][0] < (dt.date.today() - dt.timedelta(days=200)).isoformat():
+                    past = []                          # 야후 실적 기록이 반년 넘게 멈춘 종목(국장에 흔함, 예: 2021년) → 안 씀
                 if past:
                     ev["last_earn"] = past[0][0]
                     if past[0][2] == past[0][2] and past[0][2] is not None:
@@ -213,7 +215,7 @@ def enrich_us(picks, bars, tick=None):
             px, tg = info.get("currentPrice") or p["close"], info.get("targetMeanPrice")
             if tg and px:
                 ev["tgt_up"] = round(tg / px - 1, 4)
-            if info.get("recommendationMean"):
+            if info.get("recommendationMean") and not tick:   # 국장은 네이버 의견(5점=매수)을 씀 — 야후(1점=매수)와 섞이면 헷갈림
                 ev["rec"] = round(float(info["recommendationMean"]), 2)
             ev["n_analysts"] = info.get("numberOfAnalystOpinions")
             ev["fwd_eps"], ev["ttm_eps"] = info.get("forwardEps"), info.get("trailingEps")

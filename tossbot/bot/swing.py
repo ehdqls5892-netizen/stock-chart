@@ -456,15 +456,16 @@ def forward_score(market: str, bars: list, price: float, est: dict | None, ev: d
     sp = ev.get("short_pct")
     if sp is not None and sp >= 0.15:
         why.append(f"·공매도 비중 {sp * 100:.0f}% (변동성 큼, 점수 없음)")
+    stale = bool(ev.get("last_earn")) and ev["last_earn"] < (dt.date.today() - dt.timedelta(days=200)).isoformat()
     ls = n(est.get("last_surprise"))
-    if ls is None:
+    if ls is None and not stale:
         ls = ev.get("last_surprise")
     if ls is not None:
         if ls >= 5:
             add(1, f"직전 실적 예상치 {ls:+.0f}% 상회")
         elif ls <= -5:
             add(-1, f"직전 실적 예상치 {ls:+.0f}% 하회")
-    ey = ev.get("eps_yoy")
+    ey = None if stale else ev.get("eps_yoy")
     if ey is not None:
         if ey >= 0.15:
             add(1, f"직전 분기 이익 1년 전보다 {ey * 100:+.0f}%")
