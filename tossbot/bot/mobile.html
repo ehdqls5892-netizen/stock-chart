@@ -122,8 +122,10 @@ $("sheet").addEventListener("click",e=>{if(e.target.id==="sheet")closeSheet()});
 function nav(){$("nav").innerHTML=TABS.map(([k,i,n])=>`<button class="${k===tab?"on":""}" onclick="go('${k}')"><span>${i}</span>${n}</button>`).join("")}
 function go(k){tab=k;localStorageSet("tab",k);nav();render();$("v").scrollTo(0,0)}
 
+let LT="";
+async function refreshNow(b){if(b){b.disabled=true;b.textContent="불러오는 중…"}await load();toast(`✅ ${LT} 기준으로 새로 불러왔어요`)}
 async function load(){
-  try{D=await api("/api/m/home");$("upd").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});}
+  try{D=await api("/api/m/home");LT=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit",second:"2-digit"});$("upd").textContent=new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"});}
   catch(e){$("upd").textContent="연결 끊김"; if(!D){$("v").innerHTML=`<div class="card empty">${esc(e.message)}<br>Tailscale 이 켜져 있는지 확인하세요.</div>`;return}}
   $("mode").className="badge "+(D.running?(D.mode==="live"?"live":"paper"):"");
   $("mode").textContent=D.running?(D.mode==="live"?"실전":"연습"):"꺼짐";
@@ -170,7 +172,7 @@ function vHome(){
      <div class="muted small">투자금 ${money(x.capital,mk)}${x.invested?` · 사용 ${money(x.invested,mk)}`:""}</div>
      ${x.halted?`<div class="small up">⛔ ${esc(x.halted)}</div>`:""}${x.error?`<div class="small up">❌ ${esc(x.error)}</div>`:""}</div>`).join("")+`</div>`;
   h+=planCard();
-  h+=`<div class="card"><div class="row"><b>보유 종목</b><span class="sp"></span><button class="sm" style="flex:0" onclick="load()">새로고침</button></div>`;
+  h+=`<div class="card"><div class="row"><b>보유 종목</b><span class="sp"></span><span class="small muted" style="margin-right:8px">${LT?LT+" 기준":""}</span><button class="sm" style="flex:0" onclick="refreshNow(this)">새로고침</button></div>`;
   if(!hs.length) h+=`<div class="empty">로봇이 관리하는 보유 종목이 없어요</div>`;
   hs.forEach((x,i)=>{const mk=x.market, g=x.grade?`<span class="chip ${x.grade==="유지"?"pos":x.grade==="나쁨"?"neg":"mid"}">${esc(x.grade)}</span>`:"";
     h+=`<div class="h"><div class="row"><span class="nm" onclick="openStock('${mk}',D.holdings[${i}].symbol)">${FL[mk]} ${esc(x.name)} ›</span><span class="sp"></span><span class="b ${cls(x.pct)}">${pct(x.pct)}</span></div>

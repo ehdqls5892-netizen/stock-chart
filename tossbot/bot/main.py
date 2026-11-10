@@ -1280,6 +1280,20 @@ class Bot:
         except Exception as e:
             fs, fw, brief = None, [], ""
             self.log(f"🧭 브리핑 오류 {p.name}: {e}")
+        # 하루 한 번 AI 가 다시 읽은 보유 종목 뉴스: 심한 악재면 오늘 정리, 그냥 악재면 점수에 반영
+        nj = {}
+        try:
+            from . import mobile as MB
+            from . import news_judge as NJ
+            nj = NJ.fresh(MB.NJ_LOCAL.get(self.m), 30).get(p.symbol) or Bot.news_judged(self).get(p.symbol) or {}
+        except Exception:
+            nj = {}
+        if nj.get("impact") == "악재":
+            if not why and nj.get("severe"):
+                why = f"심한 악재 뉴스(AI): {nj.get('why', '')} — 손절선까지 기다리지 않고 정리"
+            elif fs is not None:
+                fs += int(nj.get("adj") or -1)
+                fw = [f"－새 악재 뉴스(AI): {nj.get('why', '')}"] + list(fw)
         xs = c.get("exit_forward_score")
         if not why and xs is not None and fs is not None and fs <= xs and held >= 1:
             why = (f"현재·미래 근거가 약해짐 (점수 {fs:+d} ≤ {xs:+d}): "
