@@ -418,6 +418,7 @@
     "rerank": true,
     "rerank_max": 40,
     "morning_rescan": true,
+    "premarket_review": {"enabled": true, "lead_min": 25, "min_chart": 3, "add_min_gap": 2.0, "add_max_gap": 8.0, "max_add": 15},
     "morning_rescan_max_min": 150,
   "estimates_url": "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/estimates/{m}/{d}.csv", "brief_news": true, "tgt_below_pct": 5, "min_forward_score": 3, "exit_forward_score": 0,
     "risk_by_grade": {"A": 1.0, "B": 0.6},

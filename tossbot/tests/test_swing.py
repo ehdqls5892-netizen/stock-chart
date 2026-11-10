@@ -649,3 +649,24 @@ ok = M.Bot.live_refresh(lr, max_age=1e6, after_open=True)
 _rq.get = _g
 assert ok and lr.sw_picks["picks"][0]["code"] == "005930", (ok, lr.sw_picks, M.now("KR"), o_t)
 print("✅ 아침 전 종목 다시 고르기 시험 통과")
+# 프리장 점검: 후보 + 후보 밖 전 종목의 프리장 가격 → 새 종목 추가, 정규장 전에 끝남 (사지는 않음)
+import os
+os.environ.pop("TOSSBOT_OFFLINE", None)
+_lp, _rget, _cc2, _df = SW.load_picks, _rq.get, M.Bot.cand_check, M.Bot.daily_full
+SW.load_picks = lambda *a, **k: {"date": "2026-11-02", "regime": True, "picks": [{"code": "C1", "name": "후보1", "setup": "fs", "close": 100, "stop": 92}]}
+_rq.get = lambda url, **k: SimpleNamespace(json=lambda: {"N1": {"c": 6, "close": 50, "ld": False}, "N2": {"c": 1, "close": 20}} if "scores" in url else {"N1": "새종목"})
+def _cc3(self, x, price):
+    x["_fscore"] = 9 if x["code"] == "N1" else 4
+    return None, "", []
+M.Bot.cand_check = _cc3
+M.Bot.daily_full = lambda self, k: [(dt.date(2026, 10, 1) + dt.timedelta(days=i), 50, 51, 49, 50, 1e6) for i in range(40)]
+sent.clear()
+pm = SimpleNamespace(cfg=cfg, m="US", dir=Path(tempfile.mkdtemp()), log=print, notify=sent.append,
+                     open_t=dt.datetime(2026, 11, 3, 9, 30, tzinfo=M.TZ["US"]),
+                     api=SimpleNamespace(prices=lambda cs: [{"symbol": c, "lastPrice": {"C1": 103, "N1": 52, "N2": 21}[c]} for c in cs]))
+pm.swing_on = lambda: ["fs"]
+M.Bot.swing_premarket(pm)
+SW.load_picks, _rq.get, M.Bot.cand_check, M.Bot.daily_full = _lp, _rget, _cc2, _df
+assert sent and "프리장 점검" in sent[0] and "새종목" in sent[0] and pm._pm_add[1][0]["code"] == "N1" and pm._pm_add[1][0]["score"] == 9, sent
+assert "N2" not in str(pm._pm_add)                       # 차트 점수 낮은 종목은 안 봄
+print("✅ 프리장 점검 시험 통과")

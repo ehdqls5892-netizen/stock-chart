@@ -799,6 +799,10 @@ class Bot:
         if not d:
             return
         Bot.split_picks(self, d)
+        pa = getattr(self, "_pm_add", None)
+        if pa and pa[0] == self.open_t.date().isoformat():
+            hv = {str(x["code"]) for x in d["picks"]}
+            d["picks"] = d["picks"] + [x for x in pa[1] if str(x["code"]) not in hv]   # 프리장 점검에서 새로 들어온 종목
         self.sw_picks = d
         self.sw_regime = d.get("regime")                 # 추가 매수 판단용 (시장 좋을 때만)
         if True:
@@ -836,6 +840,101 @@ class Bot:
         if rr is not None and rr < eo.get("min_rr", 2.0):
             return False
         return True
+
+    def swing_premarket(self):
+        """정규장 시작 전(프리장: 국장 넥스트레이드 08:00~08:50, 미장 프리마켓) 점검 — 정규장 열리기 전에 끝남.
+        1) 후보 전체를 프리장 가격으로 다시 점검·순위 (크게 오르거나 빠진 종목 알림)
+        2) 후보 밖 전 종목(밤에 점수 매긴 수백 개)의 프리장 가격도 봐서, 차트가 좋은데 프리장에서 힘이 붙은 종목을 후보에 넣음
+        여기서 사지는 않음 — 매수는 정규장에서 지금 가격으로 한 번 더 점검하고."""
+        import requests
+        c = self.cfg["daily_swing"]
+        pc = c.get("premarket_review") or {}
+        if not pc.get("enabled", True) or not self.swing_on() or os.getenv("TOSSBOT_OFFLINE") == "1":
+            return
+        key = self.open_t.date().isoformat()
+        if getattr(self, "_pm_done", "") == key:
+            return
+        self._pm_done = key
+        d = SW.load_picks(c["picks_url"], self.m, self.open_t.date(), lambda *a: None)
+        if not d or not d.get("picks"):
+            return
+        try:
+            if SW.next_biz(dt.date.fromisoformat(d["date"])) < self.open_t.date():
+                return
+        except (KeyError, ValueError):
+            return
+        Bot.split_picks(self, d)
+        cands = [x for x in d["picks"]]
+        have = {str(x["code"]) for x in cands}
+        base = c["picks_url"].format(m=self.m.lower()).rsplit("/", 1)[0]
+        try:
+            stats = requests.get(base + "/scores.json", timeout=30).json() or {}
+            names = requests.get(base + "/names.json", timeout=30).json() or {}
+        except Exception:
+            stats, names = {}, {}
+        pool = [k for k, v in stats.items() if k not in have and v.get("close") and not v.get("ld")
+                and (v.get("c") or -99) >= pc.get("min_chart", 3)]
+        codes = list(have) + pool
+        try:
+            px = {r.get("symbol"): f(r.get("lastPrice")) for r in (self.api.prices(codes) or [])}
+        except Exception as e:
+            self.log(f"🌅 프리장 시세 조회 실패: {e}")
+            return
+        prev = {str(x["code"]): float(x["close"]) for x in cands}
+        prev.update({k: float(stats[k]["close"]) for k in pool})
+        gap = {k: px[k] / prev[k] - 1 for k in codes if px.get(k) and prev.get(k)}
+        if not gap or sum(1 for k in gap if abs(gap[k]) < 1e-9) >= len(gap) * 0.9:
+            self.notify("🌅 프리장 점검: 프리장 가격이 아직 안 들어와요(지금 가격 = 어제 종가). "
+                        "정규장 시작 15분 뒤 매수 직전에 지금 가격으로 후보 전체를 다시 점검해요.")
+            return
+        lo, hi = pc.get("add_min_gap", 2.0) / 100, pc.get("add_max_gap", 8.0) / 100
+        movers = sorted((k for k in pool if k in gap and lo <= gap[k] <= hi),
+                        key=lambda k: -(stats[k].get("c", 0) + gap[k] * 100))[: pc.get("max_add", 15)]
+        add = []
+        for k in movers:
+            bars = Bot.daily_full(self, k)
+            if len(bars) < 30:
+                continue
+            trs = [max(bars[i][2] - bars[i][3], abs(bars[i][2] - bars[i - 1][4]), abs(bars[i][3] - bars[i - 1][4]))
+                   for i in range(len(bars) - 14, len(bars))]
+            atr = sum(trs) / len(trs)
+            cl = prev[k]
+            add.append({"code": k, "name": names.get(k) or k, "setup": "fs", "close": round(cl, 4), "stop": round(cl - 2 * atr, 4),
+                        "atr": round(atr, 4), "score": stats[k].get("c", 0), "ev": {}, "_pm_add": True,
+                        "reason": f"🌅 프리장 {gap[k] * 100:+.1f}% · 밤 차트 점수 {stats[k].get('c', 0):+d} (후보 밖에서 새로 들어옴)"})
+        allc = cands + add
+        ec = c.get("earnings") or {}
+        old_b = getattr(self, "broker", None)
+        tmp = PaperBroker(self.m, self.cfg, self.dir, lambda *a: None, lambda *a: None)
+        tmp.restore()
+        try:
+            self.broker = old_b or tmp
+            ranked = Bot.rerank(self, allc, {k: v for k, v in px.items() if v}, self.open_t.date(), ec, dry=True)
+        finally:
+            self.broker = old_b
+        ok = [x for x in ranked if x.get("_chk") and not x["_chk"][1][0]]
+        bad = [x for x in ranked if x.get("_chk") and x["_chk"][1][0]]
+        for x in ok:
+            if x.get("_pm_add"):
+                x["score"] = x.get("_fscore") or x["score"]          # 새로 들어온 종목은 프리장 점검 점수로
+        self._pm_add = (key, [x for x in ok if x.get("_pm_add")])
+        self._pm_rank = (key, [str(x["code"]) for x in ok])
+        nm = lambda x: f"{x['name']}({gap.get(str(x['code']), 0) * 100:+.1f}%)"
+        up = [x for x in cands if gap.get(str(x["code"]), 0) >= 0.03]
+        dn = [x for x in cands if gap.get(str(x["code"]), 0) <= -0.03]
+        when = "국장 넥스트레이드 프리장" if self.m == "KR" else "미장 프리마켓"
+        msg = [f"🌅 프리장 점검 ({when} 가격 · 정규장 전) — 후보 {len(cands)}개 + 후보 밖 {len(pool)}개 확인"]
+        if up:
+            msg.append("📈 후보 중 프리장 크게 오름: " + ", ".join(nm(x) for x in up[:6]))
+        if dn:
+            msg.append("📉 후보 중 프리장 크게 빠짐: " + ", ".join(nm(x) for x in dn[:6]))
+        if self._pm_add[1]:
+            msg.append("🆕 후보 밖에서 새로 들어옴: " + ", ".join(f"{nm(x)} 점수 {x.get('_fscore', 0):+d}" for x in self._pm_add[1][:6]))
+        msg.append("✅ 지금(프리장) 기준 점수 순: " + (", ".join(f"{x['name']}({x.get('_fscore', 0):+d})" for x in ok[:8]) or "통과 없음"))
+        if bad:
+            msg.append(f"❌ 프리장 기준 탈락 {len(bad)}개: " + ", ".join(f"{x['name']}({x['_chk'][1][0][:25]})" for x in bad[:5]))
+        msg.append("→ 정규장 시작 15분 뒤 사기 직전에 지금 가격으로 한 번 더 점검하고 점수 높은 순으로 사요.")
+        self.notify("\n".join(msg))
 
     def swing_preview(self):
         """장 시작 전 대기 중: 다음 장 후보(picks.json)가 새로 만들어졌으면 판단표를 한 번 미리 보냄.
@@ -1269,6 +1368,10 @@ class Bot:
         for x in cands:
             x.pop("_chk", None)
         from concurrent.futures import ThreadPoolExecutor
+        try:
+            Bot.est_row(self, "")                 # 증권사 자료를 먼저 한 번 받아 둠 (동시에 여러 번 받지 않게)
+        except Exception:
+            pass
         todo = [(i, x) for i, x in enumerate(cands) if px.get(x["code"]) and i < n_max]
 
         def one(ix):
@@ -1993,6 +2096,13 @@ class Bot:
                 if self.stop_req:
                     self.log("장 시작 전에 종료했어요.")
                     return
+                pmr = (self.cfg.get("daily_swing", {}).get("premarket_review") or {})
+                if (pmr.get("enabled", True) and getattr(self, "_pm_done", "") != self.open_t.date().isoformat()
+                        and now(self.m) >= self.open_t - dt.timedelta(minutes=pmr.get("lead_min", 25))):
+                    try:
+                        self.swing_premarket()
+                    except Exception as e:
+                        self.log(f"🌅 프리장 점검 오류: {e}")
                 if time.time() >= next_pv:                   # 다음 장 후보가 나오면 판단표를 미리 보냄 (10분마다 확인)
                     next_pv = time.time() + 600
                     try:

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import os
 import datetime as dt
@@ -33,6 +34,10 @@ def main():
     if m == "kr":
         yfs, names = SD.kr_universe(700)
         bars = SD.yf_bars(yfs, 2)
+        try:
+            print("야후 일봉을 거래소 일봉으로 맞춤:", SD.kr_fix(bars), "종목", file=sys.stderr)
+        except Exception as e:
+            print("거래소 일봉 맞추기 실패:", e, file=sys.stderr)
         idx = SD.yf_bars({"KOSPI": "^KS11"}, 2).get("KOSPI")
     else:
         names = SD.us_universe()
@@ -56,6 +61,18 @@ def main():
     except Exception as e:
         print("데스크 종목 추가 실패:", e, file=sys.stderr)
     out = build(m, bars, names, idx)
+    if not a.live:                                         # 같은 날 다시 돌리면: 기사가 그대로인 종목은 지난 AI 판독을 그대로 씀 (점수 흔들림 방지)
+        try:
+            import requests
+            pv = requests.get(f"https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/swingpicks-{m}/picks.json", timeout=30).json()
+            if pv.get("date") == out.get("date"):
+                for x in pv.get("picks", []):
+                    ai = (x.get("ev") or {}).get("ai")
+                    if x.get("setup") == "fs" and ai and ai.get("nh"):
+                        REUSE[x["code"]] = ai
+                print("같은 날 지난 AI 판독", len(REUSE), "개 (기사 같으면 다시 씀)", file=sys.stderr)
+        except Exception as e:
+            print("지난 후보 못 받음:", e, file=sys.stderr)
     if a.live:
         return live_main(a, m, bars, names, idx, out, (lambda c: yfs.get(c, c)) if m == "kr" else None)
     try:
@@ -131,7 +148,7 @@ def live_main(a, m, bars, names, idx, base, tick):
     for x in prev.get("picks", []):
         ai = (x.get("ev") or {}).get("ai")
         if x.get("setup") == "fs" and ai:
-            REUSE[x["code"]] = ai
+            REUSE[x["code"]] = {**ai, "_live": True}
     fs = scan_now(m, bars, names, idx, tick)
     old_codes = [x["code"] for x in prev.get("picks", []) if x.get("setup") == "fs"][:30]
     new_codes = [x["code"] for x in fs]
@@ -463,7 +480,17 @@ def scan_now(m, bars, names, idx, tick=None, top=80, keep=30):
                 nws = []
         x["_news"] = nws
         x["_base"] = sc
-        ai = REUSE.get(x["code"]) or XS.ai_read(m.upper(), x, nws)
+        nh = hashlib.sha1("\n".join(sorted(map(str, nws))).encode()).hexdigest()[:10]
+        ru = REUSE.get(x["code"])
+        if ru and ru.get("nh") and ru["nh"] != nh and not ru.get("_live"):
+            ru = None                                     # 같은 날 다시 돌린 것: 기사가 바뀐 종목만 AI 가 다시 읽음
+        if ru:
+            REUSE[x["code"]] = ru
+        else:
+            REUSE.pop(x["code"], None)
+        ai = ru or XS.ai_read(m.upper(), x, nws)
+        if ai:
+            ai = {**{k: v for k, v in ai.items() if k != "_live"}, "nh": nh}
         if ai and REUSE.get(x["code"]):
             ev["ai"] = ai
             x["score"] = sc = sc + int(ai.get("adj") or 0)
@@ -483,6 +510,7 @@ def scan_now(m, bars, names, idx, tick=None, top=80, keep=30):
             continue
         fin = XS.ai_final(m.upper(), x, x["_news"], ev.get("ai") or {})
         if fin:
+            fin["nh"] = (ev.get("ai") or {}).get("nh")
             ev["ai"] = fin
             x["score"] = x["_base"] + fin["adj"]
     for x in out:

@@ -77,6 +77,48 @@ def yf_bars(tickers: dict, years: int) -> dict:
     return out
 
 
+KR_RAW: dict = {}      # data-kr(우리가 매일 모으는 한국거래소 일봉) — 야후 마지막 봉 검증용
+
+
+def kr_fix(bars: dict) -> int:
+    """야후 국장 일봉은 마지막 며칠이 덜 반영되거나(시가=고가 같은 엉터리 봉) 틀릴 때가 있음 →
+    우리 data-kr 일봉(한국거래소 기준)으로 최근 10일을 맞추고, 야후에 없는 최신 날은 붙임. 고친 종목 수를 돌려줌."""
+    fixed = 0
+    for code, b in bars.items():
+        raw = KR_RAW.get(code) or []
+        if not raw or not b:
+            continue
+        kr = {}
+        for r in raw[-10:]:
+            try:
+                d = "20" + str(r[0])[:2] + "-" + str(r[0])[2:4] + "-" + str(r[0])[4:6]
+                if r[4] and r[1] and r[2] and r[3]:
+                    kr[d] = (float(r[1]), float(r[2]), float(r[3]), float(r[4]), float(r[5] or 0))
+            except (IndexError, TypeError, ValueError):
+                continue
+        if not kr:
+            continue
+        same = [d for d in kr if any(str(x[0])[:10] == d for x in b[-15:])]
+        ref = next((x for x in reversed(b) if str(x[0])[:10] in kr), None)
+        if ref and abs(kr[str(ref[0])[:10]][3] / ref[4] - 1) > 0.15:
+            continue                                    # 액면분할·수정주가 차이가 크면 건드리지 않음
+        ch = False
+        for i in range(max(0, len(b) - 15), len(b)):
+            d = str(b[i][0])[:10]
+            if d in kr:
+                o, h, l, c, v = kr[d]
+                if abs(c / b[i][4] - 1) > 0.001 or abs(o / b[i][1] - 1) > 0.001 or abs(h / b[i][2] - 1) > 0.001:
+                    b[i] = (b[i][0], o, h, l, c, v)
+                    ch = True
+        last = str(b[-1][0])[:10]
+        for d in sorted(kr):
+            if d > last and same:
+                b.append((d,) + kr[d])
+                ch = True
+        fixed += ch
+    return fixed
+
+
 def kr_universe(n: int) -> tuple[dict, dict]:
     """data-kr 브랜치 전 종목에서 최근 60일 평균 거래대금 상위 n개."""
     base = "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/data-kr"
@@ -90,6 +132,8 @@ def kr_universe(n: int) -> tuple[dict, dict]:
         except Exception:
             continue
         tv = [b[4] * b[5] for b in bars[-60:] if len(b) > 5 and b[4] and b[5]]
+        if bars:
+            KR_RAW[code] = bars[-12:]
         if len(tv) >= 40 and code.isdigit():
             rows.append((sum(tv) / len(tv), code, name, mk))
     rows.sort(reverse=True)
