@@ -455,6 +455,8 @@ bot.broker = bt
 pt = bt.enter("T1", "T1", 100, 10, 200, 92, "시험")
 pt.extra.update(sw=True, carry=True, sw_days=3, tgt=110.0)
 c["target_take"] = {"enabled": True, "frac": 0.5, "near_pct": 0}
+_pt0 = c.get("profit_take")
+c["profit_take"] = {"enabled": False}
 c["exit_forward_score"] = None
 hist4 = [{"timestamp": (d0 + dt.timedelta(days=i)).isoformat(), "closePrice": str(100 + i * 0.6), "highPrice": str(101 + i * 0.6), "lowPrice": str(99 + i * 0.6)} for i in range(20)]
 api.candles = lambda sym, iv, n: hist4
@@ -463,6 +465,23 @@ M.Bot.swing_daily(bot, pt, 111.4)
 M.Bot.hold_score = orig_hs
 assert pt.qty == 5 and pt.extra.get("tgt_done") and pt.sl >= 100, (pt.qty, pt.sl, pt.extra)
 assert bt.closed[-1].exit_reason.startswith("애널리스트 목표가"), bt.closed[-1].exit_reason
+# +4% 넘으면 1/3 익절 + 나머지 손절선 본전 위로 (목표가 전이라도), 한 번만
+c["profit_take"] = {"enabled": True, "pct": 4, "frac": 0.34}
+M.Bot.hold_score = lambda self, p, last=None: (3, ["＋최근 봉 양봉"], "")
+api.candles = lambda sym, iv, n: [{"timestamp": (d0 + dt.timedelta(days=i)).isoformat(), "closePrice": str(95 + i * 0.5), "highPrice": str(96 + i * 0.5), "lowPrice": str(94 + i * 0.5)} for i in range(20)]
+pp = bt.enter("T2", "T2", 100, 9, 200, 92, "시험")
+pp.extra.update(sw=True, carry=True, sw_days=3, tgt=130.0)
+M.Bot.swing_daily(bot, pp, 104.6)
+assert pp.qty == 6 and pp.extra.get("pt_done") and pp.sl >= 100, (pp.qty, pp.sl)
+assert bt.closed[-1].exit_reason.startswith("+4.6% 수익 — 일부 익절"), bt.closed[-1].exit_reason
+M.Bot.swing_daily(bot, pp, 105.0)
+assert pp.qty == 6, "한 번만"
+p1 = bt.enter("T3", "T3", 100, 1, 200, 92, "시험")
+p1.extra.update(sw=True, carry=True, sw_days=3)
+M.Bot.swing_daily(bot, p1, 104.6)
+assert p1.qty == 1 and p1.sl >= 100 and p1.extra.get("pt_done"), (p1.qty, p1.sl)
+M.Bot.hold_score = orig_hs
+c["profit_take"] = _pt0
 c["exit_forward_score"] = 0
 _, fw6 = SW.forward_score("KR", [], 100, {}, {"op_yoy": 0.5, "op_period": "2026 반기", "op_stale": True, "prov_date": "20261027"}, 0)
 assert not any(w.startswith("＋공시 영업이익") for w in fw6) and any("지난 분기 숫자" in w for w in fw6), fw6

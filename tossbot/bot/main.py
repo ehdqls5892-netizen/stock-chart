@@ -1298,6 +1298,24 @@ class Bot:
         if not why and xs is not None and fs is not None and fs <= xs and held >= 1:
             why = (f"현재·미래 근거가 약해짐 (점수 {fs:+d} ≤ {xs:+d}): "
                    + " ".join(w for w in fw if w.startswith("－"))[:120])
+        pt = c.get("profit_take") or {}                 # +4% 넘게 오르면 일부 익절 + 나머지는 손절선을 본전 위로
+        pt_now = False
+        if not why and pt.get("enabled") and not p.extra.get("pt_done") and close >= p.entry * (1 + pt.get("pct", 4) / 100):
+            try:
+                be = round_tick(self.m, p.entry * (1 + cost), "up")
+                q = max(1, int(p.qty * pt.get("frac", 1 / 3))) if p.qty >= 2 else 0
+                gain = (close / p.entry - 1) * 100
+                if q and hasattr(self.broker, "sell_part"):
+                    if self.broker.sell_part(p, q, close, f"+{gain:.1f}% 수익 — 일부 익절", be if be > p.sl else None):
+                        p.extra["pt_done"] = True
+                        pt_now = True
+                        self.notify(f"💰 {p.name} {gain:+.1f}% → {q}주 익절, 나머지 {p.qty}주는 손절선 {money(self.m, p.sl)}(본전 이상)으로 계속 보유")
+                elif be > p.sl:                              # 1주: 팔 수 없으니 손절선만 본전으로 (아래에서 토스 손절 주문도 고침)
+                    p.sl = be
+                    p.extra["pt_done"] = True
+                    self.notify(f"🔒 {p.name} {gain:+.1f}% → 1주라 팔지 않고 손절선을 본전({money(self.m, be)})으로 올림")
+            except Exception as e:
+                self.log(f"🧭 +{pt.get('pct', 4)}% 익절 판단 오류 {p.name}: {e}")
         tp_c = c.get("target_take") or {}
         if not why and tp_c.get("enabled") and not p.extra.get("tgt_done") and p.qty >= 2 and hasattr(self.broker, "sell_part"):
             try:
@@ -1312,7 +1330,7 @@ class Bot:
                                     f"손절선 {money(self.m, p.sl)}(본전 이상)으로 계속 보유")
             except Exception as e:
                 self.log(f"🧭 목표가 익절 판단 오류 {p.name}: {e}")
-        if not why:
+        if not why and not pt_now:                       # 오늘 일부 익절했으면 같은 날 다시 사 더하지 않음
             try:
                 Bot.swing_add_on(self, p, bars, close)
             except Exception as e:
