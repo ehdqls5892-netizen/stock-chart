@@ -6,6 +6,8 @@ on:
     - cron: "25 22 * * 1-5"   # 미장: 뉴욕 장 마감 뒤
     - cron: "20 4 * * 1-5"    # 국장 장중 다시 고르기: 13:20(한국) — 마감 15분 전 매수에 오늘 흐름 반영
     - cron: "30 18 * * 1-5"   # 미장 장중 다시 고르기: 뉴욕 13:30(겨울)/14:30(여름)
+    - cron: "5 0 * * 1-5"     # 국장 아침 전 종목 다시 고르기: 09:05(한국) — GitHub 지연 감안, 보통 10시 전후 도착
+    - cron: "40 14 * * 1-5"   # 미장 아침 전 종목 다시 고르기: 뉴욕 09:40(겨울)
   push:                       # 신호 코드가 바뀌면 국장·미장 후보를 바로 다시 만듦
     branches: [main]
     paths: ["tossbot/tools/swing_picks.py", "tossbot/tools/extra_sources.py", "tossbot/bot/swing.py"]
@@ -30,7 +32,7 @@ concurrency:
 jobs:
   picks:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 60
     strategy:
       matrix:
         mm: ${{ fromJSON(github.event_name == 'push' && '["kr","us"]' || '["auto"]') }}
@@ -46,9 +48,9 @@ jobs:
         run: |
           if [ "${{ matrix.mm }}" != "auto" ]; then M="${{ matrix.mm }}";
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then M="${{ github.event.inputs.market }}";
-          elif [ "${{ github.event.schedule }}" = "15 9 * * 1-5" ] || [ "${{ github.event.schedule }}" = "20 4 * * 1-5" ]; then M=kr; else M=us; fi
+          elif [ "${{ github.event.schedule }}" = "15 9 * * 1-5" ] || [ "${{ github.event.schedule }}" = "20 4 * * 1-5" ] || [ "${{ github.event.schedule }}" = "5 0 * * 1-5" ]; then M=kr; else M=us; fi
           LIVE=""; BR=swingpicks-$M
-          if [ "${{ github.event.schedule }}" = "20 4 * * 1-5" ] || [ "${{ github.event.schedule }}" = "30 18 * * 1-5" ] || [ "${{ github.event.inputs.live }}" = "yes" ]; then LIVE="--live"; BR=swinglive-$M; fi
+          if [ "${{ github.event.schedule }}" = "20 4 * * 1-5" ] || [ "${{ github.event.schedule }}" = "30 18 * * 1-5" ] || [ "${{ github.event.schedule }}" = "5 0 * * 1-5" ] || [ "${{ github.event.schedule }}" = "40 14 * * 1-5" ] || [ "${{ github.event.inputs.live }}" = "yes" ]; then LIVE="--live"; BR=swinglive-$M; fi
           echo "m=$M" >> $GITHUB_OUTPUT
           echo "live=$LIVE" >> $GITHUB_OUTPUT
           echo "br=$BR" >> $GITHUB_OUTPUT

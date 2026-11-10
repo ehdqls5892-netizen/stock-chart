@@ -133,7 +133,7 @@ def live_main(a, m, bars, names, idx, base, tick):
         if x.get("setup") == "fs" and ai:
             REUSE[x["code"]] = ai
     fs = scan_now(m, bars, names, idx, tick)
-    old_codes = [x["code"] for x in prev.get("picks", []) if x.get("setup") == "fs"][:20]
+    old_codes = [x["code"] for x in prev.get("picks", []) if x.get("setup") == "fs"][:30]
     new_codes = [x["code"] for x in fs]
     ix = base.get("index") or {}
     try:
@@ -305,7 +305,7 @@ EXTRA: set = set()     # 데스크 때문에 추가로 받은 종목 (목표가�
 STATS: dict = {}       # 전 종목 지금 상태 (앱 데스크 판정용): 차트 점수·장기 하락·1년 고점 대비·3개월·20일선 거리
 
 
-def scan_now(m, bars, names, idx, tick=None, top=50, keep=20):
+def scan_now(m, bars, names, idx, tick=None, top=80, keep=30):
     """현재·미래 점수 스캔: 전체 종목을 '지금' 기준으로 점수 매겨 상위 종목을 후보(setup 'fs')로.
     1) 차트(최근 봉 양봉·마감 위치·거래량 실린 상승·20일선·52주 신고가 근처·시장 추세)로 전 종목 1차 점수
     2) 상위 top 개만 애널리스트·이익 성장·실적일·업종(미장 야후) / 증권사 의견·외국인·기관·이익 성장(국장 네이버) 붙여 최종 점수

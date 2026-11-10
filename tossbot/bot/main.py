@@ -919,7 +919,7 @@ class Bot:
         out.append("당일엔 시가가 손절선 아래·10% 넘게 갭, (마감 매수는) 장중 손절선 닿음, 현금 부족일 때만 결과가 달라져요.")
         return "\n".join(out)
 
-    def live_refresh(self) -> bool:
+    def live_refresh(self, max_age: float = 5, after_open: bool = False) -> bool:
         """장 마감 약 2시간 전에 오늘 흐름(진행 중인 봉)으로 다시 고른 후보(live.json)가 있으면 그걸로 바꿔서 삼.
         시장 전체가 오늘 크게 빠지면(live_guard_index_pct) 오늘은 새로 안 삼."""
         import requests
@@ -938,8 +938,15 @@ class Bot:
             age = (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(made)).total_seconds() / 3600
         except ValueError:
             age = 99
-        if d.get("date") != today or age > 5 or not d.get("picks"):
-            self.log(f"🧭 장중 다시 고른 후보 없음(날짜 {d.get('date')}, {age:.1f}시간 전) — 밤 후보 그대로")
+        if after_open:
+            try:
+                if dt.datetime.fromisoformat(made) < self.open_t.astimezone(dt.timezone.utc):
+                    return False                       # 아직 오늘 장 시작 뒤에 다시 고른 게 아님 → 5분 뒤 다시 확인
+            except (ValueError, TypeError):
+                return False
+        if d.get("date") != today or age > max_age or not d.get("picks"):
+            if not after_open:
+                self.log(f"🧭 장중 다시 고른 후보 없음(날짜 {d.get('date')}, {age:.1f}시간 전) — 밤 후보 그대로")
             return False
         ix = (d.get("index") or {}).get("today_pct")
         g = c.get("live_guard_index_pct")
@@ -1261,15 +1268,21 @@ class Bot:
         good, out, bad_n = [], [], []
         for x in cands:
             x.pop("_chk", None)
+        from concurrent.futures import ThreadPoolExecutor
+        todo = [(i, x) for i, x in enumerate(cands) if px.get(x["code"]) and i < n_max]
+
+        def one(ix):
+            try:
+                return Bot.cand_check(self, ix[1], px[ix[1]["code"]])
+            except Exception as ex:
+                self.log(f"🧭 {ix[1]['name']} 다시 점검 오류: {ex}")
+                return None
+        with ThreadPoolExecutor(max_workers=c.get("rerank_workers", 4)) as pool:   # 여러 종목을 동시에 점검 → 몇 초 안에 끝남
+            res0 = dict(zip([i for i, _ in todo], pool.map(one, todo)))
         for i, x in enumerate(cands):
             e = px.get(x["code"])
-            if not e or i >= n_max:
-                out.append((1, 0, i, x))
-                continue
-            try:
-                chk = Bot.cand_check(self, x, e)
-            except Exception as ex:
-                self.log(f"🧭 {x['name']} 다시 점검 오류: {ex}")
+            chk = res0.get(i)
+            if chk is None:
                 out.append((1, 0, i, x))
                 continue
             x["_chk"] = (e, chk)                 # 같은 가격일 때만 다시 씀 (다음 매수 때는 새로 점검)
@@ -2097,6 +2110,22 @@ class Bot:
                             cash -= spent
                     except Exception as e:
                         self.log(f"🧭 스윙 매수 오류: {e}")
+                # 아침 전 종목 다시 고르기(장 시작 뒤 오늘 흐름으로 전체 종목을 다시 본 후보)가 도착하면 확신 종목을 한 번 더 봄
+                if (self.sw_picks and self.sw_done == today and getattr(self, "sw_am_done", "") != today and not self.stop_req
+                        and n < no_entry_t and n >= self.open_t + dt.timedelta(minutes=30) and swc.get("morning_rescan", True)
+                        and time.time() >= getattr(self, "_am_next", 0)):
+                    self._am_next = time.time() + 300
+                    if n >= self.open_t + dt.timedelta(minutes=swc.get("morning_rescan_max_min", 150)):
+                        self.sw_am_done = today
+                    elif Bot.live_refresh(self, max_age=2.5, after_open=True):
+                        self.sw_am_done = today
+                        cash = self.fresh_cash(cash, force=True)
+                        try:
+                            spent = self.swing_enter(cash)
+                            if cash is not None:
+                                cash -= spent
+                        except Exception as e:
+                            self.log(f"🧭 아침 다시 고르기 매수 오류: {e}")
                 while self.buy_reqs:
                     xb = self.buy_reqs.pop(0)
                     if n >= no_entry_t:

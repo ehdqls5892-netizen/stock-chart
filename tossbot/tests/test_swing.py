@@ -634,3 +634,18 @@ got = M.Bot.rerank(rb, cs, {"A1": 10, "A2": 10, "A3": 10}, dt.date(2026, 11, 3),
 M.Bot.cand_check = _cc
 assert [x["code"] for x in got] == ["A2", "A1", "A3"] and got[0]["_chk"][0] == 10, [x["code"] for x in got]
 print("✅ 매수 직전 후보 다시 줄 세우기 시험 통과")
+# 아침 다시 고르기: 장 시작 전에 만든 후보는 안 쓰고, 장 시작 뒤에 만든 후보만 씀
+import requests as _rq
+_g = _rq.get
+o_t = M.now("KR").replace(hour=9, minute=0, second=0, microsecond=0)
+def _mk_live(made):
+    return lambda *a, **k: SimpleNamespace(json=lambda: {"date": M.now("KR").date().isoformat(), "made": made.astimezone(dt.timezone.utc).isoformat(timespec="minutes"),
+                                                         "picks": [{"code": "005930", "name": "삼성전자"}], "added": [], "dropped": []})
+lr = SimpleNamespace(cfg={"daily_swing": {"live_picks_url": "x{m}"}}, m="KR", sw_picks={"picks": []}, open_t=o_t, log=print, notify=print)
+_rq.get = _mk_live(o_t - dt.timedelta(minutes=30))
+assert M.Bot.live_refresh(lr, max_age=99, after_open=True) is False
+_rq.get = _mk_live(o_t + dt.timedelta(minutes=50))
+ok = M.Bot.live_refresh(lr, max_age=1e6, after_open=True)
+_rq.get = _g
+assert ok and lr.sw_picks["picks"][0]["code"] == "005930", (ok, lr.sw_picks, M.now("KR"), o_t)
+print("✅ 아침 전 종목 다시 고르기 시험 통과")
