@@ -1539,6 +1539,12 @@ class Bot:
             ma20 = sum(b[4] for b in bars[-20:]) / 20
             if price >= ma20 * (1 + mx):
                 why = f"20일선보다 {(price / ma20 - 1) * 100:+.0f}% 높이 떠 있어 단기 과열 — 쉬어 갈 때 다시 봄"
+        if why is None and c.get("skip_spike", True):
+            sp = SW.spike_note(bars, price)
+            if sp:
+                why = sp
+        if why is None and c.get("need_target") and rr0 is None:
+            why = "증권사 목표가가 없어 오를 여지(손익비)를 확인할 수 없음 — 확실한 종목만 삼"
         ms = c.get("max_stop_pct")                    # 손절 폭이 너무 넓으면 한 번 틀릴 때 많이 잃음 → 안 삼
         if why is None and ms and price and x.get("stop") and (price - float(x["stop"])) / price > ms:
             why = f"손절 폭 {(price - float(x['stop'])) / price * 100:.0f}% — 너무 넓어서(기준 {ms * 100:.0f}%) 안 사요"

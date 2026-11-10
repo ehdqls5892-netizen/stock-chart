@@ -546,6 +546,20 @@ def cons_target(market: str, est: dict):
 RR_STOP_FLOOR = 0.06
 
 
+def spike_note(bars, price, days=10, jump=0.15, ext=0.10):
+    """최근 N일 안에 하루 +15% 넘게 튄 날이 있고 아직 20일선보다 10% 넘게 떠 있으면 → '급등 직후' 설명, 아니면 None.
+    재료로 한 번에 튄 종목은 그 뒤 옆으로 쉬다 다시 빠지는 경우가 많아, 충분히 쉬어 20일선이 따라올 때까지 안 삼."""
+    if len(bars) < 22 or not price:
+        return None
+    cl = [b[4] for b in bars]
+    ma20 = sum(cl[-20:]) / 20
+    big = [(i, cl[i] / cl[i - 1] - 1) for i in range(len(cl) - days, len(cl)) if i > 0 and cl[i - 1] and cl[i] / cl[i - 1] - 1 >= jump]
+    if big and price >= ma20 * (1 + ext):
+        i, j = big[-1]
+        return f"{len(cl) - i}거래일 전 하루 {j * 100:+.0f}% 급등 뒤 아직 20일선보다 {(price / ma20 - 1) * 100:+.0f}% 위 — 충분히 쉬기 전엔 추격 안 함"
+    return None
+
+
 def rr_score(tgt_up, stop_pct):
     """손익비 = 애널리스트 평균 목표가까지 남은 % ÷ 손절선까지 %.
     2 이상 +1 / 1.5~2 0 / 1~1.5 −1 / 1 미만 −2 (목표가까지 남은 게 손절 폭보다 작으면 사 봐야 남는 게 적음). → (점수, 설명, 손익비)"""

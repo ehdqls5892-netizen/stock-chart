@@ -111,6 +111,8 @@ pkd = {"date": "2026-11-06", "picks": [
     {"code": "D", "name": "라", "score": 7, "close": 100, "stop": 92, "sector": "T", "ai": {"view": "부정"}},
     {"code": "E", "name": "마", "score": 7, "close": 100, "stop": 92, "sector": "T", "no_buy": "손익비 1 미만", "ai": {}},
     {"code": "F", "name": "바", "score": 2, "close": 100, "stop": 92, "sector": "U", "ai": {}}]}
+_cfg0 = MB._cfg
+MB._cfg = lambda: (lambda d: (d["daily_swing"].update(need_target=False, skip_spike=False), d)[1])(_cfg0())   # 시험 종목엔 목표가 없음
 pl = MB.plan("US", hold=[], cap=5000, pk=pkd)
 assert [x["name"] for x in pl["buy"]] == ["가", "나"] and pl["buy"][0]["qty"] == 6 and pl["buy"][1]["small"] and pl["buy"][1]["qty"] == 3, pl["buy"]
 why = {x["name"]: x["why"] for x in pl["skip"]}

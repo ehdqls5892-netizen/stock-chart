@@ -11,6 +11,7 @@ from bot.broker import PaperBroker
 
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 c = cfg["daily_swing"]
+c["need_target"] = False   # 시험 종목엔 목표가가 없음 (목표가 필수 규칙은 아래에서 따로 시험)
 c["red_flag_news"] = False          # 시험에선 인터넷 뉴스 안 봄 (아래 12번에서 따로 시험)
 c["brief_news"] = False
 c["min_forward_score"] = -99         # 기존 시험은 점수 문턱 없이 (아래 19번에서 따로 시험)
@@ -578,3 +579,10 @@ assert M.Bot.swing_timing(_b, {"setup": "fs", "score": 7, "rr": {"rr": 3.0}}, _d
 assert M.Bot.swing_timing(_b, {"setup": "fs", "score": 9, "rr": {"rr": 1.8}}, _d) == "close"
 assert M.Bot.swing_timing(_b, {"setup": "fs", "score": 9, "ev": {"ai": {"view": "부정"}}}, _d) == "close"
 print("✅ 확신 종목 아침 매수 시험 통과")
+
+# 급등 직후 추격 금지 · 목표가 없는 종목은 안 삼(need_target)
+_b = [(dt.date(2026, 9, 1) + dt.timedelta(days=i), 100, 101, 99, 100, 1000) for i in range(40)] + [(dt.date(2026, 10, 15), 100, 130, 100, 128, 9000)] + \
+     [(dt.date(2026, 10, 16) + dt.timedelta(days=i), 128, 130, 126, 128, 2000) for i in range(5)]
+assert SW.spike_note(_b, 128) and "급등" in SW.spike_note(_b, 128)
+assert SW.spike_note(_b[:40], 100) is None
+print("✅ 급등 직후 추격 금지 시험 통과")

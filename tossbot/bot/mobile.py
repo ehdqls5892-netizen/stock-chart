@@ -793,6 +793,15 @@ def live_or_night(mk: str) -> dict:
     return picks(mk)
 
 
+def _spike(mk, x):
+    try:
+        from . import swing as SW
+        b = bars(x["code"])
+        return SW.spike_note(b, x.get("close"))
+    except Exception:
+        return None
+
+
 def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
     """오늘(다음 매수 시각에) 살 종목 예상: 봇과 같은 규칙(점수·AI 부정/중립·손익비·업종 2종목·빈자리·손실 한도)으로 미리 계산.
     최종 결정은 그 시각에 그날 봉·뉴스·현재가로 한 번 더 점검해서 바뀔 수 있음."""
@@ -839,6 +848,10 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
             why = f"손익비 {x['rr']['rr']:.1f} (기준 {c['min_rr']:g} 미만)"
         elif c.get("max_ext20") and any("단기 과열" in t for t in (x.get("cons") or [])):
             why = "20일선보다 너무 높이 떠 있어 단기 과열"
+        elif c.get("need_target") and (x.get("rr") or {}).get("rr") is None:
+            why = "증권사 목표가가 없어 손익비 확인 불가"
+        elif c.get("skip_spike", True) and len(buy) < slots + 3 and _spike(mk, x):
+            why = _spike(mk, x)
         elif c.get("max_stop_pct") and x.get("close") and x.get("stop") and (x["close"] - x["stop"]) / x["close"] > c["max_stop_pct"]:
             why = f"손절 폭 {(x['close'] - x['stop']) / x['close'] * 100:.0f}% — 너무 넓음"
         elif sc < c.get("min_forward_score", 3):
