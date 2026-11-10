@@ -1298,24 +1298,7 @@ class Bot:
         if not why and xs is not None and fs is not None and fs <= xs and held >= 1:
             why = (f"현재·미래 근거가 약해짐 (점수 {fs:+d} ≤ {xs:+d}): "
                    + " ".join(w for w in fw if w.startswith("－"))[:120])
-        pt = c.get("profit_take") or {}                 # +4% 넘게 오르면 일부 익절 + 나머지는 손절선을 본전 위로
-        pt_now = False
-        if not why and pt.get("enabled") and not p.extra.get("pt_done") and close >= p.entry * (1 + pt.get("pct", 4) / 100):
-            try:
-                be = round_tick(self.m, p.entry * (1 + cost), "up")
-                q = max(1, int(p.qty * pt.get("frac", 1 / 3))) if p.qty >= 2 else 0
-                gain = (close / p.entry - 1) * 100
-                if q and hasattr(self.broker, "sell_part"):
-                    if self.broker.sell_part(p, q, close, f"+{gain:.1f}% 수익 — 일부 익절", be if be > p.sl else None):
-                        p.extra["pt_done"] = True
-                        pt_now = True
-                        self.notify(f"💰 {p.name} {gain:+.1f}% → {q}주 익절, 나머지 {p.qty}주는 손절선 {money(self.m, p.sl)}(본전 이상)으로 계속 보유")
-                elif be > p.sl:                              # 1주: 팔 수 없으니 손절선만 본전으로 (아래에서 토스 손절 주문도 고침)
-                    p.sl = be
-                    p.extra["pt_done"] = True
-                    self.notify(f"🔒 {p.name} {gain:+.1f}% → 1주라 팔지 않고 손절선을 본전({money(self.m, be)})으로 올림")
-            except Exception as e:
-                self.log(f"🧭 +{pt.get('pct', 4)}% 익절 판단 오류 {p.name}: {e}")
+        pt_now = (not why and Bot.profit_take(self, p, close)) or p.extra.get("pt_day") == now(self.m).date().isoformat()
         tp_c = c.get("target_take") or {}
         if not why and tp_c.get("enabled") and not p.extra.get("tgt_done") and p.qty >= 2 and hasattr(self.broker, "sell_part"):
             try:
@@ -1619,6 +1602,38 @@ class Bot:
         except Exception:
             fs, fw = None, []
         return fs, fw, txt
+
+    def profit_take(self, p, last) -> bool:
+        """+4% 넘게 오르면 1/3(2주면 1주) 익절 + 나머지 손절선을 본전 위로, 1주면 손절선만 본전으로 — 종목당 한 번.
+        장중 15초마다(실시간 가격) + 마감 점검 때 확인."""
+        c = self.cfg["daily_swing"]
+        pt = c.get("profit_take") or {}
+        if not pt.get("enabled") or p.extra.get("pt_done") or p.state != "open" or not p.extra.get("sw") or not last:
+            return False
+        if p.extra.get("partial_oid") or last < p.entry * (1 + pt.get("pct", 4) / 100):
+            return False
+        fee = self.cfg["fees"][self.m]
+        cost = (fee["buy_pct"] + fee["sell_pct"] + fee["sell_tax_pct"]) / 100
+        be = round_tick(self.m, p.entry * (1 + cost), "up")
+        gain = (last / p.entry - 1) * 100
+        try:
+            q = max(1, int(p.qty * pt.get("frac", 1 / 3))) if p.qty >= 2 else 0
+            if q and hasattr(self.broker, "sell_part"):
+                if self.broker.sell_part(p, q, last, f"+{gain:.1f}% 수익 — 일부 익절", be if be > p.sl else None):
+                    p.extra["pt_done"] = True
+                    p.extra["pt_day"] = now(self.m).date().isoformat()
+                    self.notify(f"💰 {p.name} {gain:+.1f}% → {q}주 익절, 나머지 {p.qty}주는 손절선 {money(self.m, p.sl)}(본전 이상)으로 계속 보유")
+                    return True
+            elif be > p.sl:                              # 1주: 팔 수 없으니 손절선만 본전으로
+                if hasattr(self.broker, "_modify"):
+                    self.broker._modify(p, p.qty, be)
+                p.sl = be
+                p.extra["pt_done"] = True
+                self.notify(f"🔒 {p.name} {gain:+.1f}% → 1주라 팔지 않고 손절선을 본전({money(self.m, be)})으로 올림")
+                return True
+        except Exception as e:
+            self.log(f"🧭 +{pt.get('pct', 4)}% 익절 오류 {p.name}: {e}")
+        return False
 
     def earn_presell(self, p, close) -> bool:
         """내일이 실적 반응일인데, 살 때 실적을 감안해 줄여 사지 않았고 아직 +1R 수익 쿠션이 없으며
@@ -2295,6 +2310,10 @@ class Bot:
                                 self.broker.on_price(sym, stx.last, n)
                             except Exception as e:
                                 self.log(f"보유 점검 오류 {sym}: {e}")
+                            try:
+                                Bot.profit_take(self, p, stx.last)      # +4% 찍으면 바로 일부 익절 (마감까지 안 기다림)
+                            except Exception as e:
+                                self.log(f"익절 점검 오류 {sym}: {e}")
                 if self.shadow is not None and time.time() - getattr(self, "_shp_t", 0) > 15:
                     self._shp_t = time.time()
                     for sym, p in list(self.shadow.pos.items()):
