@@ -915,6 +915,7 @@ class Bot:
             out += [f"- {x['name']}: {why}" for x, _, why, q in g[:12]]
             if len(g) > 12:
                 out.append(f"- 그 밖 {len(g) - 12}개")
+        out.append("이 표는 장 전 가격(프리장이 있으면 프리장) 기준이에요. 실제로 살 때 지금 가격으로 후보 전체를 다시 점검해서 점수 순으로 다시 줄 세워요.")
         out.append("당일엔 시가가 손절선 아래·10% 넘게 갭, (마감 매수는) 장중 손절선 닿음, 현금 부족일 때만 결과가 달라져요.")
         return "\n".join(out)
 
@@ -1037,7 +1038,9 @@ class Bot:
                         f"장 마감 15분 전에 오늘 흐름을 보고 살게요. 장중에 손절선까지 밀리면 안 사요.")
         # 실적이 보유 기간 안에 없는 종목 먼저 (점수 순서는 유지)
         cands.sort(key=lambda x: SW.earn_plan(x, today, 100.0, 90.0, ec, self.m)[0] not in ("ok", "early"))   # 판정 좋은 실적주는 순서 그대로
-        cands = cands if dry else cands[: max(0, slots) * 3]
+        rerank = c.get("rerank", True) and not manual
+        if not rerank:
+            cands = cands if dry else cands[: max(0, slots) * 3]
         sec_n = {}
         for p0 in have:
             if p0.extra.get("sector"):
@@ -1048,6 +1051,14 @@ class Bot:
             return 0.0
         if dry:
             px, cash = {x["code"]: float(x["close"]) for x in cands}, None
+            if rerank and os.getenv("TOSSBOT_OFFLINE") != "1" and getattr(self, "api", None):
+                try:                              # 장 전: 프리장(국장 NXT·미장 프리마켓) 가격이 있으면 그걸로 미리 판단
+                    for r in self.api.prices([x["code"] for x in cands]) or []:
+                        v = f(r.get("lastPrice"))
+                        if v and r.get("symbol") in px:
+                            px[r["symbol"]] = v
+                except Exception:
+                    pass
         else:
             try:
                 px = {x.get("symbol"): f(x.get("lastPrice")) for x in (self.api.prices([x["code"] for x in cands]) or [])}
@@ -1065,6 +1076,10 @@ class Bot:
                 mgap = round(sp / float(d["index"]["close"]) - 1, 4) if sp else None
             except Exception:
                 mgap = None
+        if rerank:
+            cands = Bot.rerank(self, cands, px, today, ec, dry)
+            if not dry:
+                cands = cands[: max(0, slots) * 3 + 3]
         for x in cands:
             if slots <= 0 and not dry:
                 break
@@ -1140,7 +1155,8 @@ class Bot:
                     skip(x, f"수량 0주 (1주 손절폭 {money(self.m, e - size_stop)}가 손실 한도보다 큼)")
                 continue
             try:
-                bad, btxt, warn = Bot.cand_check(self, x, e)
+                ck = x.pop("_chk", None)
+                bad, btxt, warn = ck[1] if ck and ck[0] == e else Bot.cand_check(self, x, e)
             except Exception as ex:
                 bad, btxt, warn = None, "", []
                 self.log(f"🧭 {x['name']} 종합 점검 오류: {ex}")
@@ -1236,6 +1252,42 @@ class Bot:
                         f"(-{(1 - sl / e) * 100:.1f}%, 손실 한도 투자금의 {rp:g}%)\n산 이유: {x['reason']}"
                         + SW.ev_text(ev, etxt) + (f"\n{x['_brief']}" if x.get("_brief") else ""))
         return spent
+
+    def rerank(self, cands, px, today, ec, dry=False) -> list:
+        """매수 직전 후보 전체 다시 점검: 지금 가격(프리장·장중)으로 모든 후보의 점수·차트·뉴스를 다시 계산해서
+        통과한 것 중 점수 높은 순으로 다시 줄 세움 (어젯밤 순서 그대로 사지 않음). 실적 판정 좋은 종목 우선은 유지."""
+        c = self.cfg["daily_swing"]
+        n_max = c.get("rerank_max", 30)
+        good, out, bad_n = [], [], []
+        for x in cands:
+            x.pop("_chk", None)
+        for i, x in enumerate(cands):
+            e = px.get(x["code"])
+            if not e or i >= n_max:
+                out.append((1, 0, i, x))
+                continue
+            try:
+                chk = Bot.cand_check(self, x, e)
+            except Exception as ex:
+                self.log(f"🧭 {x['name']} 다시 점검 오류: {ex}")
+                out.append((1, 0, i, x))
+                continue
+            x["_chk"] = (e, chk)                 # 같은 가격일 때만 다시 씀 (다음 매수 때는 새로 점검)
+            if chk[0]:
+                bad_n.append(x["name"])
+                out.append((2, 0, i, x))
+                continue
+            ep = SW.earn_plan(x, today, 100.0, 90.0, ec, self.m)[0] not in ("ok", "early")
+            good.append(x)
+            out.append((0, (ep, -(x.get("_fscore") or 0)), i, x))
+        out.sort(key=lambda t: (t[0], t[1], t[2]))
+        res = [t[3] for t in out]
+        if not dry and good:
+            top = [x for x in res if x in good][:5]
+            self.notify(f"🔄 지금 가격으로 후보 {min(len(cands), n_max)}개 다시 점검 → 통과 {len(good)}개, 점수 순: "
+                     + ", ".join(f"{x['name']}({x.get('_fscore', 0):+d})" for x in top)
+                     + (f" · 탈락 {len(bad_n)}개" if bad_n else ""))
+        return res
 
     def swing_bars(self, sym, last):
         """토스 일봉 + 오늘(지금 가격을 종가로)."""

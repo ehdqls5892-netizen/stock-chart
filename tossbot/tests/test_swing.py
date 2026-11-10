@@ -622,3 +622,15 @@ _kx = [130 + _rd.uniform(-2, 2) for i in range(110)] + [170] + [174 + _rd.unifor
 assert SW.chart_quality(_mk(_kx, [1000] * 110 + [15000] + [1500] * 9))[0] <= -2
 assert SW.chart_quality(_mk([100 * (0.996 ** i) for i in range(120)]))[0] <= -2
 print("✅ 차트 모양 점수 시험 통과")
+# 매수 직전 후보 전체 다시 점검: 지금 가격으로 점수 높은 순, 탈락은 뒤로
+_cc = M.Bot.cand_check
+def _fake_cc(self, x, price):
+    x["_fscore"] = {"A1": 2, "A2": 7, "A3": 9}[x["code"]]
+    return ("차트 나쁨" if x["code"] == "A3" else None), "", []
+M.Bot.cand_check = _fake_cc
+rb = SimpleNamespace(cfg=cfg, m="US", log=print)
+cs = [{"code": c, "name": c} for c in ("A1", "A2", "A3")]
+got = M.Bot.rerank(rb, cs, {"A1": 10, "A2": 10, "A3": 10}, dt.date(2026, 11, 3), {}, False)
+M.Bot.cand_check = _cc
+assert [x["code"] for x in got] == ["A2", "A1", "A3"] and got[0]["_chk"][0] == 10, [x["code"] for x in got]
+print("✅ 매수 직전 후보 다시 줄 세우기 시험 통과")
