@@ -109,6 +109,7 @@ assert "111111" not in b2.pos and "10일선" in b2.closed[-1].exit_reason, b2.cl
 print("정리:", sent[-2])
 
 # 7) 하락 국면엔 저점 매수(dip)만 사고, 짧게 관리 (10일선으로 안 팔고, 7거래일 지나면 정리)
+cfg["daily_swing"]["any_regime_by_market"] = {"KR": ["fs"], "US": ["fs"]}      # 이 시험은 '신고가는 시장 좋을 때만' 설정 기준
 b3 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
 bot.broker, bot.m = b3, "US"
 cfg["market"] = "US"
@@ -735,3 +736,20 @@ q2.extra.update(sw=True, carry=True, sw_days=3)
 M.Bot.profit_take(bot, q2, 111.0)
 assert q2.qty == 1 and q2.sl == 92 and q2.extra.get("pt_done")               # 1주: 아무것도 안 함
 print("✅ +10% 익절(본전 이동 없음) 시험 통과")
+# 여러 방식 함께: 미장 신고가(hi52)는 시장과 상관없이, 국장 재료 갭(ep)은 시장 나쁠 땐 점수 10 이상일 때만
+c["any_regime_by_market"] = {"KR": ["fs"], "US": ["fs", "hi52"]}
+c["bad_regime_min_score"] = {"KR": {"ep": 10}}
+mb = SimpleNamespace(cfg=cfg, m="KR")
+mb.swing_on = lambda: ["fs", "ep"]
+dd = {"regime": False, "picks": [{"code": "E", "name": "E", "setup": "ep"}, {"code": "F", "name": "F", "setup": "fs"}]}
+M.Bot.split_picks(mb, dd)
+assert [x["code"] for x in dd["picks"]] == ["E", "F"] and dd["picks"][0]["_bad_min"] == 10 and "_bad_min" not in dd["picks"][1], dd
+dd = {"regime": True, "picks": [{"code": "E", "name": "E", "setup": "ep"}]}
+M.Bot.split_picks(mb, dd)
+assert dd["picks"] and "_bad_min" not in dd["picks"][0]
+mb = SimpleNamespace(cfg=cfg, m="US")
+mb.swing_on = lambda: ["fs", "hi52"]
+dd = {"regime": False, "picks": [{"code": "H", "name": "H", "setup": "hi52"}]}
+M.Bot.split_picks(mb, dd)
+assert dd["picks"] and "_bad_min" not in dd["picks"][0]
+print("✅ 여러 방식 함께 사기 시험 통과")

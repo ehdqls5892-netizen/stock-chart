@@ -983,7 +983,17 @@ class Bot:
         on, below = set(self.swing_on()), set(self.cfg["daily_swing"].get("below_setups", []))
         anyr = Bot.any_regime(self)
         allp = [x for x in d.get("picks", []) if x.get("setup") in on]
-        d["picks"] = [x for x in allp if x.get("setup") in anyr or (x.get("setup") in below) != bool(d.get("regime"))]
+        bad = (self.cfg["daily_swing"].get("bad_regime_min_score") or {}).get(self.m) or {}
+        keep = []
+        for x in allp:
+            st = x.get("setup")
+            x.pop("_bad_min", None)
+            if st in anyr or (st in below) != bool(d.get("regime")):
+                keep.append(x)
+            elif not d.get("regime") and st in bad:      # 시장 나쁨이어도 점수가 높으면 삼
+                x["_bad_min"] = bad[st]
+                keep.append(x)
+        d["picks"] = keep
         d["_off"] = [x for x in allp if x not in d["picks"]]
 
     def swing_table_text(self) -> str:
@@ -1137,7 +1147,7 @@ class Bot:
         today = now(self.m).date()
         cands = []
         for x in d["picks"]:
-            if x.get("setup") not in Bot.any_regime(self) and (x.get("setup") in below) == bool(d.get("regime")):
+            if x.get("setup") not in Bot.any_regime(self) and (x.get("setup") in below) == bool(d.get("regime")) and x.get("_bad_min") is None:
                 continue
             if x["code"] in self.broker.pos:
                 skip(x, "이미 보유 중")
@@ -1758,6 +1768,9 @@ class Bot:
             why = f"새로 나온 심한 악재 뉴스(AI 판정): {nj.get('why', '')} — {nj.get('head', '')[:40]}"
         elif nj.get("impact") == "악재":
             warn.append(f"새 악재 뉴스: {nj.get('why', '')}")
+        bk = x.get("_bad_min")                   # 시장이 내려가는 중: 이 방식은 점수가 충분히 높을 때만 삼 (또 하나의 판단 근거)
+        if why is None and bk is not None and fs < bk:
+            why = f"시장 하락 추세(지수가 평균선 아래) — 이 방식은 점수 {bk:+d} 이상일 때만 삼 (지금 {fs:+d})"
         if why is None and fwhy and fs < c.get("min_forward_score", 2):
             why = f"현재·미래 근거 부족 (점수 {fs:+d}, 기준 {c.get('min_forward_score', 2):+d} 이상): " + " ".join(w for w in fwhy if w.startswith("－"))[:120]
         if bars and len(bars) >= 2 and bars[-1][0] == now(self.m).date() and price < bars[-1][1] * 0.97:
