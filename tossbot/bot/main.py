@@ -1601,6 +1601,8 @@ class Bot:
             why = (f"현재·미래 근거가 약해짐 (점수 {fs:+d} ≤ {xs:+d}): "
                    + " ".join(w for w in fw if w.startswith("－"))[:120])
         pt_now = (not why and Bot.profit_take(self, p, close)) or p.extra.get("pt_day") == now(self.m).date().isoformat()
+        if not why:
+            Bot.profit_lock(self, p, close)
         tp_c = c.get("target_take") or {}
         if not why and tp_c.get("enabled") and not p.extra.get("tgt_done") and p.qty >= 2 and hasattr(self.broker, "sell_part"):
             try:
@@ -2041,6 +2043,55 @@ class Bot:
         except Exception as e:
             self.log(f"🧭 +{pt.get('pct', 4)}% 익절 오류 {p.name}: {e}")
         return False
+
+    def profit_lock(self, p, last) -> bool:
+        """오른 만큼 이익을 잠금 (장중 15초마다, 실시간 가격). 손절선은 올리기만 하고 절대 내리지 않음.
+        steps [[오른 %, 잠글 %], ...]: 최고 +7% 찍으면 손절선을 +3%로, +10% 면 +5%로 …
+        trail_from % 넘게 오르면 그 뒤로는 '최고가 − trail_pct %'를 따라 올라감.
+        take2_pct % 에 닿으면 남은 수량의 take2_frac 를 한 번 더 익절."""
+        c = self.cfg["daily_swing"]
+        pl = c.get("profit_lock") or {}
+        if not pl.get("enabled") or p.state != "open" or not p.extra.get("sw") or not last or not p.entry or p.extra.get("partial_oid"):
+            return False
+        pk = max(float(p.extra.get("pl_peak") or 0), float(last))
+        p.extra["pl_peak"] = pk
+        g = (pk / p.entry - 1) * 100
+        lock = None
+        for up, lk in pl.get("steps") or []:
+            if g >= up:
+                lock = lk if lock is None else max(lock, lk)
+        new = p.entry * (1 + lock / 100) if lock is not None else None
+        if pl.get("trail_from") is not None and g >= pl["trail_from"]:
+            tr = pk * (1 - pl.get("trail_pct", 5) / 100)
+            new = tr if new is None else max(new, tr)
+        did = False
+        try:
+            t2 = pl.get("take2_pct")
+            if t2 and not p.extra.get("pl_t2") and last >= p.entry * (1 + t2 / 100) and p.qty >= 2 and hasattr(self.broker, "sell_part"):
+                q = max(1, int(p.qty * pl.get("take2_frac", 0.5)))
+                stp = round_tick(self.m, new, "down") if new else None
+                if self.broker.sell_part(p, q, last, f"+{(last / p.entry - 1) * 100:.1f}% — 두 번째 익절", stp if stp and stp > p.sl else None):
+                    p.extra["pl_t2"] = True
+                    did = True
+                    self.notify(f"💰💰 {p.name} {(last / p.entry - 1) * 100:+.1f}% → {q}주 더 익절, 나머지 {p.qty}주는 손절선 {money(self.m, p.sl)}으로 이익 잠금")
+                    return True
+            if new is None:
+                return did
+            new = round_tick(self.m, new, "down")
+            if new <= p.sl or new >= last * 0.998:
+                return did
+            if hasattr(self.broker, "_modify"):
+                self.broker._modify(p, p.qty, new)
+            old = p.sl
+            p.sl = new
+            if (new / p.entry - 1) * 100 - ((p.extra.get("pl_note") or -99)) >= 1 or old < p.entry <= new:
+                p.extra["pl_note"] = round((new / p.entry - 1) * 100, 1)
+                self.notify(f"🔒 {p.name} 최고 {g:+.1f}%까지 올라서 손절선을 {money(self.m, new)}({(new / p.entry - 1) * 100:+.1f}%)로 올림 — "
+                            f"여기까지 내려와도 이익으로 팔려요")
+            return True
+        except Exception as e:
+            self.log(f"🔒 이익 잠금 오류 {p.name}: {e}")
+        return did
 
     def earn_presell(self, p, close) -> bool:
         """내일이 실적 반응일인데, 살 때 실적을 감안해 줄여 사지 않았고 아직 +1R 수익 쿠션이 없으며
@@ -2747,6 +2798,7 @@ class Bot:
                                 self.log(f"보유 점검 오류 {sym}: {e}")
                             try:
                                 Bot.profit_take(self, p, stx.last)      # (켜져 있으면) +N% 찍을 때 일부 익절
+                                Bot.profit_lock(self, p, stx.last)      # 오른 만큼 손절선을 올려 이익 잠금
                                 Bot.loss_watch(self, p, stx.last)       # -3% 를 처음 넘으면 바로 검토해서 알림
                             except Exception as e:
                                 self.log(f"익절·손실 점검 오류 {sym}: {e}")

@@ -11,7 +11,7 @@ from bot.broker import PaperBroker
 
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 cfg["daily_swing"]["ai_required_other"] = False      # 시험: AI 키 없이 돌리므로 판독 없으면 안 사기는 따로 시험
-cfg["daily_swing"].update(stop_by_market={}, risk_pct=1.0, risk_by_grade={"A": 1.0, "B": 0.6}, strong={"enabled": False})   # 시험 숫자는 1% 위험·신호 손절선 기준
+cfg["daily_swing"].update(stop_by_market={}, risk_pct=1.0, risk_by_grade={"A": 1.0, "B": 0.6}, strong={"enabled": False}, profit_lock={"enabled": False})   # 시험 숫자는 1% 위험·신호 손절선 기준
 cfg["daily_swing"]["extra_slots"] = {}                # 시험: 따로 자리는 마지막에 따로 시험
 c = cfg["daily_swing"]
 c["need_target"] = False   # 시험 종목엔 목표가가 없음 (목표가 필수 규칙은 아래에서 따로 시험)
@@ -892,3 +892,27 @@ M.Bot.swing_daily(bot, w3, 94.0)                         # 이미 -5% 아래로 
 assert "W3" not in bf.pos and "고정 손절" in bf.closed[-1].exit_reason, bf.closed[-1].exit_reason
 M.Bot.hold_score = orig_hs
 print("✅ 보유 종목 -5% 고정 손절 시험 통과")
+# 이익 잠금: 최고가 기준 손절선 올리기(내리지 않음) + +10% 두 번째 익절
+c["profit_lock"] = {"enabled": True, "steps": [[4, 0.5], [7, 3], [10, 5]], "trail_from": 12, "trail_pct": 5, "take2_pct": 10, "take2_frac": 0.5}
+bl2 = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker = bl2
+sent.clear()
+k1 = bl2.enter("K1", "K1", 100, 10, 300, 95, "시험")
+k1.extra.update(sw=True, carry=True, sw_days=1)
+M.Bot.profit_lock(bot, k1, 103.0)
+assert k1.sl == 95                                         # +3%: 아직 그대로
+M.Bot.profit_lock(bot, k1, 104.2)
+assert abs(k1.sl - 100.5) < 0.02, k1.sl                    # +4%: 본전 위
+M.Bot.profit_lock(bot, k1, 107.5)
+assert abs(k1.sl - 103.0) < 0.02, k1.sl                    # +7%: +3% 잠금
+M.Bot.profit_lock(bot, k1, 104.0)
+assert abs(k1.sl - 103.0) < 0.02, k1.sl                    # 내려와도 손절선은 안 내림
+M.Bot.profit_lock(bot, k1, 110.5)                          # +10%: 절반 더 익절 + 손절선 +5%
+assert k1.qty == 5 and k1.extra.get("pl_t2"), (k1.qty, k1.extra)
+M.Bot.profit_lock(bot, k1, 110.6)
+assert abs(k1.sl - 105.0) < 0.02, k1.sl
+M.Bot.profit_lock(bot, k1, 120.0)                          # +20%: 최고가 -5% = 114 따라감
+assert abs(k1.sl - 114.0) < 0.02, k1.sl
+assert any("이익으로 팔려요" in m_ for m_ in sent), sent
+c["profit_lock"] = {"enabled": False}
+print("✅ 이익 잠금 시험 통과")
