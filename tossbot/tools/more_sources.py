@@ -123,7 +123,7 @@ def krx_short(rows: list) -> int:
     """국장 공매도(한국거래소, 이미 등록된 KRX 로그인 사용 — 증권사 계좌·키 필요 없음).
     하루치를 시장 전체로 한 번에 받음: 공매도 거래 비중(최근일·5일 평균), 공매도 잔고 비중(이틀 늦게 나옴)."""
     if not os.getenv("KRX_ID") or not os.getenv("KRX_PW"):
-        return 0
+        log("KRX 로그인 정보 없음 — 로그인 없이 시도")
     import datetime as dt
     try:
         from pykrx import stock
