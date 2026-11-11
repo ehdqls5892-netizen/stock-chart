@@ -780,15 +780,21 @@ why_d, _, _ = M.Bot.cand_check(rbb, dict(xr), 71.0)
 assert why_d and "반등 실패" in why_d, why_d
 M.Bot.daily_full, M.Bot.stock_news, M.Bot.est_row, M.Bot.news_judged = _df2, _sn2, _er2, _nj2
 # 반등 신호 만들기 (연구·후보 생성 공용)
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
-import swingbt as BT
-rows = [(f"2026-{1 + i // 28:02d}-{1 + i % 28:02d}", 100.0, 101.0, 99.0, 100.0, 1e6) for i in range(200)]
-rows += [(f"2026-09-{1 + i:02d}", 100 - i * 4.0, 100 - i * 4.0 + 0.5, 96 - i * 4.0, 96 - i * 4.0, 1e6) for i in range(7)]      # 급락 (100 → 72)
-rows += [(f"2026-09-{8 + i:02d}", 72.0, 72.5, 71.5, 72.0, 1e6) for i in range(3)]                                               # 바닥에서 사흘 쉼
-rows += [("2026-09-11", 72.0, 76.5, 71.5, 76.0, 2e6)]                                                                           # +5.6% 반등, 5일선 위
-Sx = {"X": BT.indicators(BT.prep(rows))}
-sg = BT.signals("rb", Sx, {"include_last": True, "mintv": 1}, {"bars": {"X": rows}}, "us")
-assert sg and sg[-1][0] == "2026-09-11" and abs(sg[-1][3] - 76.0 * 0.92) < 1e-6, sg[-3:]
+try:
+    import numpy  # noqa: F401  (서버 로봇에는 numpy 가 없음 → 후보 생성용 신호 시험은 건너뜀)
+    _np = True
+except ImportError:
+    _np = False
+if _np:
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import swingbt as BT
+    rows = [(f"2026-{1 + i // 28:02d}-{1 + i % 28:02d}", 100.0, 101.0, 99.0, 100.0, 1e6) for i in range(200)]
+    rows += [(f"2026-09-{1 + i:02d}", 100 - i * 4.0, 100 - i * 4.0 + 0.5, 96 - i * 4.0, 96 - i * 4.0, 1e6) for i in range(7)]      # 급락 (100 → 72)
+    rows += [(f"2026-09-{8 + i:02d}", 72.0, 72.5, 71.5, 72.0, 1e6) for i in range(3)]                                               # 바닥에서 사흘 쉼
+    rows += [("2026-09-11", 72.0, 76.5, 71.5, 76.0, 2e6)]                                                                           # +5.6% 반등, 5일선 위
+    Sx = {"X": BT.indicators(BT.prep(rows))}
+    sg = BT.signals("rb", Sx, {"include_last": True, "mintv": 1}, {"bars": {"X": rows}}, "us")
+    assert sg and sg[-1][0] == "2026-09-11" and abs(sg[-1][3] - 76.0 * 0.92) < 1e-6, sg[-3:]
 print("✅ 시장별 손절·급락 뒤 반등 시험 통과")
 # 반등 방식 보유 종목: 손실 검토 알림·점수 판정을 안 씀 (손절선·15일 규칙으로만)
 c["exit_by_setup"] = {**(c.get("exit_by_setup") or {}), "rb": {"exit_ma": 0, "max_hold": 15, "exit_forward_score": None, "loss_review": {"enabled": False}}}
