@@ -1,63 +1,93 @@
 {
  "market": "us",
- "date": "2026-11-10",
- "updatedAt": "2026-11-10T17:51+00:00",
- "plans": {},
+ "date": "2026-11-11",
+ "updatedAt": "2026-11-11T17:51+00:00",
+ "plans": {
+  "RKLB": {
+   "name": "로켓랩",
+   "stop": 61.03,
+   "entryLow": 61.87,
+   "entryHigh": 62.71,
+   "t1": 82.0,
+   "src": "장중 1순위",
+   "t2": 86.19,
+   "score": 80
+  }
+ },
  "watch": [
-  "AAON",
-  "SANM",
-  "TTWO",
+  "CRWV",
+  "AMD",
+  "AMAT",
+  "AVGO",
+  "RKLB",
   "NVDA",
-  "GEV",
-  "GFL",
-  "SKYD",
-  "NET",
-  "TIGO",
-  "RIOT"
+  "NBIS",
+  "RGTI",
+  "AAPL",
+  "LITE",
+  "VCEL",
+  "TLS",
+  "RSG",
+  "MRCY",
+  "TSM"
  ],
  "earn_good": {},
  "names": {
-  "AAON": "에이온",
-  "SANM": "산미나",
-  "TTWO": "테이크투",
-  "TTD": "트레이드데스크",
+  "CRWV": "코어위브",
+  "AMD": "AMD",
+  "AMAT": "어플라이드머티리얼즈",
+  "AVGO": "브로드컴",
   "RKLB": "로켓랩",
+  "TSM": "TSMC",
   "NVDA": "엔비디아",
-  "GEV": "GE버노바",
-  "GFL": "GFL 인바이런멘탈",
-  "SKYD": "스카이댄스",
-  "NET": "클라우드플레어",
-  "TIGO": "밀리콤",
-  "RIOT": "라이엇 플랫폼스"
+  "NBIS": "네비우스",
+  "MSFT": "마이크로소프트",
+  "RGTI": "리게티 컴퓨팅",
+  "AAPL": "애플",
+  "LITE": "루멘텀",
+  "VCEL": "베리셀",
+  "TLS": "텔로스",
+  "RSG": "리퍼블릭 서비시스",
+  "MRCY": "머큐리 시스템즈",
+  "CVX": "셰브론",
+  "AMZN": "아마존"
  },
  "impact": {
+  "CRWV": {
+   "impact": "호재",
+   "title": "코어위브 실적에 AI주 급반등"
+  },
+  "NBIS": {
+   "impact": "호재",
+   "title": "코어위브 실적에 AI주 급반등"
+  },
+  "AMD": {
+   "impact": "호재",
+   "title": "미국 반도체주 동반 급등"
+  },
+  "AVGO": {
+   "impact": "호재",
+   "title": "미국 반도체주 동반 급등"
+  },
+  "TSM": {
+   "impact": "호재",
+   "title": "미국 반도체주 동반 급등"
+  },
   "NVDA": {
+   "impact": "중립",
+   "title": "엔비디아 이틀 급락 뒤 반등"
+  },
+  "CVX": {
    "impact": "악재",
-   "title": "엔비디아 CEO 의혹 확대, 이틀째 약세"
+   "title": "호르무즈 기뢰 소식에 유가 반등"
   },
-  "GEV": {
+  "MSFT": {
    "impact": "악재",
-   "title": "AI 전력주 약세, 소프트뱅크 손실 여파"
+   "title": "마이크로소프트·아마존 약세"
   },
-  "SANM": {
-   "impact": "호재",
-   "title": "실적 깜짝주 급등: 산미나·AAON"
-  },
-  "AAON": {
-   "impact": "호재",
-   "title": "실적 깜짝주 급등: 산미나·AAON"
-  },
-  "TTWO": {
-   "impact": "호재",
-   "title": "테이크투, GTA6 예약 호조에 상승"
-  },
-  "TTD": {
+  "AMZN": {
    "impact": "악재",
-   "title": "트레이드데스크, 시간외 급등 모두 반납"
-  },
-  "RKLB": {
-   "impact": "악재",
-   "title": "로켓랩, 손실 커져 하락"
+   "title": "마이크로소프트·아마존 약세"
   }
  }
 }
