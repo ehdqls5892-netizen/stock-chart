@@ -245,6 +245,63 @@ def kr_flow_naver(codes: list, years: int, budget: int = 6000) -> dict:
     return out
 
 
+def kr_flow_api(codes: list, years: int, budget: int = 5400) -> dict:
+    """네이버 모바일 JSON API(로봇이 매일 5일 수급을 받는 곳과 같은 서버)의 일별 투자자 동향을 과거로 넘겨 가며 받음.
+    값은 외국인·기관 순매수량(주). 처음 몇 종목이 다 실패하면 바로 그만둠(막힌 것)."""
+    import re
+    ses = requests.Session()
+    ses.headers["User-Agent"] = "Mozilla/5.0 (stock-chart bot)"
+    cut = (dt.date.today() - dt.timedelta(days=365 * years)).strftime("%Y%m%d")
+    out, t0, fails = {}, time.time(), 0
+
+    def num(v):
+        try:
+            return float(re.sub(r"[^\d.\-]", "", str(v)))
+        except ValueError:
+            return None
+    for i, code in enumerate(codes):
+        if time.time() - t0 > budget:
+            log("수급 API: 시간 예산 초과, 여기까지", i)
+            break
+        rows, biz = {}, dt.date.today().strftime("%Y%m%d")
+        for _ in range(40):
+            try:
+                r = ses.get(f"https://m.stock.naver.com/api/stock/{code}/trend", params={"pageSize": 60, "bizdate": biz}, timeout=15)
+                if r.status_code != 200:
+                    if not out and i < 3:
+                        log("수급 API 응답", code, r.status_code, r.text[:200].replace("\n", " "))
+                    break
+                js = r.json()
+                items = js if isinstance(js, list) else next((v for v in js.values() if isinstance(v, list)), [])
+                new = 0
+                for it in items:
+                    d = str(it.get("bizdate") or "")
+                    fo, og = num(it.get("foreignerPureBuyQuant")), num(it.get("organPureBuyQuant"))
+                    if len(d) == 8 and fo is not None and og is not None and d not in rows:
+                        rows[d] = (fo, og)
+                        new += 1
+                if not out and i < 3 and not new:
+                    log("수급 API 모양 확인", code, str(js)[:300])
+                if not new or min(rows) <= cut:
+                    break
+                biz = (dt.datetime.strptime(min(rows), "%Y%m%d") - dt.timedelta(days=1)).strftime("%Y%m%d")
+            except Exception as e:
+                if not out and i < 3:
+                    log("수급 API 실패", code, repr(e)[:150])
+                break
+            time.sleep(0.1)
+        if len(rows) >= 20:
+            out[code] = [(f"{d[:4]}-{d[4:6]}-{d[6:]}", v[0], v[1]) for d, v in sorted(rows.items())]
+        else:
+            fails += 1
+            if fails >= 10 and not out:
+                log("수급 API: 처음 10종목 모두 실패 → 중단")
+                break
+        if i % 50 == 0:
+            log(f"수급 API {i}/{len(codes)} · 받음 {len(out)} · 예: {len(rows)}일")
+    return out
+
+
 def us_earn(codes: list) -> dict:
     import yfinance as yf
     out, t0 = {}, time.time()
@@ -276,18 +333,27 @@ def main():
     ap.add_argument("--years", type=int, default=3)
     ap.add_argument("--n", type=int, default=700)
     ap.add_argument("--out", default="out")
+    ap.add_argument("--flow-only", action="store_true")
     a = ap.parse_args()
     res = {"asof": dt.datetime.utcnow().isoformat(timespec="minutes"), "flow": {}, "earn": {}}
-    if a.market == "kr":
+    if a.flow_only and a.market == "kr":                 # 일봉은 그대로 두고 수급 기록만 다시 받음 (빠름)
+        import gzip as _gz
+        import pickle as _pk
+        raw = requests.get("https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/swingdata-kr/swing-kr.pkl.gz", timeout=120).content
+        res = _pk.loads(_gz.decompress(raw))
+        res["flow"] = kr_flow_api(list(res["bars"]), min(a.years, 3))
+        if len(res["flow"]) < len(res["bars"]) * 0.2:
+            res["flow"] = kr_flow_naver(list(res["bars"]), min(a.years, 3)) or res["flow"]
+    elif a.market == "kr":
         yfs, names = kr_universe(a.n)
         res["bars"] = yf_bars(yfs, a.years)
         res["names"] = names
         res["index"] = yf_bars({"KOSPI": "^KS11", "KOSDAQ": "^KQ11"}, a.years)
         try:
-            res["flow"] = kr_flow(list(res["bars"]), min(a.years, 2))
+            res["flow"] = kr_flow_api(list(res["bars"]), min(a.years, 3))
             if len(res["flow"]) < len(res["bars"]) * 0.2:
-                log("pykrx 수급이 거의 없음 → 네이버에서 받음")
-                res["flow"] = kr_flow_naver(list(res["bars"]), min(a.years, 3))
+                log("수급 API 로 거의 못 받음 → pykrx")
+                res["flow"] = kr_flow(list(res["bars"]), min(a.years, 2))
         except Exception as e:
             log("수급 전체 실패", e)
     else:

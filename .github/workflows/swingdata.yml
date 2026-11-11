@@ -11,6 +11,10 @@ on:
         description: "몇 년"
         required: true
         default: "3"
+      flow_only:
+        description: "yes 면 국장 수급 기록만 다시 받음"
+        required: false
+        default: "no"
   schedule:
     - cron: "10 23 * * 6"   # 매주 일요일 08:10(한국) 미장
     - cron: "40 23 * * 6"   # 국장
@@ -36,7 +40,7 @@ jobs:
           elif [ "${{ github.event.schedule }}" = "10 23 * * 6" ]; then M=us; Y=3; else M=kr; Y=3; fi
           echo "m=$M" >> $GITHUB_OUTPUT; echo "y=$Y" >> $GITHUB_OUTPUT
       - name: 자료 모으기
-        run: python tossbot/tools/swing_data.py ${{ steps.mk.outputs.m }} --years ${{ steps.mk.outputs.y }} --out out 2> >(tee out.log >&2)
+        run: python tossbot/tools/swing_data.py ${{ steps.mk.outputs.m }} --years ${{ steps.mk.outputs.y }} --out out ${{ github.event.inputs.flow_only == 'yes' && '--flow-only' || '' }} 2> >(tee out.log >&2)
       - name: 올리기 (swingdata-<m> 브랜치)
         if: always()
         run: |

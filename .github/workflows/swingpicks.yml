@@ -5,8 +5,6 @@ on:
     - cron: "15 9 * * 1-5"    # 국장: 18:15(한국) — 야후 일봉 반영 뒤
     - cron: "25 22 * * 1-5"   # 미장: 뉴욕 장 마감 뒤
     - cron: "45 3 * * 1-5"    # 국장 장중 다시 고르기: 12:45(한국) 예약 — GitHub 가 보통 50분쯤 늦게 시작해 14:05쯤 도착 → 15:15 매수에 반영
-    - cron: "5 0 * * 1-5"     # 국장 아침 전 종목 다시 고르기: 09:05(한국) 예약 — 보통 10시 전후 도착
-    - cron: "40 14 * * 1-5"   # 미장 아침 전 종목 다시 고르기: 뉴욕 09:40(겨울)
     - cron: "50 17 * * 1-5"   # 미장 장중 다시 고르기: 뉴욕 12:50(겨울) 예약 — 약 50분 늦게 시작, 마감 15분 전 매수에 반영
   push:                       # 신호 코드가 바뀌면 국장·미장 후보를 바로 다시 만듦
     branches: [main]
@@ -48,9 +46,9 @@ jobs:
         run: |
           if [ "${{ matrix.mm }}" != "auto" ]; then M="${{ matrix.mm }}";
           elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then M="${{ github.event.inputs.market }}";
-          elif [ "${{ github.event.schedule }}" = "15 9 * * 1-5" ] || [ "${{ github.event.schedule }}" = "45 3 * * 1-5" ] || [ "${{ github.event.schedule }}" = "5 0 * * 1-5" ]; then M=kr; else M=us; fi
+          elif [ "${{ github.event.schedule }}" = "15 9 * * 1-5" ] || [ "${{ github.event.schedule }}" = "45 3 * * 1-5" ]; then M=kr; else M=us; fi
           LIVE=""; BR=swingpicks-$M
-          if [ "${{ github.event.schedule }}" = "45 3 * * 1-5" ] || [ "${{ github.event.schedule }}" = "50 17 * * 1-5" ] || [ "${{ github.event.schedule }}" = "5 0 * * 1-5" ] || [ "${{ github.event.schedule }}" = "40 14 * * 1-5" ] || [ "${{ github.event.inputs.live }}" = "yes" ]; then LIVE="--live"; BR=swinglive-$M; fi
+          if [ "${{ github.event.schedule }}" = "45 3 * * 1-5" ] || [ "${{ github.event.schedule }}" = "50 17 * * 1-5" ] || [ "${{ github.event.inputs.live }}" = "yes" ]; then LIVE="--live"; BR=swinglive-$M; fi
           echo "m=$M" >> $GITHUB_OUTPUT
           echo "live=$LIVE" >> $GITHUB_OUTPUT
           echo "br=$BR" >> $GITHUB_OUTPUT
