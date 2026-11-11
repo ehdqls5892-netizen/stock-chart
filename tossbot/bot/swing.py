@@ -56,7 +56,7 @@ def stop_for(c: dict, market: str, x: dict, price) -> float:
     stop_by_market: {"KR": {"atr": 3}} = 신호 날 종가 − 3×ATR, {"US": {"pct": 5}} = 사는 값에서 −5% 고정."""
     base = float(x.get("_stop_orig", x["stop"]))
     st = (c.get("stop_by_market") or {}).get(market)
-    if not st or (x.get("setup") or "fs") not in set(c.get("strict_setups") or ["fs"]):
+    if not st or ((x.get("setup") or "fs") not in set(c.get("strict_setups") or ["fs"]) and not st.get("all")):
         return base
     try:
         if st.get("pct") and price:

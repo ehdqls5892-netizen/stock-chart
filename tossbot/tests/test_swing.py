@@ -11,6 +11,7 @@ from bot.broker import PaperBroker
 
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 cfg["daily_swing"]["ai_required_other"] = False      # 시험: AI 키 없이 돌리므로 판독 없으면 안 사기는 따로 시험
+cfg["daily_swing"].update(stop_by_market={}, risk_pct=1.0, risk_by_grade={"A": 1.0, "B": 0.6})   # 시험 숫자는 1% 위험·신호 손절선 기준
 cfg["daily_swing"]["extra_slots"] = {}                # 시험: 따로 자리는 마지막에 따로 시험
 c = cfg["daily_swing"]
 c["need_target"] = False   # 시험 종목엔 목표가가 없음 (목표가 필수 규칙은 아래에서 따로 시험)
@@ -859,3 +860,7 @@ M.Bot.swing_enter(bot, 10000, "close")
 M.Bot.cand_check, M.Bot.swing_timing = _cc5, _ss
 assert "H1" in bx.pos and "R1" in bx.pos and "F1" not in bx.pos, list(bx.pos)
 print("✅ 따로 자리(신고가·반등) 시험 통과")
+# 사용자 설정: 모든 방식 손절선 -3% 고정 (all) — 신고가·반등에도 적용
+assert abs(SW.stop_for({"stop_by_market": {"US": {"pct": 3, "all": True}}, "strict_setups": ["fs"]}, "US", {"stop": 80, "setup": "rb"}, 100) - 97.0) < 1e-9
+assert SW.stop_for({"stop_by_market": {"US": {"pct": 3}}, "strict_setups": ["fs"]}, "US", {"stop": 80, "setup": "rb"}, 100) == 80
+print("✅ 모든 방식 -3% 손절 시험 통과")
