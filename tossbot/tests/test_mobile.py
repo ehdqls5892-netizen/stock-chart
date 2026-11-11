@@ -121,10 +121,14 @@ assert MB.next_buy_time("KR").endswith("+00:00")
 assert pl["pause"] is None                                                       # 미장은 시장 나쁨이어도 그대로
 # 국장: 지수가 50일선 아래(시장 나쁨)면 봇이 새로 안 사니, 앱도 '쉼'으로 보여 줌
 pk2 = {**pkd, "regime": False, "index": {"close": 5018.0, "ma50": 6357.0, "ma_n": 50}}
+assert MB.plan("KR", hold=[], cap=10_000_000, pk=pk2)["buy"]                     # 기본: 시장 나쁨이어도 삼 (사용자 설정)
+_cfg1 = MB._cfg
+MB._cfg = lambda: (lambda d: (d["daily_swing"].update(any_regime_by_market={"KR": [], "US": ["fs"]}), d)[1])(_cfg1())   # 막는 설정을 켰을 때만 쉼
 pl2 = MB.plan("KR", hold=[], cap=10_000_000, pk=pk2)
 assert not pl2["buy"] and not pl2["wait"] and "50일선 아래" in pl2["pause"], pl2
 assert any("시장 하락 추세" in x["why"] for x in pl2["skip"]), pl2["skip"]
 assert MB.plan("KR", hold=[], cap=10_000_000, pk={**pkd, "regime": True})["buy"]
+MB._cfg = _cfg1
 print("✅ 오늘 살 종목 시험 통과")
 
 # 범위 밖 종목도 토스 일봉으로 판정 (정보 적음 안 뜨게), 보유·오늘 살 종목이 악재로 바뀌면 알림

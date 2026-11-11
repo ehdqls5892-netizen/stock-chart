@@ -1878,7 +1878,7 @@ class Bot:
 
     def profit_take(self, p, last) -> bool:
         """+pct% 넘게 오르면 1/3(2주면 1주) 익절 — 종목당 한 번. be=true 면 나머지 손절선을 본전 위로(1주면 손절선만).
-        장중 15초마다(실시간 가격) + 마감 점검 때 확인. 2026-11-11: +4%·본전 이동은 백테스트에서 손해라 +10%·본전 이동 없음으로."""
+        장중 15초마다(실시간 가격) + 마감 점검 때 확인. (사용자 설정: +4%·본전 이동)"""
         c = self.cfg["daily_swing"]
         pt = c.get("profit_take") or {}
         if not pt.get("enabled") or p.extra.get("pt_done") or p.state != "open" or not p.extra.get("sw") or not last:
@@ -1888,7 +1888,7 @@ class Bot:
         fee = self.cfg["fees"][self.m]
         cost = (fee["buy_pct"] + fee["sell_pct"] + fee["sell_tax_pct"]) / 100
         be = round_tick(self.m, p.entry * (1 + cost), "up")
-        move = pt.get("be", True)                        # 익절하면서 손절선을 본전으로 올릴지 (백테스트: 올리면 수익이 깎여 기본 끔)
+        move = pt.get("be", True)                        # 익절하면서 손절선을 본전으로 올릴지
         gain = (last / p.entry - 1) * 100
         try:
             q = max(1, int(p.qty * pt.get("frac", 1 / 3))) if p.qty >= 2 else 0
