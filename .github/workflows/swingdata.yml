@@ -40,6 +40,9 @@ jobs:
           elif [ "${{ github.event.schedule }}" = "10 23 * * 6" ]; then M=us; Y=3; else M=kr; Y=3; fi
           echo "m=$M" >> $GITHUB_OUTPUT; echo "y=$Y" >> $GITHUB_OUTPUT
       - name: 자료 모으기
+        env:
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
         run: python tossbot/tools/swing_data.py ${{ steps.mk.outputs.m }} --years ${{ steps.mk.outputs.y }} --out out ${{ github.event.inputs.flow_only == 'yes' && '--flow-only' || '' }} 2> >(tee out.log >&2)
       - name: 올리기 (swingdata-<m> 브랜치)
         if: always()

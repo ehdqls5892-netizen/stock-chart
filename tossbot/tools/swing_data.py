@@ -343,7 +343,8 @@ def main():
         res = _pk.loads(_gz.decompress(raw))
         res["flow"] = kr_flow_api(list(res["bars"]), min(a.years, 3))
         if len(res["flow"]) < len(res["bars"]) * 0.2:
-            res["flow"] = kr_flow_naver(list(res["bars"]), min(a.years, 3)) or res["flow"]
+            log("수급 API 로 거의 못 받음 → 한국거래소(pykrx, 로그인)")
+            res["flow"] = kr_flow(list(res["bars"]), min(a.years, 2)) or res["flow"]
     elif a.market == "kr":
         yfs, names = kr_universe(a.n)
         res["bars"] = yf_bars(yfs, a.years)
