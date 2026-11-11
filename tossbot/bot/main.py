@@ -2364,6 +2364,11 @@ class Bot:
                         self.log(f"🏦 ETF 오류: {e}")
                 swc = self.cfg.get("daily_swing", {})
                 if (self.sw_picks and self.sw_done != today and not self.stop_req and n < no_entry_t
+                        and n >= self.open_t + dt.timedelta(minutes=swc.get("entry_delay_min", 1)
+                                                            + swc.get("open_entry_window_min", 45))):
+                    self.sw_done = today              # 로봇이 늦게 켜졌으면 장 시작 매수는 건너뜀 → 그 후보는 마감 15분 전에 다시 봄
+                    self.log("🧭 장 시작 매수 시간이 지나서 켜짐 — 장 시작 후보는 마감 15분 전에 다시 점검")
+                if (self.sw_picks and self.sw_done != today and not self.stop_req and n < no_entry_t
                         and n >= self.open_t + dt.timedelta(minutes=swc.get("entry_delay_min", 1))):
                     self.sw_done = today
                     cash = self.fresh_cash(cash, force=True)

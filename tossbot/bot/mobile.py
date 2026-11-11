@@ -785,8 +785,10 @@ def live_or_night(mk: str) -> dict:
         except ValueError:
             age = 99
         if d.get("picks") and d.get("date") == M.now(mk).date().isoformat() and age <= 5:
+            night = picks(mk)
             out = picks(mk, get=lambda u: d)
             _PICKS.pop(mk.upper(), None)
+            out["picks"] = out.get("picks", []) + [x for x in night.get("picks", []) if x.get("setup") not in (None, "fs")]   # 봇과 같이: 다른 방식 후보는 밤 신호 그대로
             out["live"] = True
             out["index_today"] = (d.get("index") or {}).get("today_pct")
             return out
@@ -846,6 +848,11 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
     except Exception:
         excl = set()
     # 봇과 같은 순서: 보유 기간 안에 실적 발표가 없는 종목 먼저 (점수 순서는 그 안에서 유지)
+    strict = set(c.get("strict_setups") or ["fs"])
+    _by0 = (c.get("any_regime_by_market") or {}).get(mk)
+    anyr0 = set(_by0 if _by0 is not None else c.get("any_regime", []))
+    badr = (c.get("bad_regime_min_score") or {}).get(mk) or {}
+    kname = {"hi52": "52주 신고가", "rb": "급락 뒤 반등", "ep": "큰 재료 갭", "dip": "저점 매수"}
     for x in sorted(d.get("picks", []), key=lambda x: x.get("eplan", "ok") not in ("ok", "early")):
         ai = x.get("ai") or {}
         why = None
@@ -858,6 +865,9 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
             why = "AI 판독이 부정적"
         elif str(x["code"]) in excl:
             why = "🚫 오늘 직접 뺀 종목 (탭해서 다시 넣기)"
+        elif (x.get("setup") or "fs") not in strict:        # 신고가·재료 갭·반등: 점수·손익비 기준 대신 자기 규칙 (봇과 같음)
+            if d.get("regime") is False and x.get("setup") not in anyr0 and x.get("setup") not in badr:
+                why = "시장 하락 추세라 이 방식은 쉼"
         elif x.get("no_buy"):
             why = x["no_buy"]
         elif c.get("min_rr") and (x.get("rr") or {}).get("rr") is not None and x["rr"]["rr"] < c["min_rr"]:
@@ -880,6 +890,9 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
         if why:
             skip.append({"code": x["code"], "name": x["name"], "why": why})
             continue
+        if (x.get("setup") or "fs") not in strict:
+            sc = 4                                             # 다른 방식은 점수 단위가 달라 기본 크기로
+            x = {**x, "name": f"{x['name']} · {kname.get(x.get('setup'), x.get('setup'))}"}
         g = "A" if sc >= 4 else "B"
         rp = rg.get(g, c.get("risk_pct", 1.0))
         small = ai.get("view") == "중립" and rg.get("B") is not None and rp > rg["B"]
