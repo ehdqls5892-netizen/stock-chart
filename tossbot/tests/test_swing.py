@@ -670,3 +670,68 @@ SW.load_picks, _rq.get, M.Bot.cand_check, M.Bot.daily_full = _lp, _rget, _cc2, _
 assert sent and "프리장 점검" in sent[0] and "새종목" in sent[0] and pm._pm_add[1][0]["code"] == "N1" and pm._pm_add[1][0]["score"] == 9, sent
 assert "N2" not in str(pm._pm_add)                       # 차트 점수 낮은 종목은 안 봄
 print("✅ 프리장 점검 시험 통과")
+# 손실 검토: -3% 넘게 잃고 점수 2 이하면 손절선까지 안 기다리고 정리, 점수가 버티면 보유 (+ 앱에 보여 줄 판정 저장)
+os.environ["TOSSBOT_OFFLINE"] = "1"
+c["loss_review"] = {"enabled": True, "pct": 3, "max_score": 2}
+c["exit_forward_score"] = 0
+c["profit_take"] = {"enabled": False}
+bl = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker, bot.m = bl, "US"
+sent.clear()
+bot.notify = sent.append
+api.candles = lambda sym, iv, n: [{"timestamp": (d0 + dt.timedelta(days=i)).isoformat(), "closePrice": str(100 - i * 0.1), "highPrice": str(101 - i * 0.1), "lowPrice": str(99 - i * 0.1)} for i in range(20)]
+la = bl.enter("L1", "L1", 100, 10, 200, 90, "시험")
+la.extra.update(sw=True, carry=True, sw_days=0)
+M.Bot.hold_score = lambda self, p, last=None: (5, ["＋20일선 위", "－최근 봉 음봉"], "")
+M.Bot.swing_daily(bot, la, 96.5)                                   # -3.5% 지만 점수 +5 → 보유
+assert "L1" in bl.pos and la.extra["review"]["grade"] == "주의" and "손실 검토" in sent[-1], (sent[-1], la.extra.get("review"))
+M.Bot.hold_score = lambda self, p, last=None: (2, ["－20일선 아래", "－최근 봉 음봉"], "")
+M.Bot.swing_daily(bot, la, 96.5)                                   # -3.5% + 점수 +2 → 정리
+assert "L1" not in bl.pos and "손절선까지 기다리지 않고 정리" in bl.closed[-1].exit_reason, bl.closed[-1].exit_reason
+lb = bl.enter("L2", "L2", 100, 10, 200, 90, "시험")
+lb.extra.update(sw=True, carry=True, sw_days=0)
+M.Bot.swing_daily(bot, lb, 98.5)                                   # -1.5%: 점수 +2 여도 손실 검토 대상 아님 (점수 0 이하 정리 규칙만)
+assert "L2" in bl.pos and lb.extra["review"]["grade"] == "주의", lb.extra.get("review")
+# 장중 -3% 를 처음 넘는 순간 한 번만 검토 알림 (팔지는 않음)
+bot.sync_bg = True
+sent.clear()
+M.Bot.loss_watch(bot, lb, 96.9)
+M.Bot.loss_watch(bot, lb, 96.0)
+assert len(sent) == 1 and "손실 검토: 정리 예정" in sent[0] and "L2" in bl.pos, sent
+M.Bot.hold_score = lambda self, p, last=None: (6, ["＋20일선 위"], "")
+lb.extra.pop("lr_day")
+M.Bot.loss_watch(bot, lb, 96.9)
+assert "손실 검토: 주의" in sent[-1] and "버틸 근거" in sent[-1], sent[-1]
+M.Bot.loss_watch(bot, lb, 99.0)                                    # -1%: 알림 없음
+assert len(sent) == 2
+assert M.Bot.review_verdict(bot, 7, -1.0)[0] == "유지" and M.Bot.review_verdict(bot, 0, 2.0)[0] == "정리 예정"
+M.Bot.hold_score = orig_hs
+print("✅ 손실 검토 시험 통과")
+
+# 국장은 지수가 50일선 아래(시장 나쁨)면 fs 를 새로 안 삼, 미장은 그대로 삼
+c["any_regime"] = ["fs"]
+c["any_regime_by_market"] = {"KR": [], "US": ["fs"]}
+for mk_, n_on in (("KR", 0), ("US", 1)):
+    rb2 = SimpleNamespace(cfg=cfg, m=mk_)
+    rb2.swing_on = lambda: ["fs"]
+    dd = {"regime": False, "picks": [{"code": "X", "name": "X", "setup": "fs"}]}
+    M.Bot.split_picks(rb2, dd)
+    assert len(dd["picks"]) == n_on and len(dd["_off"]) == 1 - n_on, (mk_, dd)
+    dd = {"regime": True, "picks": [{"code": "X", "name": "X", "setup": "fs"}]}
+    M.Bot.split_picks(rb2, dd)
+    assert len(dd["picks"]) == 1, (mk_, dd)
+print("✅ 국장 하락 국면 매수 쉼 시험 통과")
+# +10% 1/3 익절, 손절선은 그대로 (be=false): 본전으로 안 올림
+c["profit_take"] = {"enabled": True, "pct": 10, "frac": 0.34, "be": False}
+bq = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker = bq
+q1 = bq.enter("Q1", "Q1", 100, 9, 200, 92, "시험")
+q1.extra.update(sw=True, carry=True, sw_days=3)
+assert M.Bot.profit_take(bot, q1, 104.6) is False and q1.qty == 9            # +4.6%: 아직 안 팖
+assert M.Bot.profit_take(bot, q1, 110.5) is True and q1.qty == 6 and q1.sl == 92, (q1.qty, q1.sl)
+assert M.Bot.profit_take(bot, q1, 112.0) is False and q1.qty == 6            # 한 번만
+q2 = bq.enter("Q2", "Q2", 100, 1, 200, 92, "시험")
+q2.extra.update(sw=True, carry=True, sw_days=3)
+M.Bot.profit_take(bot, q2, 111.0)
+assert q2.qty == 1 and q2.sl == 92 and q2.extra.get("pt_done")               # 1주: 아무것도 안 함
+print("✅ +10% 익절(본전 이동 없음) 시험 통과")

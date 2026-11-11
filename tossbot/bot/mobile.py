@@ -100,7 +100,7 @@ def picks(mk: str, get=None) -> dict:
                 out[-1].update({"eplan": ep, "eper": per2, "etxt": etxt})
         except Exception:
             pass
-    res = {"market": mk, "date": d.get("date"), "regime": d.get("regime"), "index": d.get("index"), "picks": out[:20]}
+    res = {"market": mk, "date": d.get("date"), "regime": d.get("regime"), "index": d.get("index"), "picks": out[:30]}
     _PICKS[mk] = (time.time(), res)
     return res
 
@@ -911,7 +911,18 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
                                 + (x["etxt"].split(" · ")[0].replace("실적 반응일 ", "발표 반응 ") if str(x.get("etxt", "")).startswith("실적 반응일")
                                    else "실적 시즌인데 발표일을 몰라요") + ")"})
     b = A.STATE.get("bots", {}).get(mk)
-    return {"market": mk, "date": d.get("date"), "live": d.get("live", False), "index_today": d.get("index_today"),
+    pause = None
+    by = (c.get("any_regime_by_market") or {}).get(mk)
+    anyr = set(by if by is not None else c.get("any_regime", []))
+    if d.get("regime") is False and "fs" not in anyr:      # 봇과 같은 규칙: 지수가 50일선 아래면 새로 안 삼
+        ix = d.get("index") or {}
+        nm = "코스피" if mk == "KR" else "S&P500"
+        pause = (f"{nm}가 {ix.get('ma_n', 50)}일선 아래(하락 추세)라 새로 안 사요"
+                 + (f" (지수 {ix.get('close'):,.0f} · {ix.get('ma_n', 50)}일선 {ix.get('ma50'):,.0f})" if ix.get("close") and ix.get("ma50") else "")
+                 + f". 지수가 {ix.get('ma_n', 50)}일선 위로 올라오면 다시 사요. 보유 종목 손절·관리는 그대로예요.")
+        skip = [{"code": r["code"], "name": r["name"], "why": "시장 하락 추세라 쉼 (점수는 통과)"} for r in buy + wait] + skip
+        buy, wait = [], []
+    return {"market": mk, "date": d.get("date"), "live": d.get("live", False), "index_today": d.get("index_today"), "pause": pause,
             "at": next_buy_time(mk, now), "slots": slots, "buy": buy, "wait": wait,
             "skip": skip[:12], "running": bool(b is not None and getattr(b, "phase", "") not in ("종료됨", "")),
             "robot": bool(A.running()) if hasattr(A, "running") else False}

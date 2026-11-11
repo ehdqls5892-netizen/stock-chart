@@ -864,6 +864,8 @@ class Bot:
         except (KeyError, ValueError):
             return
         Bot.split_picks(self, d)
+        if not d["picks"]:
+            return                                 # 시장 국면 때문에 오늘은 새로 안 사는 날 → 프리장 점검도 쉼
         cands = [x for x in d["picks"]]
         have = {str(x["code"]) for x in cands}
         base = c["picks_url"].format(m=self.m.lower()).rsplit("/", 1)[0]
@@ -969,10 +971,17 @@ class Bot:
         self.notify(f"📋 [미리 보기] 다음 장({when} {'한국' if self.m == 'KR' else '뉴욕'} 시간) 매수 판단표\n{txt}\n"
                     f"→ 장 시작 몇 분 전에 최종 판단표를 다시 보내요. 그사이 바뀌는 건 보유 종목 변화(손절 등)뿐이에요.")
 
+    def any_regime(self) -> set:
+        """시장 국면(지수 50일선 위/아래)과 상관없이 사는 방식. 시장별로 다르게 둘 수 있음
+        (국장 fs 는 지수가 50일선 아래면 새로 안 삼 — tools/fsbt.py 백테스트 근거)."""
+        c = self.cfg["daily_swing"]
+        by = (c.get("any_regime_by_market") or {}).get(self.m)
+        return set(by if by is not None else c.get("any_regime", []))
+
     def split_picks(self, d):
         """후보를 '오늘 시장 상태에서 쓰는 방식'(picks)과 '시장 상태 때문에 쉬는 방식'(_off)으로 나눔 — 판단표에 둘 다 보여 줌."""
         on, below = set(self.swing_on()), set(self.cfg["daily_swing"].get("below_setups", []))
-        anyr = set(self.cfg["daily_swing"].get("any_regime", []))
+        anyr = Bot.any_regime(self)
         allp = [x for x in d.get("picks", []) if x.get("setup") in on]
         d["picks"] = [x for x in allp if x.get("setup") in anyr or (x.get("setup") in below) != bool(d.get("regime"))]
         d["_off"] = [x for x in allp if x not in d["picks"]]
@@ -1128,7 +1137,7 @@ class Bot:
         today = now(self.m).date()
         cands = []
         for x in d["picks"]:
-            if x.get("setup") not in set(c.get("any_regime", [])) and (x.get("setup") in below) == bool(d.get("regime")):
+            if x.get("setup") not in Bot.any_regime(self) and (x.get("setup") in below) == bool(d.get("regime")):
                 continue
             if x["code"] in self.broker.pos:
                 skip(x, "이미 보유 중")
@@ -1462,6 +1471,20 @@ class Bot:
             elif fs is not None:
                 fs += int(nj.get("adj") or -1)
                 fw = [f"－새 악재 뉴스(AI): {nj.get('why', '')}"] + list(fw)
+        # 손실 검토: -3% 넘게 잃고 있는데 현재·미래 점수까지 약하면 손절선까지 기다리지 않고 정리. 점수가 버티면 보유.
+        lr = c.get("loss_review") or {}
+        lr_note = ""
+        loss = (close / p.entry - 1) * 100 if p.entry else 0
+        if not why and lr.get("enabled") and fs is not None and loss <= -lr.get("pct", 3):
+            k = lr.get("max_score", 2)
+            neg = " ".join(w for w in fw if w.startswith("－"))[:120]
+            if fs <= k:
+                why = (f"손실 {loss:+.1f}% + 현재·미래 점수 {fs:+d}(기준 {k:+d} 이하)로 약함 — 손절선까지 기다리지 않고 정리"
+                       + (f": {neg}" if neg else ""))
+            else:
+                pos_ = " ".join(w for w in fw if w.startswith("＋"))[:100]
+                lr_note = f"손실 검토: {loss:+.1f}%지만 점수 {fs:+d}로 버틸 근거가 있어 보유" + (f" ({pos_})" if pos_ else "")
+        Bot.set_review(self, p, fs, fw, loss, bool(why))
         xs = c.get("exit_forward_score")
         if not why and xs is not None and fs is not None and fs <= xs and held >= 1:
             why = (f"현재·미래 근거가 약해짐 (점수 {fs:+d} ≤ {xs:+d}): "
@@ -1508,7 +1531,7 @@ class Bot:
             p.extra["days_held"].append(d)
         self.notify(f"🧭 스윙 점검 {p.name} {held + 1}거래일째 · {money(self.m, close)} ({(close / p.entry - 1) * 100:+.1f}%) "
                     f"· 손절 {money(self.m, p.sl)}" + (f" · {note}" if note else "") + " · 계속 보유"
-                    + (f"\n{brief}" if brief else ""))
+                    + (f"\n📉 {lr_note}" if lr_note else "") + (f"\n{brief}" if brief else ""))
 
     def adopt_holdings(self):
         """계좌에 있는데 로봇 관리 목록에 없는 종목(예전에 산 뒤 관리가 끊긴 것)을 스윙 방식으로 이어받아 계속 관리.
@@ -1771,9 +1794,91 @@ class Bot:
             fs, fw = None, []
         return fs, fw, txt
 
+    def review_verdict(self, fs, loss) -> tuple:
+        """로봇 규칙 그대로의 보유 판정 → ('정리 예정'|'주의'|'유지', 한 줄 설명). 앱 표시·알림이 같은 기준을 씀."""
+        c = self.cfg["daily_swing"]
+        lr = c.get("loss_review") or {}
+        xs = c.get("exit_forward_score")
+        k, pct = lr.get("max_score", 2), lr.get("pct", 3)
+        if fs is None:
+            return "주의", "점수를 계산하지 못했어요"
+        if xs is not None and fs <= xs:
+            return "정리 예정", f"점수 {fs:+d} — 기준 {xs:+d} 이하라 마감 15분 전 점검 때 정리해요"
+        if lr.get("enabled") and loss <= -pct and fs <= k:
+            return "정리 예정", f"손실 {loss:+.1f}% + 점수 {fs:+d}(기준 {k:+d} 이하) — 마감 15분 전 점검 때도 이대로면 손절선까지 안 기다리고 정리해요"
+        if lr.get("enabled") and loss <= -pct:
+            return "주의", f"손실 {loss:+.1f}%지만 점수 {fs:+d}로 버틸 근거가 있어 보유 (점수가 {k:+d} 이하로 내려가면 정리)"
+        if fs <= k + 1:
+            return "주의", f"점수 {fs:+d} — 약해지는 중 (손실 -{pct:g}% 넘고 점수 {k:+d} 이하면 정리)"
+        return "유지", f"점수 {fs:+d} — 계속 보유"
+
+    def set_review(self, p, fs, fw, loss, selling=False):
+        g, txt = Bot.review_verdict(self, fs, loss)
+        if selling:
+            g = "정리 예정"
+        p.extra["review"] = {"t": time.time(), "fs": fs, "loss": round(loss, 2), "grade": g, "txt": txt,
+                             "why": [w for w in (fw or []) if w[:1] in "＋－"][:8]}
+        return g, txt
+
+    def loss_watch(self, p, last):
+        """장중 실시간: 손실이 -3% 를 처음 넘는 순간 지금 점수로 검토해서 알림 (파는 결정은 마감 15분 전 점검에서 —
+        장중에 바로 파는 방식은 백테스트에서 수익이 줄었음: 장중 저점에서 팔고 반등을 놓침)."""
+        c = self.cfg["daily_swing"]
+        lr = c.get("loss_review") or {}
+        if not lr.get("enabled") or p.state != "open" or not p.extra.get("sw") or not last or not p.entry:
+            return
+        loss = (last / p.entry - 1) * 100
+        today = now(self.m).date().isoformat()
+        if loss > -lr.get("pct", 3) or p.extra.get("lr_day") == today:
+            return
+        p.extra["lr_day"] = today
+
+        def work():
+            try:
+                fs, fw, _ = Bot.hold_score(self, p, last)
+            except Exception as e:
+                self.log(f"📉 손실 검토 오류 {p.name}: {e}")
+                return
+            g, txt = Bot.set_review(self, p, fs, fw, loss)
+            neg = " ".join(w for w in fw if w.startswith("－"))[:100]
+            pos_ = " ".join(w for w in fw if w.startswith("＋"))[:100]
+            self.notify(f"📉 {p.name} 손실 {loss:+.1f}% (-{lr.get('pct', 3):g}% 넘음) — 손실 검토: {g}\n{txt}"
+                        + (f"\n약한 점: {neg}" if neg and g != "유지" else "") + (f"\n버티는 근거: {pos_}" if pos_ and g != "정리 예정" else "")
+                        + f"\n손절선 {money(self.m, p.sl)}은 그대로 걸려 있어요.")
+        Bot._bg_run(self, work)
+
+    def review_tick(self):
+        """30분마다 보유 스윙 종목을 로봇 규칙(현재·미래 점수)으로 다시 검토해 앱에 보여 줄 판정을 갱신 (알림 없음)."""
+        if time.time() - getattr(self, "_rv_t", 0) < self.cfg["daily_swing"].get("review_min", 30) * 60:
+            return
+        self._rv_t = time.time()
+        todo = []
+        for sym, p in list(self.broker.pos.items()):
+            st = self.syms.get(sym)
+            if p.state == "open" and p.extra.get("sw") and st and st.last:
+                todo.append((p, st.last))
+
+        def work():
+            for p, last in todo:
+                try:
+                    fs, fw, _ = Bot.hold_score(self, p, last)
+                    Bot.set_review(self, p, fs, fw, (last / p.entry - 1) * 100 if p.entry else 0)
+                except Exception as e:
+                    self.log(f"보유 검토 오류 {p.name}: {e}")
+        if todo:
+            Bot._bg_run(self, work)
+
+    def _bg_run(self, fn):
+        """인터넷 조회가 낀 검토는 뒤에서 — 매매 판단(메인 루프)을 멈추지 않게. 시험(sync_bg)에서는 바로 실행."""
+        if getattr(self, "sync_bg", False):
+            fn()
+            return
+        import threading
+        threading.Thread(target=fn, daemon=True).start()
+
     def profit_take(self, p, last) -> bool:
-        """+4% 넘게 오르면 1/3(2주면 1주) 익절 + 나머지 손절선을 본전 위로, 1주면 손절선만 본전으로 — 종목당 한 번.
-        장중 15초마다(실시간 가격) + 마감 점검 때 확인."""
+        """+pct% 넘게 오르면 1/3(2주면 1주) 익절 — 종목당 한 번. be=true 면 나머지 손절선을 본전 위로(1주면 손절선만).
+        장중 15초마다(실시간 가격) + 마감 점검 때 확인. 2026-11-11: +4%·본전 이동은 백테스트에서 손해라 +10%·본전 이동 없음으로."""
         c = self.cfg["daily_swing"]
         pt = c.get("profit_take") or {}
         if not pt.get("enabled") or p.extra.get("pt_done") or p.state != "open" or not p.extra.get("sw") or not last:
@@ -1783,15 +1888,19 @@ class Bot:
         fee = self.cfg["fees"][self.m]
         cost = (fee["buy_pct"] + fee["sell_pct"] + fee["sell_tax_pct"]) / 100
         be = round_tick(self.m, p.entry * (1 + cost), "up")
+        move = pt.get("be", True)                        # 익절하면서 손절선을 본전으로 올릴지 (백테스트: 올리면 수익이 깎여 기본 끔)
         gain = (last / p.entry - 1) * 100
         try:
             q = max(1, int(p.qty * pt.get("frac", 1 / 3))) if p.qty >= 2 else 0
             if q and hasattr(self.broker, "sell_part"):
-                if self.broker.sell_part(p, q, last, f"+{gain:.1f}% 수익 — 일부 익절", be if be > p.sl else None):
+                if self.broker.sell_part(p, q, last, f"+{gain:.1f}% 수익 — 일부 익절", be if move and be > p.sl else None):
                     p.extra["pt_done"] = True
                     p.extra["pt_day"] = now(self.m).date().isoformat()
-                    self.notify(f"💰 {p.name} {gain:+.1f}% → {q}주 익절, 나머지 {p.qty}주는 손절선 {money(self.m, p.sl)}(본전 이상)으로 계속 보유")
+                    self.notify(f"💰 {p.name} {gain:+.1f}% → {q}주 익절, 나머지 {p.qty}주는 손절선 {money(self.m, p.sl)}"
+                                + ("(본전 이상)" if move else "") + "으로 계속 보유")
                     return True
+            elif not move:
+                p.extra["pt_done"] = True                # 1주 + 본전 이동 안 함 → 할 일 없음
             elif be > p.sl:                              # 1주: 팔 수 없으니 손절선만 본전으로
                 if hasattr(self.broker, "_modify"):
                     self.broker._modify(p, p.qty, be)
@@ -2502,9 +2611,14 @@ class Bot:
                             except Exception as e:
                                 self.log(f"보유 점검 오류 {sym}: {e}")
                             try:
-                                Bot.profit_take(self, p, stx.last)      # +4% 찍으면 바로 일부 익절 (마감까지 안 기다림)
+                                Bot.profit_take(self, p, stx.last)      # (켜져 있으면) +N% 찍을 때 일부 익절
+                                Bot.loss_watch(self, p, stx.last)       # -3% 를 처음 넘으면 바로 검토해서 알림
                             except Exception as e:
-                                self.log(f"익절 점검 오류 {sym}: {e}")
+                                self.log(f"익절·손실 점검 오류 {sym}: {e}")
+                    try:
+                        Bot.review_tick(self)                           # 30분마다 앱에 보여 줄 보유 판정 갱신
+                    except Exception as e:
+                        self.log(f"보유 검토 오류: {e}")
                 if self.shadow is not None and time.time() - getattr(self, "_shp_t", 0) > 15:
                     self._shp_t = time.time()
                     for sym, p in list(self.shadow.pos.items()):

@@ -233,7 +233,7 @@ def holdings() -> list:
                 out.append({"market": mk, "symbol": p.symbol, "name": p.name, "qty": p.qty, "entry": p.entry, "sl": p.sl,
                             "last": last, "pct": (last / p.entry - 1) * 100 if last else None,
                             "locked": bool(p.extra.get("locked")), "state": p.state, "swing": bool(p.extra.get("sw")),
-                            "etf": bool(p.extra.get("etf_long")),
+                            "etf": bool(p.extra.get("etf_long")), "review": p.extra.get("review"),
                             "days": len(p.extra.get("days_held", []))})
         else:
             for d in _file_positions(mk):
@@ -241,7 +241,7 @@ def holdings() -> list:
                 out.append({"market": mk, "symbol": d["symbol"], "name": d.get("name") or d["symbol"], "qty": d.get("qty"),
                             "entry": d.get("entry"), "sl": d.get("sl"), "last": None, "pct": None,
                             "locked": bool(ex.get("locked")), "state": "open", "days": len(ex.get("days_held", [])),
-                            "swing": bool(ex.get("sw")), "etf": bool(ex.get("etf_long"))})
+                            "swing": bool(ex.get("sw")), "etf": bool(ex.get("etf_long")), "review": ex.get("review")})
     acct = _account_qty()
     if acct is not None:                      # 실전: 실제 토스 계좌에 없는 종목은 빼고, 수량은 계좌 기준으로
         keep = []
@@ -275,6 +275,15 @@ def holdings() -> list:
             h["grade"], h["why"] = rate_hold(h, daily_bars(h["symbol"]), ctx, maxd)
         except Exception:
             h["grade"], h["why"] = None, []
+        rv = h.pop("review", None)
+        try:                                  # 스윙 종목: 로봇이 실제로 쓰는 규칙(현재·미래 점수·손실 검토)의 판정을 그대로 보여 줌
+            import time as _t
+            if h.get("swing") and rv and _t.time() - float(rv.get("t") or 0) < 20 * 3600:
+                h["grade"] = rv.get("grade") or h["grade"]
+                h["why"] = [rv.get("txt") or ""] + list(rv.get("why") or [])[:4]
+                h["fs"] = rv.get("fs")
+        except Exception:
+            pass
     return out
 
 

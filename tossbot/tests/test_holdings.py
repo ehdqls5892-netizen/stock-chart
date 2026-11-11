@@ -38,6 +38,17 @@ assert g != "유지", "실적 발표 임박인데 유지"
 
 hs = A.holdings()
 assert len(hs) == 3 and abs(hs[0]["pct"] - 4) < 1e-9, hs
+# 스윙 종목: 로봇이 저장한 검토 판정(현재·미래 점수·손실 검토)이 있으면 앱은 그걸 그대로 보여 줌
+import time as _tm
+_p0 = list(b.pos.values())[0]
+_sw0 = _p0.extra.get("sw")
+_p0.extra.update(sw=True, review={"t": _tm.time(), "fs": 1, "loss": -3.4, "grade": "정리 예정", "txt": "손실 -3.4% + 점수 +1", "why": ["－20일선 아래"]})
+h0 = [h for h in A.holdings() if h["symbol"] == _p0.symbol][0]
+assert h0["grade"] == "정리 예정" and h0["fs"] == 1 and h0["why"][0].startswith("손실 -3.4%") and "review" not in h0, h0
+_p0.extra["review"]["t"] = _tm.time() - 30 * 3600                               # 오래된 판정은 안 씀
+assert [h for h in A.holdings() if h["symbol"] == _p0.symbol][0]["grade"] != "정리 예정"
+_p0.extra.pop("review")
+_p0.extra["sw"] = _sw0
 # 장 밖이면 팔기 안 됨
 assert "장" in A.sell_one("US", "PLTR") and not bot.sell_reqs
 bot.loop_on = True
