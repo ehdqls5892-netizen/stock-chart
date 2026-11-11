@@ -211,6 +211,22 @@ def main():
         rows = us_rows(SD.us_universe())
     else:
         rows = kr_rows(a.n)
+    try:                                       # 키가 있으면 추가 정보도 같이 기록 (없으면 건너뜀)
+        import more_sources as MS
+        if a.market == "us":
+            first = []
+            try:
+                import requests
+                pj = requests.get("https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/swingpicks-us/picks.json", timeout=20).json()
+                first = [str(x["code"]) for x in pj.get("picks", [])]
+            except Exception:
+                first = []
+            MS.fmp(rows, first)
+            MS.finnhub(rows)
+        else:
+            MS.kis(rows)
+    except Exception as e:
+        log("추가 정보 실패", repr(e)[:120])
     keys = []
     for r in rows:
         for k in r:
@@ -226,6 +242,11 @@ def main():
             w.writerow({"date": day, **r})
     try:                                       # 시장 전체 정보도 같이 기록 (store/macro/날짜-시장.csv)
         mr = macro_rows()
+        try:
+            import more_sources as MS
+            mr += MS.fred()
+        except Exception as e:
+            log("FRED 실패", repr(e)[:100])
         if mr:
             mp = out.parent.parent / "macro" / f"{out.stem}-{a.market}.csv"
             mp.parent.mkdir(parents=True, exist_ok=True)

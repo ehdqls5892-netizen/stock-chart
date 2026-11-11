@@ -44,6 +44,12 @@ jobs:
             mkdir store && cd store && git init -q && git checkout -q -b estimates
           fi
       - name: 오늘 기록
+        env:
+          FINNHUB_KEY: ${{ secrets.FINNHUB_KEY }}
+          FMP_KEY: ${{ secrets.FMP_KEY }}
+          FRED_KEY: ${{ secrets.FRED_KEY }}
+          KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
+          KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
         run: python tossbot/tools/estimates_snapshot.py ${{ steps.mk.outputs.m }} --out store/${{ steps.mk.outputs.m }}/${{ steps.mk.outputs.d }}.csv 2> >(tee snap.log >&2)
       - name: 올리기
         if: always()
