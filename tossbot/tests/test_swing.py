@@ -11,7 +11,7 @@ from bot.broker import PaperBroker
 
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 cfg["daily_swing"]["ai_required_other"] = False      # 시험: AI 키 없이 돌리므로 판독 없으면 안 사기는 따로 시험
-cfg["daily_swing"].update(stop_by_market={}, risk_pct=1.0, risk_by_grade={"A": 1.0, "B": 0.6})   # 시험 숫자는 1% 위험·신호 손절선 기준
+cfg["daily_swing"].update(stop_by_market={}, risk_pct=1.0, risk_by_grade={"A": 1.0, "B": 0.6}, strong={"enabled": False})   # 시험 숫자는 1% 위험·신호 손절선 기준
 cfg["daily_swing"]["extra_slots"] = {}                # 시험: 따로 자리는 마지막에 따로 시험
 c = cfg["daily_swing"]
 c["need_target"] = False   # 시험 종목엔 목표가가 없음 (목표가 필수 규칙은 아래에서 따로 시험)
@@ -463,6 +463,8 @@ c["target_take"] = {"enabled": True, "frac": 0.5, "near_pct": 0}
 _pt0 = c.get("profit_take")
 c["profit_take"] = {"enabled": False}
 c["exit_forward_score"] = None
+c["exit_ma"] = 0
+c["time_stop_days"] = 99
 hist4 = [{"timestamp": (d0 + dt.timedelta(days=i)).isoformat(), "closePrice": str(100 + i * 0.6), "highPrice": str(101 + i * 0.6), "lowPrice": str(99 + i * 0.6)} for i in range(20)]
 api.candles = lambda sym, iv, n: hist4
 M.Bot.hold_score = lambda self, p, last=None: (3, ["＋최근 봉 양봉"], "")
@@ -864,3 +866,29 @@ print("✅ 따로 자리(신고가·반등) 시험 통과")
 assert abs(SW.stop_for({"stop_by_market": {"US": {"pct": 3, "all": True}}, "strict_setups": ["fs"]}, "US", {"stop": 80, "setup": "rb"}, 100) - 97.0) < 1e-9
 assert SW.stop_for({"stop_by_market": {"US": {"pct": 3}}, "strict_setups": ["fs"]}, "US", {"stop": 80, "setup": "rb"}, 100) == 80
 print("✅ 모든 방식 -3% 손절 시험 통과")
+# 손절선 -5% 고정: 보유 종목도 마감 점검 때 맞춤(더 높은 손절선은 그대로), 이미 아래면 정리
+c["stop_by_market"] = {"US": {"pct": 5, "all": True}}
+c["exit_by_setup"] = {}
+c["loss_review"] = {"enabled": False}
+c["profit_take"] = {"enabled": False}
+c["exit_forward_score"] = None
+c["exit_ma"] = 0
+c["time_stop_days"] = 99
+bf = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker, bot.m = bf, "US"
+api.candles = lambda sym, iv, n: [{"timestamp": (d0 + dt.timedelta(days=i)).isoformat(), "closePrice": str(100 + i * 0.1), "highPrice": str(101 + i * 0.1), "lowPrice": str(99 + i * 0.1)} for i in range(20)]
+M.Bot.hold_score = lambda self, p, last=None: (6, ["＋20일선 위"], "")
+w1 = bf.enter("W1", "W1", 100, 10, 200, 88, "시험")      # 예전에 -12% 로 넓게 잡은 종목
+w1.extra.update(sw=True, carry=True, sw_days=2)
+M.Bot.swing_daily(bot, w1, 101.0)
+assert "W1" in bf.pos and abs(w1.sl - 95.0) < 0.02, (w1.sl, sent[-3:], bot.m, c.get("stop_by_market"))
+w2 = bf.enter("W2", "W2", 100, 10, 200, 98, "시험")      # 이미 더 높은 손절선(-2%)은 그대로
+w2.extra.update(sw=True, carry=True, sw_days=2)
+M.Bot.swing_daily(bot, w2, 101.0)
+assert abs(w2.sl - 98.0) < 0.02, w2.sl
+w3 = bf.enter("W3", "W3", 100, 10, 200, 85, "시험")
+w3.extra.update(sw=True, carry=True, sw_days=2)
+M.Bot.swing_daily(bot, w3, 94.0)                         # 이미 -5% 아래로 마감 → 정리
+assert "W3" not in bf.pos and "고정 손절" in bf.closed[-1].exit_reason, bf.closed[-1].exit_reason
+M.Bot.hold_score = orig_hs
+print("✅ 보유 종목 -5% 고정 손절 시험 통과")

@@ -1392,6 +1392,15 @@ class Bot:
                     if q < 1:
                         skip(x, f"등급 {g} 손실 한도 {rp:g}%로는 1주도 못 삼")
                         continue
+            strong = c.get("strong") or {}
+            fsx = x.get("_fscore")
+            is_strong = (strong.get("enabled") and aiv == "긍정" and not (ev.get("ai") or {}).get("veto")
+                         and (fsx is None or fsx >= strong.get("min_score", 8))
+                         and (not x.get("_strict", True) or x.get("_rr") is None or x["_rr"] >= strong.get("min_rr", 2.5)))
+            if is_strong:                                  # 근거가 확실한 종목(AI 긍정 + 점수 높음 + 손익비 충분)은 더 크게
+                rp = strong.get("risk_pct", 2.0)
+                q = SW.qty_for(cap, rp, strong.get("cap_pct", 30), e, size_stop, None if cash is None else cash - spent)
+                x["reason"] = "💪 근거가 확실해서 크게 · " + x["reason"]
             if aiv == "중립" and rg.get("B") is not None and rp > rg["B"]:
                 rp = rg["B"]                               # AI 가 애매하다고 보면 작게만
                 q = SW.qty_for(cap, rp, c.get("cap_pct", 20), e, size_stop, None if cash is None else cash - spent)
@@ -1546,6 +1555,14 @@ class Bot:
         p.extra["sw_hi"] = hi
         p.extra["sw_days"] = held + 1
         close = bars[-1][3]
+        stm = (c.get("stop_by_market") or {}).get(self.m) or {}
+        if stm.get("all") and stm.get("pct") and p.entry:          # 손절선 고정(예: 산 값 -5%) — 예전에 넓게 잡은 보유 종목도 맞춤 (더 높은 손절선은 그대로)
+            fx = round_tick(self.m, p.entry * (1 - stm["pct"] / 100), "down")
+            if fx > max(new, p.sl):
+                new = fx
+                note = (note + " · " if note else "") + f"손절선 산 값 -{stm['pct']:g}%로 맞춤"
+            if not why and close <= fx:
+                why = f"손절선 산 값 -{stm['pct']:g}%({money(self.m, fx)}) 아래로 마감 — 고정 손절"
         try:
             fs, fw, brief = Bot.hold_score(self, p, close)
         except Exception as e:
