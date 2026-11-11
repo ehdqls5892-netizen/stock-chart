@@ -375,6 +375,7 @@ sent.clear()
 prices.update({"H3": 100.0})
 bot.sw_picks = {"date": "2026-11-05", "regime": True, "index": {"close": 100.0},
                 "picks": [{"code": "H3", "name": "H3", "setup": "hi52", "close": 100, "stop": 95, "atr": 2, "score": 3, "reason": "신고가", "ev": {"sector": "C"}}]}
+c["max_open_risk_by_market"] = {}                      # 이 시험은 3% 한도 기준
 M.Bot.swing_enter(bot, None, "open")
 assert "H3" not in b9.pos and any("열린 손실" in m for m in sent), sent           # $144 + 신규 $50 > $150(3%)
 print("✅ 열린 손실 한도 시험 통과")

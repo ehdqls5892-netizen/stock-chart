@@ -834,7 +834,7 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
     cap = cap if cap is not None else (A.capitals().get(mk) or 0)
     d = pk if pk is not None else live_or_night(mk)
     held_codes = {h["symbol"] for h in hold}
-    slots = max(0, c.get("max_pos", 6) - sum(1 for h in hold if h.get("swing")))
+    slots = max(0, (c.get("max_pos_by_market") or {}).get(mk, c.get("max_pos", 6)) - sum(1 for h in hold if h.get("swing")))
     smax = (c.get("earnings") or {}).get("sector_max") or 99
     sec_n: dict = {}
     rg = c.get("risk_by_grade") or {}

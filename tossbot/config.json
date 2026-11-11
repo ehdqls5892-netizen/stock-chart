@@ -420,6 +420,8 @@
     "cap_pct": 20,
   "max_open_risk_pct": 3, "_open_risk_note": "2026-11-05 저점 매수 3종목(같은 보안·AI 하드웨어)이 같은 날 함께 손절(-$198) → 스윙 전체 열린 손실 한도(손절선까지 남은 손실 합계)를 투자금의 3%로 묶음, 한 업종 최대 2종목, 미장 저점 매수 끔(10년 기간 밖 검증에서 우위 없음)",
     "max_pos": 6,
+    "max_pos_by_market": {"US": 8}, "max_open_risk_by_market": {"US": 4},
+    "_max_pos_note": "2026-11-11 사용자 결정: 미장만 최대 8종목(열린 손실 한도 4%), 국장은 6종목 그대로",
     "entry_delay_min": 15,
     "rerank": true,
     "rerank_max": 40,

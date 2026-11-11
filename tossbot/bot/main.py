@@ -1141,7 +1141,7 @@ class Bot:
             d = {**d, "picks": [x for x in d["picks"] if str(x.get("code")) not in set(exd["codes"])]}
             self.log(f"🧭 오늘 뺀 종목은 안 사요: {', '.join(exd['codes'])}")
         have = [p for p in self.broker.pos.values() if p.extra.get("sw") and p.state in ("pending", "open", "closing")]
-        slots = c.get("max_pos", 6) - len(have)
+        slots = (c.get("max_pos_by_market") or {}).get(self.m, c.get("max_pos", 6)) - len(have)
         below = set(c.get("below_setups", []))
         ec = c.get("earnings") or {}
         today = now(self.m).date()
@@ -1332,7 +1332,7 @@ class Bot:
                 if hit:
                     skip(x, f"보유 중인 {hit[0]}와 움직임이 거의 같음(상관 {hit[1]:.2f}) — 위험이 겹쳐서 건너뜀", loud=True)
                     continue
-            mr = c.get("max_open_risk_pct")
+            mr = (c.get("max_open_risk_by_market") or {}).get(self.m, c.get("max_open_risk_pct"))
             if mr and cap:
                 open_r = sum(max(0.0, pp.entry - pp.sl) * pp.qty for pp in self.broker.pos.values()
                              if pp.extra.get("sw") and pp.state in ("pending", "open")) + planned_r
