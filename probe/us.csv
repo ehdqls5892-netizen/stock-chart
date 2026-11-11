@@ -1,4 +1,4 @@
-date,code,name
-2026-11-11,AAPL,AAPL
-2026-11-11,NVDA,NVDA
-2026-11-11,MSFT,MSFT
+date,code,name,fmp_tgt,fmp_tgt_med,fmp_tgt_hi,fmp_tgt_lo,fh_period,fh_sb,fh_b,fh_h,fh_s,fh_ss,fh_buy_chg,fh_sell_chg
+2026-11-11,AAPL,AAPL,341.94,352.5,400.0,245.0,2026-11-01,11,19,15,3,1,-1,0
+2026-11-11,NVDA,NVDA,340.03,325.0,515.0,230.0,2026-11-01,25,41,2,1,0,0,0
+2026-11-11,MSFT,MSFT,611.74,625.0,750.0,440.0,2026-11-01,22,40,3,0,0,0,0

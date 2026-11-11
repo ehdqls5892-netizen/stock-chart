@@ -1,5 +1,8 @@
-시장 정보 23개 → store/macro/us-us.csv
-확인 {'code': 'AAPL', 'name': 'AAPL'}
-확인 {'code': 'NVDA', 'name': 'NVDA'}
-확인 {'code': 'MSFT', 'name': 'MSFT'}
+FMP 목표가 3종목
+Finnhub 애널리스트 의견 3종목
+FRED 경제 지표 7개
+시장 정보 30개 → store/macro/us-us.csv
+확인 {'code': 'AAPL', 'name': 'AAPL', 'fmp_tgt': 341.94, 'fmp_tgt_med': 352.5, 'fmp_tgt_hi': 400.0, 'fmp_tgt_lo': 245.0, 'fh_period': '2026-11-01', 'fh_sb': 11, 'fh_b': 19, 'fh_h': 15, 'fh_s': 3, 'fh_ss': 1, 'fh_buy_chg': -1, 'fh_sell_chg': 0}
+확인 {'code': 'NVDA', 'name': 'NVDA', 'fmp_tgt': 340.03, 'fmp_tgt_med': 325.0, 'fmp_tgt_hi': 515.0, 'fmp_tgt_lo': 230.0, 'fh_period': '2026-11-01', 'fh_sb': 25, 'fh_b': 41, 'fh_h': 2, 'fh_s': 1, 'fh_ss': 0, 'fh_buy_chg': 0, 'fh_sell_chg': 0}
+확인 {'code': 'MSFT', 'name': 'MSFT', 'fmp_tgt': 611.74, 'fmp_tgt_med': 625.0, 'fmp_tgt_hi': 750.0, 'fmp_tgt_lo': 440.0, 'fh_period': '2026-11-01', 'fh_sb': 22, 'fh_b': 40, 'fh_h': 3, 'fh_s': 0, 'fh_ss': 0, 'fh_buy_chg': 0, 'fh_sell_chg': 0}
 완료 3개 · 오류 없음 3 · 추정치 있음 0 → store/probe/us.csv
