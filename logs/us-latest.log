@@ -1,13 +1,5 @@
-미장 0/503
-미장 50/503
-미장 100/503
-미장 150/503
-미장 200/503
-HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"No fundamentals data found for symbol: FOX"}}}
-미장 250/503
-미장 300/503
-미장 350/503
-미장 400/503
-미장 450/503
-미장 500/503
-완료 503개 · 오류 없음 503 · 추정치 있음 502 → store/us/2026-11-11.csv
+시장 정보 23개 → store/macro/us-us.csv
+확인 {'code': 'AAPL', 'name': 'AAPL'}
+확인 {'code': 'NVDA', 'name': 'NVDA'}
+확인 {'code': 'MSFT', 'name': 'MSFT'}
+완료 3개 · 오류 없음 3 · 추정치 있음 0 → store/probe/us.csv
