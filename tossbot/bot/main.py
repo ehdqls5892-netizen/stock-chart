@@ -1076,7 +1076,8 @@ class Bot:
             self.sw_picks = {**self.sw_picks, "picks": []}
             self.notify(f"🛑 오늘 {'코스피' if self.m == 'KR' else 'S&P500'}가 {ix:+.1f}% 빠지고 있어서 새로 안 사요 (시장 전체 흐름이 나쁜 날)")
             return True
-        self.sw_picks = {**self.sw_picks, "picks": d["picks"], "live": True}
+        keep = [x for x in self.sw_picks.get("picks", []) if x.get("setup") not in (None, "fs")]   # 신고가·재료 갭·반등 후보는 밤 신호 그대로 유지
+        self.sw_picks = {**self.sw_picks, "picks": d["picks"] + keep, "live": True}
         self.notify("🔄 오늘 흐름으로 후보를 다시 골랐어요" + (f" · 새로: {', '.join(add)}" if add else "")
                     + (f" · 빠짐: {', '.join(drop)}" if drop else "") + (f" · 지수 오늘 {ix:+.1f}%" if ix is not None else ""))
         return True
@@ -1193,6 +1194,9 @@ class Bot:
         cap = self.risk.capital or 0
         spent = 0.0
         alt = 0
+        for x in cands:                   # 시장별 손절선 (국장 3×ATR · 미장 사는 값 −5% 등) — 수량·점검 모두 이 손절선으로
+            x.setdefault("_stop_orig", x["stop"])
+            x["stop"] = round(SW.stop_for(c, self.m, x, px.get(x["code"])), 4)
         planned_r = 0.0                   # 판단표(dry)에서 앞서 '매수 예정'으로 잡은 종목들의 손실 한도 합
         mgap = None                      # 기록용: 지수(SPY) 개장 갭 — 1월 점검 때 '지수 급등 출발 날 신고가 매수 건너뛰기' 검증
         if not dry and self.m == "US" and (d.get("index") or {}).get("close"):
@@ -1201,15 +1205,24 @@ class Bot:
                 mgap = round(sp / float(d["index"]["close"]) - 1, 4) if sp else None
             except Exception:
                 mgap = None
+        caps = (c.get("setup_slots") or {}).get(self.m) or {}     # 방식별 최대 보유 수 (예: 급락 뒤 반등은 3종목까지) — 그 자리만큼은 먼저 채움
+        held_by = {}
+        for p_ in have:
+            held_by[p_.extra.get("sw_kind")] = held_by.get(p_.extra.get("sw_kind"), 0) + 1
         if rerank:
             cands = Bot.rerank(self, cands, px, today, ec, dry)
+            if caps:
+                cands = [x for x in cands if x.get("setup") in caps] + [x for x in cands if x.get("setup") not in caps]
             if not dry:
-                cands = cands[: max(0, slots) * 3 + 3]
+                cands = cands[: max(0, slots) * 3 + 3 + sum(caps.values())]
         for x in cands:
             if slots <= 0 and not dry:
                 break
             sym, e, stop = x["code"], px.get(x["code"]), float(x["stop"])
             if not e:
+                continue
+            if x.get("setup") in caps and held_by.get(x["setup"], 0) >= caps[x["setup"]]:
+                skip(x, f"이 방식은 최대 {caps[x['setup']]}종목까지")
                 continue
             if stop >= e * 0.995:
                 skip(x, f"손절선({money(self.m, stop)}) 근처·아래로 열림")
@@ -1289,7 +1302,7 @@ class Bot:
                 skip(x, bad, loud=True)
                 continue
             mrr = c.get("min_rr")
-            if mrr and x.get("_rr") is not None and x["_rr"] < mrr:
+            if mrr and x.get("_strict", True) and x.get("_rr") is not None and x["_rr"] < mrr:
                 skip(x, f"손익비 {x['_rr']:.1f} (기준 {mrr:g} 이상) — 목표가까지 남은 폭이 손절 폭에 비해 작아서 안 사요", loud=True)
                 continue
             veto = (ev.get("ai") or {}).get("veto")
@@ -1345,6 +1358,7 @@ class Bot:
                     planned_r += (e - round_tick(self.m, stop, "down")) * q
                     table.append((x, "매수", etxt, q))
                     slots -= 1
+                    held_by[x.get("setup")] = held_by.get(x.get("setup"), 0) + 1
                     if sec:
                         sec_n[sec] = sec_n.get(sec, 0) + 1
                 elif alt < 3:
@@ -1373,6 +1387,7 @@ class Bot:
             self.broker.save_state()
             spent += e * q
             slots -= 1
+            held_by[x.get("setup")] = held_by.get(x.get("setup"), 0) + 1
             self.notify(f"🧭 스윙 매수 {x['name']} {q}주 ≈ {money(self.m, e)} · 손절 {money(self.m, sl)} "
                         f"(-{(1 - sl / e) * 100:.1f}%, 손실 한도 투자금의 {rp:g}%)\n산 이유: {x['reason']}"
                         + SW.ev_text(ev, etxt) + (f"\n{x['_brief']}" if x.get("_brief") else ""))
@@ -1720,6 +1735,13 @@ class Bot:
         txt = (f"🎯 현재·미래 점수 {fs:+d} ({SW.grade_of(fs)}): " + " ".join(fwhy[:8]) + ("\n" + txt if txt else "")) if fwhy else txt
         warn, why = [], None
         n = SW._num
+        st_ = x.get("setup") or "fs"
+        strict = st_ in set(c.get("strict_setups") or ["fs"])     # 과열·차트 모양·목표가·손절 폭 기준은 현재·미래 점수 방식에만 (다른 방식은 검증된 자기 규칙대로)
+        rbx = st_ in set(c.get("rebound_setups") or [])           # 급락 뒤 반등: 떨어진 종목을 사는 방식이라 '오르는 추세' 기준을 안 씀
+        x["_strict"] = strict
+        if rbx and price and x.get("close"):
+            if price < float(x["close"]) * (1 - c.get("rebound_fail_pct", 3) / 100) or (x.get("low") and price <= float(x["low"])):
+                why = f"반등 신호 뒤 다시 밀림 (신호 날 종가 {money(self.m, float(x['close']))} → 지금 {money(self.m, price)}) — 반등 실패로 보고 안 삼"
         if self.m == "US":
             tg, rec = n(est.get("targetMeanPrice")), n(est.get("recommendationMean"))
             bad_rec = rec is not None and rec >= 3.0
@@ -1737,28 +1759,28 @@ class Bot:
         if rv == "down":
             warn.append("이익 전망 하향 중")
         mx = c.get("max_ext20")                       # 20일선보다 너무 높이 떠 있으면(단기 과열) 안 삼 — 후보가 많으니 굳이 위험 안 짐
-        if why is None and mx and len(bars) >= 20 and price:
+        if why is None and strict and mx and len(bars) >= 20 and price:
             ma20 = sum(b[4] for b in bars[-20:]) / 20
             if price >= ma20 * (1 + mx):
                 why = f"20일선보다 {(price / ma20 - 1) * 100:+.0f}% 높이 떠 있어 단기 과열 — 쉬어 갈 때 다시 봄"
         cq, cqw = SW.chart_quality(bars)
         x["_cq"] = cq
-        if why is None and cq <= c.get("min_chart_q", -2):
+        if why is None and strict and cq <= c.get("min_chart_q", -2):
             why = f"차트 모양이 나빠요 (모양 점수 {cq:+d}): " + " ".join(w.replace("차트 모양: ", "") for w in cqw if w.startswith("－"))[:120]
         if why is None and c.get("skip_spike", False):
             sp = SW.spike_note(bars, price)
             if sp:
                 why = sp
-        if why is None and c.get("need_target") and rr0 is None:
+        if why is None and strict and c.get("need_target") and rr0 is None:
             good = cq >= c.get("no_target_chart_q", 3) or nj.get("impact") == "호재" or \
                 ((x.get("ev") or {}).get("op_yoy") or 0) >= 0.2 and not (x.get("ev") or {}).get("op_stale")
             if not good:
                 why = f"증권사 목표가가 없고 차트 모양({cq:+d})·호재도 충분하지 않음 — 목표가 없는 종목은 차트가 아주 좋거나 호재가 있을 때만"
         ms = c.get("max_stop_pct")                    # 손절 폭이 너무 넓으면 한 번 틀릴 때 많이 잃음 → 안 삼
-        if why is None and ms and price and x.get("stop") and (price - float(x["stop"])) / price > ms:
+        if why is None and strict and ms and price and x.get("stop") and (price - float(x["stop"])) / price > ms:
             why = f"손절 폭 {(price - float(x['stop'])) / price * 100:.0f}% — 너무 넓어서(기준 {ms * 100:.0f}%) 안 사요"
         ld = SW.long_downtrend(bars, price)
-        if why is None and ld:
+        if why is None and ld and not rbx:
             ok, nev = SW.turnaround(fwhy)
             if not ok:
                 why = ld + f" · 실적·수급·뉴스 반전 근거 {nev}개(2개 이상 필요)"
@@ -1771,7 +1793,7 @@ class Bot:
         bk = x.get("_bad_min")                   # 시장이 내려가는 중: 이 방식은 점수가 충분히 높을 때만 삼 (또 하나의 판단 근거)
         if why is None and bk is not None and fs < bk:
             why = f"시장 하락 추세(지수가 평균선 아래) — 이 방식은 점수 {bk:+d} 이상일 때만 삼 (지금 {fs:+d})"
-        if why is None and fwhy and fs < c.get("min_forward_score", 2):
+        if why is None and fwhy and fs < c.get("min_forward_score", 2) and not rbx:
             why = f"현재·미래 근거 부족 (점수 {fs:+d}, 기준 {c.get('min_forward_score', 2):+d} 이상): " + " ".join(w for w in fwhy if w.startswith("－"))[:120]
         if bars and len(bars) >= 2 and bars[-1][0] == now(self.m).date() and price < bars[-1][1] * 0.97:
             warn.append("오늘 시가보다 3% 넘게 밀리는 중")

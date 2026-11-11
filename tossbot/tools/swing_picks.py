@@ -18,10 +18,12 @@ import swing_data as SD  # noqa: E402
 import swingbt as B  # noqa: E402
 from bot import swing as SW  # noqa: E402  (현재·미래 점수 — 로봇과 같은 함수)
 
-SETUPS = {"kr": {"ep": {"gap": 0.04, "volx": 3}}, "us": {"hi52": {"volx": 1.5}, "dip": {"rsi": 10, "drop": 0.10}}}
+SETUPS = {"kr": {"ep": {"gap": 0.04, "volx": 3}}, "us": {"hi52": {"volx": 1.5}, "dip": {"rsi": 10, "drop": 0.10},
+                                                               "rb": {"dd": 0.20, "up": 0.03, "stop_pct": 0.08}}}
 MIN_RR = float(json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))["daily_swing"].get("min_rr", 1.5))
 NAMES = {"ep": "큰 재료 갭(갭 상승+거래량 폭증+강한 마감)", "hi52": "52주 신고가 돌파+거래량",
-         "dip": "하락장 저점 매수(200일선 위 종목·3일 RSI 10↓·20일 고점 -10%↓)"}
+         "dip": "하락장 저점 매수(200일선 위 종목·3일 RSI 10↓·20일 고점 -10%↓)",
+         "rb": "급락 뒤 반등(60일 고점 -20%↓ 뒤 +3%↑로 5일선 회복)"}
 
 
 def main():
@@ -573,7 +575,10 @@ def build(m, bars, names, idx):
             i = s["pos"][d]
             picks.append({"code": code, "name": names.get(code, code), "setup": name, "close": round(float(s["c"][i]), 4),
                           "stop": round(float(stop), 4), "atr": round(float(s["atr"][i]), 4), "score": round(float(sc), 3),
-                          "reason": f"{NAMES[name]} · " + (f"200일선 위 {(s['c'][i] / s['ma200'][i] - 1) * 100:.0f}%" if name == "dip" else f"거래량 {s['v'][i] / s['v20'][i - 1]:.1f}배")
+                          "low": round(float(s["l"][i]), 4),
+                          "reason": f"{NAMES[name]} · " + (f"200일선 위 {(s['c'][i] / s['ma200'][i] - 1) * 100:.0f}%" if name == "dip"
+                                                           else f"고점 대비 {(s['c'][i - 1] / s['h'][i - 60:i].max() - 1) * 100:.0f}%에서 하루 {(s['c'][i] / s['c'][i - 1] - 1) * 100:+.1f}%" if name == "rb"
+                                                           else f"거래량 {s['v'][i] / s['v20'][i - 1]:.1f}배")
                           + f" · 손절 {(stop / s['c'][i] - 1) * 100:.1f}%"})
     picks.sort(key=lambda x: -x["score"])
     # 방식마다 상위 20개씩 (점수 단위가 달라 한 줄로 자르면 한쪽이 밀려남 — 2026-10-30 저점 매수 14개 중 5개만 남았던 문제)

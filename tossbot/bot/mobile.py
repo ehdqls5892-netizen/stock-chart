@@ -885,6 +885,11 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
         small = ai.get("view") == "중립" and rg.get("B") is not None and rp > rg["B"]
         if small:
             rp = rg["B"]
+        try:
+            from . import swing as _SW
+            x = {**x, "stop": round(_SW.stop_for(c, mk, {**x, "setup": x.get("setup") or "fs"}, x.get("close")), 4)}
+        except Exception:
+            pass
         per = (x.get("close") or 0) - (x.get("stop") or 0)
         per_q = max(per, float(x.get("eper") or 0))          # 실적을 끼고 가면 실적 갭 기준으로 수량 줄임
         q = int(cap * rp / 100 / per_q) if per_q > 0 and cap else 0

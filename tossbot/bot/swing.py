@@ -51,6 +51,23 @@ def qty_for(capital: float, risk_pct: float, cap_pct: float, entry: float, stop:
     return int(q)
 
 
+def stop_for(c: dict, market: str, x: dict, price) -> float:
+    """시장별 손절선 (현재·미래 점수 방식에만 — 다른 방식은 검증된 자기 손절선 그대로).
+    stop_by_market: {"KR": {"atr": 3}} = 신호 날 종가 − 3×ATR, {"US": {"pct": 5}} = 사는 값에서 −5% 고정."""
+    base = float(x.get("_stop_orig", x["stop"]))
+    st = (c.get("stop_by_market") or {}).get(market)
+    if not st or (x.get("setup") or "fs") not in set(c.get("strict_setups") or ["fs"]):
+        return base
+    try:
+        if st.get("pct") and price:
+            return float(price) * (1 - st["pct"] / 100)
+        if st.get("atr") and x.get("atr") and x.get("close"):
+            return float(x["close"]) - st["atr"] * float(x["atr"])
+    except (TypeError, ValueError):
+        pass
+    return base
+
+
 def sma(xs, n):
     return sum(xs[-n:]) / n if len(xs) >= n else None
 

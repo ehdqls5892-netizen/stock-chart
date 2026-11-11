@@ -148,6 +148,15 @@ def signals(name, S, P, data, mk):
                         and c[i] <= hi20 * (1 - P.get("drop", 0.10))):
                     # 점수 = 200일선 대비 높이(장기 추세가 강한 종목 먼저). 백테스트: 무작위 순서 평균 +13% → +38%, 낙폭 14→7%
                     out.append((s["d"][i], code, c[i] / s["ma200"][i], c[i] - P.get("stop_atr", 2.5) * a))
+            elif name == "rb":
+                # 급락 뒤 반등: 최근 60일 고점에서 20% 넘게 빠진 종목이 +3% 넘게 오르며 5일선 위로 올라선 날 (다음 날 마감에 삼)
+                if i < 66:
+                    continue
+                dd = c[i - 1] / h[i - 60:i].max() - 1
+                g = c[i] / c[i - 1] - 1
+                if (dd <= -P.get("dd", 0.20) and g >= P.get("up", 0.03) and c[i] > c[i - 4:i + 1].mean()
+                        and c[i - 1] <= c[i - 5:i].mean()):
+                    out.append((s["d"][i], code, g, c[i] * (1 - P.get("stop_pct", 0.08))))
             elif name == "hi52":
                 if (not np.isnan(s["hi252"][i]) and c[i] > s["hi252"][i] and v[i] >= P.get("volx", 1.5) * s["v20"][i - 1]
                         and c[i] > s["ma50"][i]):

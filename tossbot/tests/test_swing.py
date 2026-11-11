@@ -754,3 +754,39 @@ dd = {"regime": False, "picks": [{"code": "H", "name": "H", "setup": "hi52"}]}
 M.Bot.split_picks(mb, dd)
 assert dd["picks"] and "_bad_min" not in dd["picks"][0]
 print("✅ 여러 방식 함께 사기 시험 통과")
+# 시장별 손절선: 국장 3×ATR, 미장 사는 값 -5% (현재·미래 점수 방식만), 다른 방식은 자기 손절선
+c["strict_setups"] = ["fs"]
+c["stop_by_market"] = {"KR": {"atr": 3}, "US": {"pct": 5}}
+xk = {"code": "K", "setup": "fs", "close": 10000, "stop": 9200, "atr": 400}
+assert SW.stop_for(c, "KR", xk, 10100) == 8800 and SW.stop_for(c, "US", xk, 100) == 95.0
+assert SW.stop_for(c, "KR", {**xk, "setup": "ep"}, 10100) == 9200 and SW.stop_for({}, "KR", xk, 10100) == 9200
+# 급락 뒤 반등(rb): 점수·차트 모양·과열 기준을 안 쓰고, 신호 뒤 3% 넘게 밀리면 안 삼
+c["rebound_setups"] = ["rb"]
+c["min_forward_score"] = 3
+c["min_chart_q"] = -2
+c["need_target"] = True
+rbb = SimpleNamespace(cfg=cfg, m="US", log=print)
+_df2, _sn2, _er2, _nj2 = M.Bot.daily_full, M.Bot.stock_news, M.Bot.est_row, M.Bot.news_judged
+M.Bot.daily_full = lambda self, k: [(dt.date(2026, 8, 1) + dt.timedelta(days=i), 100 - i * 0.3, 101 - i * 0.3, 99 - i * 0.3, 100 - i * 0.3, 1e6) for i in range(90)]   # 계속 내리는 차트
+M.Bot.stock_news = lambda self, a, b: []
+M.Bot.est_row = lambda self, s_: {}
+M.Bot.news_judged = lambda self: {}
+xr = {"code": "R", "name": "R", "setup": "rb", "close": 74.0, "low": 72.5, "stop": 68.1}
+why_r, _, _ = M.Bot.cand_check(rbb, dict(xr), 74.5)
+assert why_r is None, why_r                                                        # 내리는 차트여도 반등 방식은 삼
+why_f, _, _ = M.Bot.cand_check(rbb, {**xr, "setup": "fs"}, 74.5)
+assert why_f, "같은 종목을 현재·미래 점수 방식으로는 안 삼"
+why_d, _, _ = M.Bot.cand_check(rbb, dict(xr), 71.0)
+assert why_d and "반등 실패" in why_d, why_d
+M.Bot.daily_full, M.Bot.stock_news, M.Bot.est_row, M.Bot.news_judged = _df2, _sn2, _er2, _nj2
+# 반등 신호 만들기 (연구·후보 생성 공용)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+import swingbt as BT
+rows = [(f"2026-{1 + i // 28:02d}-{1 + i % 28:02d}", 100.0, 101.0, 99.0, 100.0, 1e6) for i in range(200)]
+rows += [(f"2026-09-{1 + i:02d}", 100 - i * 4.0, 100 - i * 4.0 + 0.5, 96 - i * 4.0, 96 - i * 4.0, 1e6) for i in range(7)]      # 급락 (100 → 72)
+rows += [(f"2026-09-{8 + i:02d}", 72.0, 72.5, 71.5, 72.0, 1e6) for i in range(3)]                                               # 바닥에서 사흘 쉼
+rows += [("2026-09-11", 72.0, 76.5, 71.5, 76.0, 2e6)]                                                                           # +5.6% 반등, 5일선 위
+Sx = {"X": BT.indicators(BT.prep(rows))}
+sg = BT.signals("rb", Sx, {"include_last": True, "mintv": 1}, {"bars": {"X": rows}}, "us")
+assert sg and sg[-1][0] == "2026-09-11" and abs(sg[-1][3] - 76.0 * 0.92) < 1e-6, sg[-3:]
+print("✅ 시장별 손절·급락 뒤 반등 시험 통과")
