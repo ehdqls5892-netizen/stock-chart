@@ -836,7 +836,9 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
     cap = cap if cap is not None else (A.capitals().get(mk) or 0)
     d = pk if pk is not None else live_or_night(mk)
     held_codes = {h["symbol"] for h in hold}
-    slots = max(0, (c.get("max_pos_by_market") or {}).get(mk, c.get("max_pos", 6)) - sum(1 for h in hold if h.get("swing")))
+    _exs = (c.get("extra_slots") or {}).get(mk) or {}
+    slots = max(0, (c.get("max_pos_by_market") or {}).get(mk, c.get("max_pos", 6))
+                - sum(1 for h in hold if h.get("swing") and h.get("kind") not in _exs))
     smax = (c.get("earnings") or {}).get("sector_max") or 99
     sec_n: dict = {}
     rg = c.get("risk_by_grade") or {}
@@ -848,6 +850,7 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
     except Exception:
         excl = set()
     # 봇과 같은 순서: 보유 기간 안에 실적 발표가 없는 종목 먼저 (점수 순서는 그 안에서 유지)
+    exn: dict = {k: sum(1 for h in hold if h.get("kind") == k) for k in _exs}
     strict = set(c.get("strict_setups") or ["fs"])
     _by0 = (c.get("any_regime_by_market") or {}).get(mk)
     anyr0 = set(_by0 if _by0 is not None else c.get("any_regime", []))
@@ -915,7 +918,15 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
             skip.append({"code": x["code"], "name": x["name"],
                          "why": "실적 갭이 커서 1주도 손실 한도를 넘음" if x.get("eplan") in ("hold", "early") else "손실 한도로는 1주도 안 됨(비싼 종목)"})
             continue
-        if len(buy) < slots:
+        _ex = (c.get("extra_slots") or {}).get(mk) or {}
+        if x.get("setup") in _ex:                              # 따로 자리를 받는 방식 (기본 자리와 별개)
+            exn[x["setup"]] = exn.get(x["setup"], 0) + 1
+            if exn[x["setup"]] <= _ex[x["setup"]]:
+                buy.append(row)
+            elif len(wait) < 3:
+                wait.append(row)
+            continue
+        if sum(1 for r in buy if not r.get("_ex")) < slots:
             buy.append(row)
             if x.get("sector"):
                 sec_n[x["sector"]] = sec_n.get(x["sector"], 0) + 1

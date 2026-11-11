@@ -11,6 +11,7 @@ from bot.broker import PaperBroker
 
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 cfg["daily_swing"]["ai_required_other"] = False      # 시험: AI 키 없이 돌리므로 판독 없으면 안 사기는 따로 시험
+cfg["daily_swing"]["extra_slots"] = {}                # 시험: 따로 자리는 마지막에 따로 시험
 c = cfg["daily_swing"]
 c["need_target"] = False   # 시험 종목엔 목표가가 없음 (목표가 필수 규칙은 아래에서 따로 시험)
 c["min_chart_q"] = -99
@@ -834,3 +835,27 @@ os.environ.pop("ANTHROPIC_API_KEY", None)
 os.environ["TOSSBOT_OFFLINE"] = "1"
 assert M.Bot.ai_check(ab, {"code": "X", "name": "X", "setup": "rb"}, 1.0) == {}
 print("✅ 다른 방식 후보 사기 직전 AI 판독 시험 통과")
+# 따로 자리: 미장 신고가·반등은 기본 자리(꽉 참)와 별개로 각 3종목까지 삼
+c["extra_slots"] = {"US": {"hi52": 3, "rb": 3}}
+c["extra_open_risk_by_market"] = {"US": 4}
+c["max_pos_by_market"] = {"US": 1}
+c["max_open_risk_by_market"] = {"US": 3}
+c["setup_slots"] = {}
+c["exit_by_setup"] = {}
+bx = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+px0 = bx.enter("F0", "F0", 100, 1, 200, 95, "시험")
+px0.extra.update(sw=True, sw_kind="fs")
+bot.broker, bot.m = bx, "US"
+api.prices = lambda syms: [{"symbol": s_, "lastPrice": "100"} for s_ in syms]
+bot.sw_picks = {"date": "2026-11-02", "regime": True, "picks": [
+    {"code": "F1", "name": "F1", "setup": "fs", "close": 100, "stop": 95, "atr": 2, "score": 9, "reason": "점수", "ev": {"sector": "A", "ai": {"view": "긍정"}}},
+    {"code": "H1", "name": "H1", "setup": "hi52", "close": 100, "stop": 96, "atr": 2, "score": 2, "reason": "신고가", "ev": {"sector": "B", "ai": {"view": "긍정"}}},
+    {"code": "R1", "name": "R1", "setup": "rb", "close": 100, "stop": 92, "atr": 2, "score": 1, "reason": "반등", "ev": {"sector": "C", "ai": {"view": "중립"}}}]}
+_cc5 = M.Bot.cand_check
+M.Bot.cand_check = lambda self, x, price: (setattr(self, "_x", 1) or x.update(_fscore=6) or (None, "", []))
+_ss = M.Bot.swing_timing
+M.Bot.swing_timing = lambda self, x, d: "close"
+M.Bot.swing_enter(bot, 10000, "close")
+M.Bot.cand_check, M.Bot.swing_timing = _cc5, _ss
+assert "H1" in bx.pos and "R1" in bx.pos and "F1" not in bx.pos, list(bx.pos)
+print("✅ 따로 자리(신고가·반등) 시험 통과")

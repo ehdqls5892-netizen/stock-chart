@@ -232,7 +232,7 @@ def holdings() -> list:
                 last = getattr(st, "last", None) or None
                 out.append({"market": mk, "symbol": p.symbol, "name": p.name, "qty": p.qty, "entry": p.entry, "sl": p.sl,
                             "last": last, "pct": (last / p.entry - 1) * 100 if last else None,
-                            "locked": bool(p.extra.get("locked")), "state": p.state, "swing": bool(p.extra.get("sw")),
+                            "locked": bool(p.extra.get("locked")), "state": p.state, "swing": bool(p.extra.get("sw")), "kind": p.extra.get("sw_kind"),
                             "etf": bool(p.extra.get("etf_long")), "review": p.extra.get("review"),
                             "days": len(p.extra.get("days_held", []))})
         else:
@@ -241,7 +241,7 @@ def holdings() -> list:
                 out.append({"market": mk, "symbol": d["symbol"], "name": d.get("name") or d["symbol"], "qty": d.get("qty"),
                             "entry": d.get("entry"), "sl": d.get("sl"), "last": None, "pct": None,
                             "locked": bool(ex.get("locked")), "state": "open", "days": len(ex.get("days_held", [])),
-                            "swing": bool(ex.get("sw")), "etf": bool(ex.get("etf_long")), "review": ex.get("review")})
+                            "swing": bool(ex.get("sw")), "kind": ex.get("sw_kind"), "etf": bool(ex.get("etf_long")), "review": ex.get("review")})
     acct = _account_qty()
     if acct is not None:                      # 실전: 실제 토스 계좌에 없는 종목은 빼고, 수량은 계좌 기준으로
         keep = []

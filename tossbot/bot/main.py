@@ -1185,7 +1185,9 @@ class Bot:
             d = {**d, "picks": [x for x in d["picks"] if str(x.get("code")) not in set(exd["codes"])]}
             self.log(f"🧭 오늘 뺀 종목은 안 사요: {', '.join(exd['codes'])}")
         have = [p for p in self.broker.pos.values() if p.extra.get("sw") and p.state in ("pending", "open", "closing")]
-        slots = (c.get("max_pos_by_market") or {}).get(self.m, c.get("max_pos", 6)) - len(have)
+        extra = (c.get("extra_slots") or {}).get(self.m) or {}     # 따로 자리를 주는 방식 (예: 미장 신고가 3·반등 3) — 기본 자리와 별개
+        slots = (c.get("max_pos_by_market") or {}).get(self.m, c.get("max_pos", 6)) - sum(1 for p_ in have if p_.extra.get("sw_kind") not in extra)
+        ex_room = sum(max(0, n_ - sum(1 for p_ in have if p_.extra.get("sw_kind") == k_)) for k_, n_ in extra.items())
         below = set(c.get("below_setups", []))
         ec = c.get("earnings") or {}
         today = now(self.m).date()
@@ -1216,7 +1218,7 @@ class Bot:
                 sec_n[p0.extra["sector"]] = sec_n.get(p0.extra["sector"], 0) + 1
         if manual and slots <= 0 and cands:
             self.notify(f"🧭 {cands[0]['name']} 봇 매수 요청 — 스윙 동시 보유 한도({c.get('max_pos', 6)}종목)가 꽉 차서 안 샀어요")
-        if (slots <= 0 and not dry) or not cands:
+        if (slots <= 0 and ex_room <= 0 and not dry) or not cands:
             return 0.0
         if dry:
             px, cash = {x["code"]: float(x["close"]) for x in cands}, None
@@ -1254,17 +1256,25 @@ class Bot:
             held_by[p_.extra.get("sw_kind")] = held_by.get(p_.extra.get("sw_kind"), 0) + 1
         if rerank:
             cands = Bot.rerank(self, cands, px, today, ec, dry)
-            if caps:
-                cands = [x for x in cands if x.get("setup") in caps] + [x for x in cands if x.get("setup") not in caps]
+            if caps or extra:
+                cands = [x for x in cands if x.get("setup") in caps or x.get("setup") in extra] + \
+                        [x for x in cands if x.get("setup") not in caps and x.get("setup") not in extra]
             if not dry:
-                cands = cands[: max(0, slots) * 3 + 3 + sum(caps.values())]
+                cands = cands[: max(0, slots) * 3 + 3 + sum(caps.values()) + sum(extra.values()) * 2]
         for x in cands:
-            if slots <= 0 and not dry:
+            is_ex = x.get("setup") in extra
+            room_ex = lambda: sum(max(0, n_ - held_by.get(k_, 0)) for k_, n_ in extra.items())
+            if slots <= 0 and room_ex() <= 0 and not dry:
                 break
+            if not is_ex and slots <= 0 and not dry:
+                continue
             sym, e, stop = x["code"], px.get(x["code"]), float(x["stop"])
             if not e:
                 continue
-            if x.get("setup") in caps and held_by.get(x["setup"], 0) >= caps[x["setup"]]:
+            if is_ex and held_by.get(x["setup"], 0) >= extra[x["setup"]]:
+                skip(x, f"이 방식은 따로 {extra[x['setup']]}종목까지")
+                continue
+            if not is_ex and x.get("setup") in caps and held_by.get(x["setup"], 0) >= caps[x["setup"]]:
                 skip(x, f"이 방식은 최대 {caps[x['setup']]}종목까지")
                 continue
             if stop >= e * 0.995:
@@ -1401,6 +1411,8 @@ class Bot:
                     skip(x, f"보유 중인 {hit[0]}와 움직임이 거의 같음(상관 {hit[1]:.2f}) — 위험이 겹쳐서 건너뜀", loud=True)
                     continue
             mr = (c.get("max_open_risk_by_market") or {}).get(self.m, c.get("max_open_risk_pct"))
+            if mr and is_ex:
+                mr += (c.get("extra_open_risk_by_market") or {}).get(self.m, 0)     # 따로 자리 몫의 손실 한도
             if mr and cap:
                 open_r = sum(max(0.0, pp.entry - pp.sl) * pp.qty for pp in self.broker.pos.values()
                              if pp.extra.get("sw") and pp.state in ("pending", "open")) + planned_r
@@ -1409,10 +1421,11 @@ class Bot:
                     continue
             x["_brief"] = btxt + (("\n⚠️ " + " · ".join(warn)) if warn else "")
             if dry:
-                if slots > 0:
+                if (is_ex and held_by.get(x["setup"], 0) < extra[x["setup"]]) or (not is_ex and slots > 0):
                     planned_r += (e - round_tick(self.m, stop, "down")) * q
                     table.append((x, "매수", etxt, q))
-                    slots -= 1
+                    if not is_ex:
+                        slots -= 1
                     held_by[x.get("setup")] = held_by.get(x.get("setup"), 0) + 1
                     if sec:
                         sec_n[sec] = sec_n.get(sec, 0) + 1
@@ -1441,7 +1454,8 @@ class Bot:
                 self.stream.set_codes(list(dict.fromkeys(list(self.broker.pos) + self.universe)))
             self.broker.save_state()
             spent += e * q
-            slots -= 1
+            if not is_ex:
+                slots -= 1
             held_by[x.get("setup")] = held_by.get(x.get("setup"), 0) + 1
             self.notify(f"🧭 스윙 매수 {x['name']} {q}주 ≈ {money(self.m, e)} · 손절 {money(self.m, sl)} "
                         f"(-{(1 - sl / e) * 100:.1f}%, 손실 한도 투자금의 {rp:g}%)\n산 이유: {x['reason']}"
