@@ -191,6 +191,60 @@ def us_universe() -> dict:
     return out
 
 
+def kr_flow_naver(codes: list, years: int, budget: int = 6000) -> dict:
+    """pykrx 가 막혔을 때: 네이버 금융 '외국인·기관 순매매' 일별 표(한 쪽 20일)를 넘겨 가며 받음. 값은 순매매량(주)."""
+    import io
+    import pandas as pd
+    ses = requests.Session()
+    ses.headers["User-Agent"] = "Mozilla/5.0 (stock-chart research)"
+    pages = int(years * 250 / 20) + 1
+    cut = (dt.date.today() - dt.timedelta(days=365 * years)).isoformat()
+    out, t0 = {}, time.time()
+
+    def num(v):
+        try:
+            return float(str(v).replace(",", "").replace("+", ""))
+        except ValueError:
+            return None
+    for i, code in enumerate(codes):
+        if time.time() - t0 > budget:
+            log("네이버 수급: 시간 예산 초과, 여기까지", i)
+            break
+        rows = {}
+        for pg in range(1, pages + 1):
+            try:
+                r = ses.get(f"https://finance.naver.com/item/frgn.naver?code={code}&page={pg}", timeout=15)
+                r.encoding = "euc-kr"
+                got = 0
+                for tb in pd.read_html(io.StringIO(r.text)):
+                    cols = ["".join(map(str, c)) if isinstance(c, tuple) else str(c) for c in tb.columns]
+                    if not any("날짜" in c for c in cols):
+                        continue
+                    di = next(k for k, c in enumerate(cols) if "날짜" in c)
+                    ii = next((k for k, c in enumerate(cols) if "기관" in c), None)
+                    fi = next((k for k, c in enumerate(cols) if "외국인" in c and "순매매" in c), None)
+                    if ii is None or fi is None:
+                        continue
+                    for row in tb.itertuples(index=False):
+                        d = str(row[di]).strip().replace(".", "-")
+                        fo, og = num(row[fi]), num(row[ii])
+                        if len(d) == 10 and d[4] == "-" and fo is not None and og is not None:
+                            rows[d] = (fo, og)
+                            got += 1
+                if not got or min(rows) < cut:
+                    break
+            except Exception as e:
+                if pg == 1:
+                    log("네이버 수급 실패", code, repr(e)[:100])
+                break
+            time.sleep(0.12)
+        if rows:
+            out[code] = [(d, v[0], v[1]) for d, v in sorted(rows.items())]
+        if i % 50 == 0:
+            log(f"네이버 수급 {i}/{len(codes)} · 받음 {len(out)}")
+    return out
+
+
 def us_earn(codes: list) -> dict:
     import yfinance as yf
     out, t0 = {}, time.time()
@@ -231,6 +285,9 @@ def main():
         res["index"] = yf_bars({"KOSPI": "^KS11", "KOSDAQ": "^KQ11"}, a.years)
         try:
             res["flow"] = kr_flow(list(res["bars"]), min(a.years, 2))
+            if len(res["flow"]) < len(res["bars"]) * 0.2:
+                log("pykrx 수급이 거의 없음 → 네이버에서 받음")
+                res["flow"] = kr_flow_naver(list(res["bars"]), min(a.years, 3))
         except Exception as e:
             log("수급 전체 실패", e)
     else:

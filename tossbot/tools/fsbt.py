@@ -33,12 +33,21 @@ def features(m, D):
     out = {}
     for code, b in D["bars"].items():
         fd = {}
+        fl, fp = sorted((str(x[0])[:10], x[1], x[2]) for x in (D.get("flow") or {}).get(code, [])), 0
+        er = sorted((str(e[0])[:10], e[1], e[2], e[3]) for e in (D.get("earn") or {}).get(code, []) if e[2] is not None)   # 발표된 실적만
         for i in range(START, len(b)):
             r = b[max(0, i - 259):i + 1]
             c = r[-1][4]
             tv = sum(x[4] * x[5] for x in r[-20:]) / 20
             thin = c < (1000 if m == "kr" else 5) or tv < (3e9 if m == "kr" else 3e7)
-            sc, _ = SW.forward_score(m.upper(), r, c, {}, {}, 0)
+            est = {}
+            if fl:                                           # 국장: 그날까지 최근 5거래일 외국인·기관 순매수 합 (로봇의 '최근 5일 수급'과 같은 뜻)
+                while fp < len(fl) and fl[fp][0] <= b[i][0]:
+                    fp += 1
+                w = fl[max(0, fp - 5):fp]
+                if len(w) == 5:
+                    est = {"foreigner5d": sum(x[1] for x in w), "organ5d": sum(x[2] for x in w)}
+            sc, _ = SW.forward_score(m.upper(), r, c, est, _earn_ev(er, b[i][0]) if er else {}, 0)
             if c >= max(x[2] for x in r[-252:]) * 0.95:
                 sc += 1
             trs = [max(r[j][2] - r[j][3], abs(r[j][2] - r[j - 1][4]), abs(r[j][3] - r[j - 1][4])) for j in range(len(r) - 14, len(r))]
@@ -47,6 +56,23 @@ def features(m, D):
                            thin, bool(SW.long_downtrend(r, c)), r[-1][5] / (sum(vols) / len(vols)) if vols and r[-1][5] else 0)
         out[code] = fd
     return out
+
+
+def _earn_ev(er, day):
+    """그 날짜까지 발표된 실적만으로: 직전 실적 서프라이즈(%)·1년 전 같은 분기 대비 EPS 증가율 (200일 넘은 실적은 안 씀)."""
+    import datetime as dt
+    past = [e for e in er if e[0] < day]
+    if not past:
+        return {}
+    last = past[-1]
+    if (dt.date.fromisoformat(day) - dt.date.fromisoformat(last[0])).days > 200:
+        return {}
+    ev = {}
+    if last[3] is not None:
+        ev["last_surprise"] = last[3]
+    if len(past) >= 5 and past[-5][2] and past[-5][2] > 0:
+        ev["eps_yoy"] = last[2] / past[-5][2] - 1
+    return ev
 
 
 def load(m):
