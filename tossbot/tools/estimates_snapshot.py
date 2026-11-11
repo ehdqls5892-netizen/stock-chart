@@ -174,6 +174,32 @@ def kr_rows(n: int) -> list[dict]:
     return rows
 
 
+MACRO = {"VIX(변동성 지수)": "^VIX", "원/달러": "KRW=X", "미국 10년 금리": "^TNX", "달러 지수": "DX-Y.NYB", "유가(WTI)": "CL=F", "금": "GC=F",
+         "S&P500": "^GSPC", "나스닥": "^IXIC", "코스피": "^KS11", "코스닥": "^KQ11", "필라델피아 반도체": "^SOX", "하이일드 채권": "HYG",
+         "업종 기술": "XLK", "업종 금융": "XLF", "업종 에너지": "XLE", "업종 헬스케어": "XLV", "업종 소비재(선택)": "XLY", "업종 필수소비": "XLP",
+         "업종 산업재": "XLI", "업종 유틸리티": "XLU", "업종 소재": "XLB", "업종 부동산": "XLRE", "업종 통신": "XLC"}
+
+
+def macro_rows() -> list[dict]:
+    """시장 전체 정보(키 필요 없음, 야후): 변동성·환율·금리·유가·지수·미국 업종별 흐름 — 마지막 값과 1·5·20일 변화.
+    지금은 매일 기록만 쌓음(매매 규칙엔 안 씀) → 충분히 쌓이면 효과를 검증해서 쓸지 정함."""
+    import yfinance as yf
+    out = []
+    df = yf.download(list(MACRO.values()), period="3mo", interval="1d", auto_adjust=True, progress=False, group_by="ticker", threads=True)
+    for name, t in MACRO.items():
+        try:
+            c = df[t]["Close"].dropna()
+            if len(c) < 22:
+                continue
+            last = float(c.iloc[-1])
+            out.append({"name": name, "ticker": t, "asof": c.index[-1].strftime("%Y-%m-%d"), "last": round(last, 4),
+                        "chg1": round(last / float(c.iloc[-2]) - 1, 4), "chg5": round(last / float(c.iloc[-6]) - 1, 4),
+                        "chg20": round(last / float(c.iloc[-21]) - 1, 4)})
+        except Exception as e:
+            log("시장 정보 실패", name, repr(e)[:80])
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("market", choices=["kr", "us"])
@@ -198,6 +224,18 @@ def main():
         w.writeheader()
         for r in rows:
             w.writerow({"date": day, **r})
+    try:                                       # 시장 전체 정보도 같이 기록 (store/macro/날짜-시장.csv)
+        mr = macro_rows()
+        if mr:
+            mp = out.parent.parent / "macro" / f"{out.stem}-{a.market}.csv"
+            mp.parent.mkdir(parents=True, exist_ok=True)
+            with open(mp, "w", newline="", encoding="utf-8") as f:
+                w = csv.DictWriter(f, fieldnames=list(mr[0]))
+                w.writeheader()
+                w.writerows(mr)
+            log(f"시장 정보 {len(mr)}개 → {mp}")
+    except Exception as e:
+        log("시장 정보 기록 실패", repr(e)[:120])
     ok = sum(1 for r in rows if not r.get("err"))
     filled = sum(1 for r in rows if (r.get("forwardEps") or r.get("eps_E") or r.get("target")
                                      or any(k.startswith("cs_") and r[k] for k in r)))
