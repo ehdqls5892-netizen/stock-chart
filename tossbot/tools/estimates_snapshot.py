@@ -205,8 +205,12 @@ def main():
     ap.add_argument("market", choices=["kr", "us"])
     ap.add_argument("--out", required=True)
     ap.add_argument("--n", type=int, default=700)
+    ap.add_argument("--probe", action="store_true")
     a = ap.parse_args()
-    if a.market == "us":
+    if a.probe:                                # 연결 확인용: 몇 종목만 넣고 추가 정보(키·로그인)가 들어오는지 봄
+        rows = ([{"code": c, "name": c} for c in ("AAPL", "NVDA", "MSFT")] if a.market == "us"
+                else [{"code": c, "name": c} for c in ("005930", "000660", "035420")])
+    elif a.market == "us":
         import swing_data as SD
         rows = us_rows(SD.us_universe())
     else:
@@ -224,6 +228,7 @@ def main():
             MS.fmp(rows, first)
             MS.finnhub(rows)
         else:
+            MS.krx_short(rows)
             MS.kis(rows)
     except Exception as e:
         log("추가 정보 실패", repr(e)[:120])
@@ -257,6 +262,9 @@ def main():
             log(f"시장 정보 {len(mr)}개 → {mp}")
     except Exception as e:
         log("시장 정보 기록 실패", repr(e)[:120])
+    if a.probe:
+        for r in rows:
+            log("확인", {k: v for k, v in r.items()})
     ok = sum(1 for r in rows if not r.get("err"))
     filled = sum(1 for r in rows if (r.get("forwardEps") or r.get("eps_E") or r.get("target")
                                      or any(k.startswith("cs_") and r[k] for k in r)))

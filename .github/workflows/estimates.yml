@@ -10,6 +10,10 @@ on:
         description: "kr 또는 us"
         required: true
         default: "us"
+      probe:
+        description: "yes 면 연결 확인만 (몇 종목, 기록은 probe 폴더)"
+        required: false
+        default: "no"
 
 permissions:
   contents: write
@@ -50,7 +54,14 @@ jobs:
           FRED_KEY: ${{ secrets.FRED_KEY }}
           KIS_APP_KEY: ${{ secrets.KIS_APP_KEY }}
           KIS_APP_SECRET: ${{ secrets.KIS_APP_SECRET }}
-        run: python tossbot/tools/estimates_snapshot.py ${{ steps.mk.outputs.m }} --out store/${{ steps.mk.outputs.m }}/${{ steps.mk.outputs.d }}.csv 2> >(tee snap.log >&2)
+          KRX_ID: ${{ secrets.KRX_ID }}
+          KRX_PW: ${{ secrets.KRX_PW }}
+        run: |
+          if [ "${{ github.event.inputs.probe }}" = "yes" ]; then
+            python tossbot/tools/estimates_snapshot.py ${{ steps.mk.outputs.m }} --probe --out store/probe/${{ steps.mk.outputs.m }}.csv 2> >(tee snap.log >&2)
+          else
+            python tossbot/tools/estimates_snapshot.py ${{ steps.mk.outputs.m }} --out store/${{ steps.mk.outputs.m }}/${{ steps.mk.outputs.d }}.csv 2> >(tee snap.log >&2)
+          fi
       - name: 올리기
         if: always()
         run: |

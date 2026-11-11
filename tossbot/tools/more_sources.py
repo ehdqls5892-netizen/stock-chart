@@ -119,6 +119,69 @@ def fred() -> list:
     return out
 
 
+def krx_short(rows: list) -> int:
+    """국장 공매도(한국거래소, 이미 등록된 KRX 로그인 사용 — 증권사 계좌·키 필요 없음).
+    하루치를 시장 전체로 한 번에 받음: 공매도 거래 비중(최근일·5일 평균), 공매도 잔고 비중(이틀 늦게 나옴)."""
+    if not os.getenv("KRX_ID") or not os.getenv("KRX_PW"):
+        return 0
+    import datetime as dt
+    try:
+        from pykrx import stock
+    except Exception as e:
+        log("pykrx 없음", repr(e)[:80])
+        return 0
+    by = {str(r["code"]): r for r in rows}
+    vol, bal, days, d = {}, {}, 0, dt.date.today()
+    for _ in range(12):                       # 최근 거래일 5일치
+        if days >= 5:
+            break
+        ds = d.strftime("%Y%m%d")
+        d -= dt.timedelta(days=1)
+        got = False
+        for mk in ("KOSPI", "KOSDAQ"):
+            try:
+                df = stock.get_shorting_volume_by_ticker(ds, market=mk)
+                if df is None or df.empty:
+                    continue
+                if days == 0 and mk == "KOSPI":
+                    log("KRX 공매도 거래 확인", ds, list(df.columns)[:8], len(df))
+                col = next((c for c in df.columns if "비중" in str(c)), None)
+                if col is None:
+                    continue
+                for code, v in df[col].items():
+                    x = _num(v)
+                    if x is not None:
+                        vol.setdefault(str(code), []).append(x)
+                got = True
+            except Exception as e:
+                log("KRX 공매도 거래 실패", ds, mk, repr(e)[:120])
+            time.sleep(1.0)
+            if not bal or days < 3:
+                try:
+                    df = stock.get_shorting_balance_by_ticker(ds, market=mk)
+                    if df is not None and not df.empty:
+                        col = next((c for c in df.columns if "비중" in str(c)), None)
+                        if col is not None:
+                            for code, v in df[col].items():
+                                x = _num(v)
+                                if x is not None and str(code) not in bal:
+                                    bal[str(code)] = x
+                except Exception as e:
+                    log("KRX 공매도 잔고 실패", ds, mk, repr(e)[:120])
+                time.sleep(1.0)
+        days += got
+    n = 0
+    for code, r in by.items():
+        v = vol.get(code)
+        if v:
+            r.update(krx_short_pct=round(v[0], 2), krx_short_pct5=round(sum(v) / len(v), 2))
+            n += 1
+        if code in bal:
+            r["krx_short_bal_pct"] = round(bal[code], 2)
+    log(f"KRX 공매도 {n}종목 (거래일 {days}일 · 잔고 {len(bal)}종목)")
+    return n
+
+
 KIS = "https://openapi.koreainvestment.com:9443"
 
 
