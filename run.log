@@ -1,0 +1,17 @@
+/home/runner/work/stock-chart/stock-chart/tossbot/tools/swing_data.py:338: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+  res = {"asof": dt.datetime.utcnow().isoformat(timespec="minutes"), "flow": {}, "earn": {}}
+수급 API 0/690 · 받음 1 · 예: 780일
+수급 API 50/690 · 받음 51 · 예: 780일
+수급 API 100/690 · 받음 101 · 예: 780일
+수급 API 150/690 · 받음 151 · 예: 780일
+수급 API 200/690 · 받음 201 · 예: 780일
+수급 API 250/690 · 받음 251 · 예: 780일
+수급 API 300/690 · 받음 301 · 예: 780일
+수급 API 350/690 · 받음 351 · 예: 780일
+수급 API 400/690 · 받음 400 · 예: 780일
+수급 API 450/690 · 받음 450 · 예: 780일
+수급 API 500/690 · 받음 500 · 예: 385일
+수급 API 550/690 · 받음 550 · 예: 780일
+수급 API 600/690 · 받음 600 · 예: 780일
+수급 API 650/690 · 받음 650 · 예: 566일
+완료 {'asof': 16, 'flow': 689, 'earn': 0, 'bars': 690, 'names': 700, 'index': 2}
