@@ -790,3 +790,19 @@ Sx = {"X": BT.indicators(BT.prep(rows))}
 sg = BT.signals("rb", Sx, {"include_last": True, "mintv": 1}, {"bars": {"X": rows}}, "us")
 assert sg and sg[-1][0] == "2026-09-11" and abs(sg[-1][3] - 76.0 * 0.92) < 1e-6, sg[-3:]
 print("✅ 시장별 손절·급락 뒤 반등 시험 통과")
+# 반등 방식 보유 종목: 손실 검토 알림·점수 판정을 안 씀 (손절선·15일 규칙으로만)
+c["exit_by_setup"] = {**(c.get("exit_by_setup") or {}), "rb": {"exit_ma": 0, "max_hold": 15, "exit_forward_score": None, "loss_review": {"enabled": False}}}
+c["loss_review"] = {"enabled": True, "pct": 3, "max_score": 2}
+br = PaperBroker("US", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+bot.broker, bot.sync_bg = br, True
+r1 = br.enter("RB1", "RB1", 100, 10, 200, 92, "시험")
+r1.extra.update(sw=True, carry=True, sw_days=1, sw_kind="rb")
+sent.clear()
+M.Bot.hold_score = lambda self, p, last=None: (-4, ["－20일선 아래"], "")
+M.Bot.loss_watch(bot, r1, 96.0)
+assert not sent, sent
+assert M.Bot.review_verdict(bot, -4, -4.0, r1)[0] == "유지" and M.Bot.review_verdict(bot, -4, -4.0)[0] == "정리 예정"
+M.Bot.swing_daily(bot, r1, 96.0)                         # 점수 -4, 손실 -4% 여도 반등 방식은 계속 보유
+assert "RB1" in br.pos, br.closed[-1].exit_reason if br.closed else ""
+M.Bot.hold_score = orig_hs
+print("✅ 반등 방식 보유 관리 시험 통과")

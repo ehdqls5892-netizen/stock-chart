@@ -1829,9 +1829,18 @@ class Bot:
             fs, fw = None, []
         return fs, fw, txt
 
-    def review_verdict(self, fs, loss) -> tuple:
+    def setup_cfg(self, p=None) -> dict:
+        """그 종목을 산 방식의 규칙 (방식별 예외 exit_by_setup 를 덮어씀) — 마감 점검과 같은 기준."""
+        c = dict(self.cfg["daily_swing"])
+        if p is not None:
+            c.update((c.get("exit_by_setup") or {}).get(p.extra.get("sw_kind")) or {})
+        return c
+
+    def review_verdict(self, fs, loss, p=None) -> tuple:
         """로봇 규칙 그대로의 보유 판정 → ('정리 예정'|'주의'|'유지', 한 줄 설명). 앱 표시·알림이 같은 기준을 씀."""
-        c = self.cfg["daily_swing"]
+        c = Bot.setup_cfg(self, p)
+        if p is not None and p.extra.get("sw_kind") in set(c.get("rebound_setups") or []):
+            return "유지", f"급락 뒤 반등 방식 — 손절선과 최대 {c.get('max_hold', 15)}거래일 보유 규칙으로만 관리해요 (점수로 팔지 않음)"
         lr = c.get("loss_review") or {}
         xs = c.get("exit_forward_score")
         k, pct = lr.get("max_score", 2), lr.get("pct", 3)
@@ -1848,7 +1857,7 @@ class Bot:
         return "유지", f"점수 {fs:+d} — 계속 보유"
 
     def set_review(self, p, fs, fw, loss, selling=False):
-        g, txt = Bot.review_verdict(self, fs, loss)
+        g, txt = Bot.review_verdict(self, fs, loss, p)
         if selling:
             g = "정리 예정"
         p.extra["review"] = {"t": time.time(), "fs": fs, "loss": round(loss, 2), "grade": g, "txt": txt,
@@ -1858,7 +1867,7 @@ class Bot:
     def loss_watch(self, p, last):
         """장중 실시간: 손실이 -3% 를 처음 넘는 순간 지금 점수로 검토해서 알림 (파는 결정은 마감 15분 전 점검에서 —
         장중에 바로 파는 방식은 백테스트에서 수익이 줄었음: 장중 저점에서 팔고 반등을 놓침)."""
-        c = self.cfg["daily_swing"]
+        c = Bot.setup_cfg(self, p)                 # 방식별 규칙 (반등 방식은 손실 검토를 안 함)
         lr = c.get("loss_review") or {}
         if not lr.get("enabled") or p.state != "open" or not p.extra.get("sw") or not last or not p.entry:
             return
