@@ -82,6 +82,10 @@ def main():
     except Exception as e:
         print("실적·애널리스트·업종 정보 실패:", e, file=sys.stderr)
     try:
+        enrich_other(m, out["picks"])
+    except Exception as e:
+        print("다른 방식 후보 AI 판독 실패:", e, file=sys.stderr)
+    try:
         fs = scan_now(m, bars, names, idx, (lambda c: yfs.get(c, c)) if m == "kr" else None)
         out["picks"] = fs + out["picks"]
         out["fs_count"] = len(fs)
@@ -531,6 +535,49 @@ def scan_now(m, bars, names, idx, tick=None, top=80, keep=30):
     if XS.USAGE:
         print("Claude 사용량(입력·출력 토큰):", XS.USAGE, file=sys.stderr)
     return out[:keep]
+
+
+def enrich_other(m, picks: list) -> int:
+    """신고가·반등·재료 갭 후보도 차트 신호만으로 두지 않음: 애널리스트·이익 전망·실적·공시·수급·최근 뉴스를 붙이고
+    AI 가 1차로 읽은 뒤(전 후보), 가장 좋은 모델이 다시 깊게 읽음(앞쪽 후보). 결과는 ev.ai — 로봇은 부정·매수 금지면 안 삼."""
+    import extra_sources as XS
+    import requests
+    import estimates_snapshot as ES
+    ses = requests.Session()
+    ses.headers["User-Agent"] = "Mozilla/5.0 (stock-chart bot)"
+    other = [x for x in picks if x.get("setup") not in (None, "fs")]
+    seen, n = {}, 0
+    for x in other:
+        if x["code"] in seen:                                 # 같은 종목이 여러 방식이면 한 번만 읽음
+            x["ev"] = {**(x.get("ev") or {}), **seen[x["code"]]}
+            continue
+        ev = x.setdefault("ev", {})
+        try:
+            if m == "kr":
+                row = ES.kr_api(x["code"], ses)
+                ev["est"] = {k: v for k, v in row.items() if v is not None and k != "code"}
+                ev.update(XS.dart(x["code"]))
+                nws = XS.naver_news(x["name"]) or XS.naver_stock_news(x["code"]) or []
+            else:
+                from bot.news import recent_news
+                nws = recent_news(x["name"], "US", days=7, n=8)
+        except Exception as e:
+            print("다른 방식 후보 정보 실패", x["code"], e, file=sys.stderr)
+            nws = []
+        ai = XS.ai_read(m.upper(), x, nws)
+        if ai:
+            fin = XS.ai_final(m.upper(), x, nws, ai) if n < int(os.getenv("CLAUDE_OTHER_FINAL_N", "") or 8) else None
+            ev["ai"] = fin or ai
+            n += 1
+            a = ev["ai"]
+            x["reason"] += f" · {'AI 최종' if a.get('final') else 'AI 1차'} {a['view']}: {a.get('catalyst', '')} / 위험: {a.get('risk', '')}"
+            if a.get("veto"):
+                x["reason"] += f" · ⛔ AI 매수 금지: {a['veto']}"
+        if ev.get("dart_flags"):
+            x["reason"] += " · ⚠️ 최근 공시: " + " · ".join(ev["dart_flags"])
+        seen[x["code"]] = {k: v for k, v in ev.items()}
+    print(f"다른 방식 후보 {len(other)}개 중 AI 판독 {n}개", file=sys.stderr)
+    return n
 
 
 def etf_metrics(m):

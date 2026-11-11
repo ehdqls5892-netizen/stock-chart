@@ -10,6 +10,7 @@ import bot.swing as SW
 from bot.broker import PaperBroker
 
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
+cfg["daily_swing"]["ai_required_other"] = False      # 시험: AI 키 없이 돌리므로 판독 없으면 안 사기는 따로 시험
 c = cfg["daily_swing"]
 c["need_target"] = False   # 시험 종목엔 목표가가 없음 (목표가 필수 규칙은 아래에서 따로 시험)
 c["min_chart_q"] = -99
@@ -812,3 +813,24 @@ M.Bot.swing_daily(bot, r1, 96.0)                         # 점수 -4, 손실 -4%
 assert "RB1" in br.pos, br.closed[-1].exit_reason if br.closed else ""
 M.Bot.hold_score = orig_hs
 print("✅ 반등 방식 보유 관리 시험 통과")
+# 신고가·반등 후보: 사기 직전 AI 판독 — 부정·매수 금지면 안 삼, 판독을 못 받으면 안 삼 (차트 신호만으로 안 삼)
+from bot import news_judge as _NJ
+_call0 = _NJ._call
+os.environ["ANTHROPIC_API_KEY"] = "test"
+os.environ.pop("TOSSBOT_OFFLINE", None)
+ab = SimpleNamespace(cfg=cfg, m="US", log=print)
+_er3, _sn3 = M.Bot.est_row, M.Bot.stock_news
+M.Bot.est_row = lambda self, s_: {"targetMeanPrice": 120}
+M.Bot.stock_news = lambda self, a, b: ["Akamai cuts guidance"]
+seen_p = []
+_NJ._call = lambda prompt, model, claude=None: (seen_p.append((prompt, model)) or {"view": "부정", "catalyst": "가이던스 하향", "risk": "추가 하락", "adj": -2, "veto": "가이던스 대폭 하향"})
+a1 = M.Bot.ai_check(ab, {"code": "AKAM", "name": "Akamai", "setup": "rb", "reason": "급락 뒤 반등", "close": 83.7, "stop": 77}, 84.0)
+assert a1["view"] == "부정" and a1["veto"] and "급락 뒤 반등" in seen_p[0][0] and "Akamai cuts guidance" in seen_p[0][0] and seen_p[0][1] == "claude-opus-5-5", (a1, seen_p)
+_NJ._call = lambda prompt, model, claude=None: {}
+assert M.Bot.ai_check(ab, {"code": "AKAM", "name": "Akamai", "setup": "rb"}, 84.0) == {}
+_NJ._call = _call0
+M.Bot.est_row, M.Bot.stock_news = _er3, _sn3
+os.environ.pop("ANTHROPIC_API_KEY", None)
+os.environ["TOSSBOT_OFFLINE"] = "1"
+assert M.Bot.ai_check(ab, {"code": "X", "name": "X", "setup": "rb"}, 1.0) == {}
+print("✅ 다른 방식 후보 사기 직전 AI 판독 시험 통과")

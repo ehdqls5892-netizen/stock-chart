@@ -1082,6 +1082,49 @@ class Bot:
                     + (f" · 빠짐: {', '.join(drop)}" if drop else "") + (f" · 지수 오늘 {ix:+.1f}%" if ix is not None else ""))
         return True
 
+    def ai_check(self, x, price) -> dict:
+        """매수 직전 AI 판독 (신고가·반등·재료 갭처럼 밤에 AI 가 안 읽은 후보용).
+        보는 것: 신호 이유, 지금 가격, 현재·미래 점수 근거(차트·거래량·추세), 애널리스트 목표가·의견·이익 전망, 실적일·서프라이즈,
+        (국장) 외국인·기관 수급, 최근 기사 제목. → {"view","catalyst","risk","adj","veto"?}. 키가 없거나 실패하면 {}."""
+        from . import news_judge as NJ
+        if os.getenv("TOSSBOT_OFFLINE") == "1" or not os.getenv("ANTHROPIC_API_KEY", "").strip():
+            return {}
+        ev = x.get("ev") or {}
+        try:
+            est = Bot.est_row(self, x["code"]) or {}
+        except Exception:
+            est = {}
+        try:
+            news = Bot.stock_news(self, x["code"], x["name"])
+        except Exception:
+            news = []
+        kind = {"hi52": "52주 신고가 돌파", "rb": "급락 뒤 반등", "ep": "큰 재료 갭", "dip": "저점 매수"}.get(x.get("setup"), x.get("setup"))
+        facts = {"종목": x.get("name"), "시장": self.m, "사는 방식": kind, "신호 이유": x.get("reason"), "신호 날 종가": x.get("close"),
+                 "지금 가격": price, "손절선": x.get("stop"), "현재·미래 점수": x.get("_fscore"), "점수 근거": (x.get("_fwhy") or [])[:14],
+                 "애널리스트·이익 전망": {k: v for k, v in est.items() if v not in (None, "")} if isinstance(est, dict) else est,
+                 "실적·공시": {k: v for k, v in ev.items() if k not in ("ai", "news", "est")}, "최근 기사 제목": news[:8]}
+        prompt = ("너는 15년 차 주식 애널리스트다. 이 종목은 '" + str(kind) + "' 신호로 오늘 마감 전에 사려는 후보다. 아래 자료만 보고 "
+                  "앞으로 1~3주 들고 갈 만한지 판단해라. 규칙: 1) 자료에 없는 사실은 지어내지 마라. 2) 시장 전체 얘기는 근거로 쓰지 마라. "
+                  "3) 확실한 악재(주식 희석·회계 문제·실적 쇼크·가이던스 대폭 하향·대형 소송·규제 제재·대주주 대량 매도)가 있으면 veto 에 이유를 적어라. "
+                  "4) 급락 뒤 반등이면 '왜 급락했는지'가 아직 해결 안 된 악재인지 꼭 봐라. 5) 쉬운 말. "
+                  'JSON 한 줄만 답해라: {"view":"긍정|중립|부정","catalyst":"움직임의 이유 한 문장(모르면 \'확인 안 됨\')",'
+                  '"risk":"가장 큰 위험 한 문장","adj":-2~1 정수,"veto":"사면 안 되는 이유 또는 빈 문자열"}\n\n'
+                  + json.dumps(facts, ensure_ascii=False, default=str)[:7000])
+        model = os.getenv("CLAUDE_BUY_MODEL", "").strip() or "claude-opus-5-5"
+        d = NJ._call(prompt, model)
+        if not isinstance(d, dict) or not d.get("view"):
+            return {}
+        v = str(d.get("view"))
+        v = "긍정" if "긍정" in v else "부정" if "부정" in v else "중립"
+        out = {"view": v, "catalyst": str(d.get("catalyst", ""))[:200], "risk": str(d.get("risk", ""))[:200], "adj": 0, "model": model, "at_buy": True}
+        try:
+            out["adj"] = max(-2, min(1, int(d.get("adj", 0))))
+        except (TypeError, ValueError):
+            pass
+        if str(d.get("veto") or "").strip():
+            out["veto"] = str(d["veto"])[:120]
+        return out
+
     def news_judged(self) -> dict:
         """1시간마다 AI 가 다시 읽은 종목 뉴스 판정 (6시간 넘은 건 안 씀). 10분 동안 기억."""
         import requests
@@ -1301,6 +1344,18 @@ class Bot:
             if bad:
                 skip(x, bad, loud=True)
                 continue
+            if not dry and not (ev.get("ai") or {}).get("view") and (x.get("setup") or "fs") not in set(c.get("strict_setups") or ["fs"]):
+                try:                                    # 신고가·반등·재료 갭: 차트 신호만으로 사지 않게 — 사기 직전에 AI 가 전체 정보를 읽고 판정
+                    a_ = Bot.ai_check(self, x, e)
+                    if a_:
+                        ev = x.setdefault("ev", {})
+                        ev["ai"] = a_
+                        self.log(f"🤖 {x['name']} AI 판독 {a_.get('view')}: {a_.get('catalyst', '')[:60]} / 위험: {a_.get('risk', '')[:60]}")
+                    elif c.get("ai_required_other", True) and os.getenv("TOSSBOT_OFFLINE") != "1":
+                        skip(x, "AI 판독을 못 받아서 안 사요 (차트 신호만으로는 안 삼)", loud=True)
+                        continue
+                except Exception as ex:
+                    self.log(f"🤖 {x['name']} AI 판독 오류: {ex}")
             mrr = c.get("min_rr")
             if mrr and x.get("_strict", True) and x.get("_rr") is not None and x["_rr"] < mrr:
                 skip(x, f"손익비 {x['_rr']:.1f} (기준 {mrr:g} 이상) — 목표가까지 남은 폭이 손절 폭에 비해 작아서 안 사요", loud=True)
