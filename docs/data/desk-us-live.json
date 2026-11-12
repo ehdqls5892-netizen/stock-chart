@@ -1,93 +1,66 @@
 {
  "market": "us",
- "date": "2026-11-11",
- "updatedAt": "2026-11-11T17:51+00:00",
+ "date": "2026-11-12",
+ "updatedAt": "2026-11-12T17:51+00:00",
  "plans": {
-  "RKLB": {
-   "name": "로켓랩",
-   "stop": 61.03,
-   "entryLow": 61.87,
-   "entryHigh": 62.71,
-   "t1": 82.0,
+  "CRWV": {
+   "name": "코어위브",
+   "stop": 51.24,
+   "entryLow": 56.06,
+   "entryHigh": 60.77,
+   "t1": 78.92,
    "src": "장중 1순위",
-   "t2": 86.19,
-   "score": 80
+   "t2": 105.0,
+   "score": 53
   }
  },
  "watch": [
-  "CRWV",
-  "AMD",
-  "AMAT",
-  "AVGO",
-  "RKLB",
   "NVDA",
-  "NBIS",
-  "RGTI",
-  "AAPL",
-  "LITE",
-  "VCEL",
-  "TLS",
-  "RSG",
-  "MRCY",
-  "TSM"
+  "BABA",
+  "RS",
+  "AVGO",
+  "AMD"
  ],
  "earn_good": {},
  "names": {
-  "CRWV": "코어위브",
-  "AMD": "AMD",
-  "AMAT": "어플라이드머티리얼즈",
-  "AVGO": "브로드컴",
-  "RKLB": "로켓랩",
-  "TSM": "TSMC",
   "NVDA": "엔비디아",
+  "CRWV": "코어위브",
   "NBIS": "네비우스",
-  "MSFT": "마이크로소프트",
-  "RGTI": "리게티 컴퓨팅",
-  "AAPL": "애플",
-  "LITE": "루멘텀",
-  "VCEL": "베리셀",
-  "TLS": "텔로스",
-  "RSG": "리퍼블릭 서비시스",
-  "MRCY": "머큐리 시스템즈",
-  "CVX": "셰브론",
-  "AMZN": "아마존"
+  "AVGO": "브로드컴",
+  "AMD": "AMD",
+  "MU": "마이크론",
+  "SNDK": "샌디스크",
+  "BABA": "알리바바",
+  "RS": "릴라이언스 스틸"
  },
  "impact": {
-  "CRWV": {
-   "impact": "호재",
-   "title": "코어위브 실적에 AI주 급반등"
-  },
-  "NBIS": {
-   "impact": "호재",
-   "title": "코어위브 실적에 AI주 급반등"
-  },
-  "AMD": {
-   "impact": "호재",
-   "title": "미국 반도체주 동반 급등"
+  "NVDA": {
+   "impact": "악재",
+   "title": "젠슨 황, 엔비디아 CEO 사임"
   },
   "AVGO": {
-   "impact": "호재",
-   "title": "미국 반도체주 동반 급등"
-  },
-  "TSM": {
-   "impact": "호재",
-   "title": "미국 반도체주 동반 급등"
-  },
-  "NVDA": {
    "impact": "중립",
-   "title": "엔비디아 이틀 급락 뒤 반등"
+   "title": "브로드컴·AMD로 돈 이동"
   },
-  "CVX": {
-   "impact": "악재",
-   "title": "호르무즈 기뢰 소식에 유가 반등"
+  "AMD": {
+   "impact": "중립",
+   "title": "브로드컴·AMD로 돈 이동"
   },
-  "MSFT": {
+  "CRWV": {
    "impact": "악재",
-   "title": "마이크로소프트·아마존 약세"
+   "title": "AI 클라우드주 급락"
   },
-  "AMZN": {
+  "NBIS": {
    "impact": "악재",
-   "title": "마이크로소프트·아마존 약세"
+   "title": "AI 클라우드주 급락"
+  },
+  "MU": {
+   "impact": "악재",
+   "title": "메모리 반도체 약세"
+  },
+  "SNDK": {
+   "impact": "악재",
+   "title": "메모리 반도체 약세"
   }
  }
 }
