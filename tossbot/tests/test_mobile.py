@@ -9,6 +9,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from bot import app as A, mobile as MB  # noqa: E402
 from bot.telegram_ctl import TelegramControl  # noqa: E402
+_cfgA = MB._cfg
+MB._cfg = lambda: (lambda d: (d["daily_swing"].update(markets={"KR": ["fs", "ep"], "US": ["fs", "hi52", "rb"]}), d)[1])(_cfgA())   # 시험은 국장 켜진 기준
 
 st = {"running": False, "mode": None, "markets": {"KR": {"capital": 1000000}}, "positions": [], "closed": [], "log": []}
 w = MB.make(TelegramControl(lambda *a: "시작", lambda *a: "끔", lambda: st, lambda mk, v: f"{mk} {v:g}"))
@@ -112,7 +114,7 @@ pkd = {"date": "2026-11-06", "picks": [
     {"code": "E", "name": "마", "score": 7, "close": 100, "stop": 92, "sector": "T", "no_buy": "손익비 1 미만", "ai": {}},
     {"code": "F", "name": "바", "score": 2, "close": 100, "stop": 92, "sector": "U", "ai": {}}]}
 _cfg0 = MB._cfg
-MB._cfg = lambda: (lambda d: (d["daily_swing"].update(need_target=False, skip_spike=False, min_chart_q=-99, stop_by_market={}, max_new_by_market={}, risk_pct=1.0, risk_by_grade={"A": 1.0, "B": 0.6}, strong={"enabled": False}), d)[1])(_cfg0())   # 시험 종목엔 목표가 없음
+MB._cfg = lambda: (lambda d: (d["daily_swing"].update(need_target=False, skip_spike=False, min_chart_q=-99, stop_by_market={}, max_new_by_market={}, markets={"KR": ["fs", "ep"], "US": ["fs", "hi52", "rb"]}, risk_pct=1.0, risk_by_grade={"A": 1.0, "B": 0.6}, strong={"enabled": False}), d)[1])(_cfg0())   # 시험 종목엔 목표가 없음
 pl = MB.plan("US", hold=[], cap=5000, pk=pkd)
 assert [x["name"] for x in pl["buy"]] == ["가", "나"] and pl["buy"][0]["qty"] == 6 and pl["buy"][1]["small"] and pl["buy"][1]["qty"] == 3, pl["buy"]
 why = {x["name"]: x["why"] for x in pl["skip"]}

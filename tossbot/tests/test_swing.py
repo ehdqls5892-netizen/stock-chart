@@ -11,7 +11,7 @@ from bot.broker import PaperBroker
 
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 cfg["daily_swing"]["ai_required_other"] = False      # 시험: AI 키 없이 돌리므로 판독 없으면 안 사기는 따로 시험
-cfg["daily_swing"].update(stop_by_market={}, max_new_by_market={}, risk_pct=1.0, risk_by_grade={"A": 1.0, "B": 0.6}, strong={"enabled": False}, profit_lock={"enabled": False})   # 시험 숫자는 1% 위험·신호 손절선 기준
+cfg["daily_swing"].update(stop_by_market={}, max_new_by_market={}, markets={"KR": ["fs", "ep"], "US": ["fs", "hi52", "rb"]}, risk_pct=1.0, risk_by_grade={"A": 1.0, "B": 0.6}, strong={"enabled": False}, profit_lock={"enabled": False})   # 시험 숫자는 1% 위험·신호 손절선 기준
 cfg["daily_swing"]["extra_slots"] = {}                # 시험: 따로 자리는 마지막에 따로 시험
 c = cfg["daily_swing"]
 c["need_target"] = False   # 시험 종목엔 목표가가 없음 (목표가 필수 규칙은 아래에서 따로 시험)

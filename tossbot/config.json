@@ -408,7 +408,8 @@
   },
   "daily_swing": {
     "enabled": true,
-    "markets": {"KR": ["fs", "ep"], "US": ["fs", "hi52", "rb"]}, "any_regime": ["fs"],
+    "markets": {"KR": [], "US": ["fs", "hi52", "rb"]}, "any_regime": ["fs"],
+    "_markets_note": "2026-11-13 사용자 결정: 국장 스윙 새 매수 중단 (실제 11월 국장 -7.7만원·10월 -30만원, 10년 시험도 어떤 규칙이든 마이너스, 국장 단타도 연습 기록·10년 시험 모두 마이너스). 다시 켜려면 KR 에 [\"fs\", \"ep\"] 넣기. 혹시 남은 국장 스윙 종목은 손절·정리 규칙대로 계속 관리",
     "any_regime_by_market": {"KR": ["fs"], "US": ["fs", "hi52", "rb"]},
     "bad_regime_min_score": {"KR": {"ep": 10}},
     "strict_setups": ["fs"], "rebound_setups": ["rb"], "rebound_fail_pct": 3, "setup_slots": {}, "extra_slots": {"US": {"hi52": 3, "rb": 3}}, "extra_open_risk_by_market": {"US": 4},
