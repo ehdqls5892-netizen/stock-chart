@@ -1,66 +1,70 @@
 {
  "market": "us",
- "date": "2026-11-12",
- "updatedAt": "2026-11-12T17:51+00:00",
- "plans": {
-  "CRWV": {
-   "name": "코어위브",
-   "stop": 51.24,
-   "entryLow": 56.06,
-   "entryHigh": 60.77,
-   "t1": 78.92,
-   "src": "장중 1순위",
-   "t2": 105.0,
-   "score": 53
-  }
- },
+ "date": "2026-11-13",
+ "updatedAt": "2026-11-13T17:50+00:00",
+ "plans": {},
  "watch": [
   "NVDA",
-  "BABA",
-  "RS",
-  "AVGO",
-  "AMD"
+  "AMAT",
+  "CBRS",
+  "NU",
+  "MOD",
+  "PANW",
+  "ELMT",
+  "CBIO",
+  "OXY"
  ],
  "earn_good": {},
  "names": {
-  "NVDA": "엔비디아",
-  "CRWV": "코어위브",
-  "NBIS": "네비우스",
-  "AVGO": "브로드컴",
   "AMD": "AMD",
+  "AVGO": "브로드컴",
+  "CRWV": "코어위브",
+  "NVDA": "엔비디아",
+  "AMAT": "어플라이드머티리얼즈",
+  "CSCO": "시스코",
+  "CBRS": "세레브라스",
+  "NU": "누 홀딩스",
+  "MOD": "모딘",
+  "MSFT": "마이크로소프트",
+  "PANW": "팔로알토 네트웍스",
+  "ELMT": "엘멧 그룹",
+  "CBIO": "크레센트 바이오파마",
+  "OXY": "옥시덴탈 페트롤리엄",
   "MU": "마이크론",
-  "SNDK": "샌디스크",
-  "BABA": "알리바바",
-  "RS": "릴라이언스 스틸"
+  "SNDK": "샌디스크"
  },
  "impact": {
   "NVDA": {
    "impact": "악재",
-   "title": "젠슨 황, 엔비디아 CEO 사임"
-  },
-  "AVGO": {
-   "impact": "중립",
-   "title": "브로드컴·AMD로 돈 이동"
+   "title": "엔비디아 사태로 반도체주 급락"
   },
   "AMD": {
-   "impact": "중립",
-   "title": "브로드컴·AMD로 돈 이동"
-  },
-  "CRWV": {
    "impact": "악재",
-   "title": "AI 클라우드주 급락"
+   "title": "엔비디아 사태로 반도체주 급락"
   },
-  "NBIS": {
+  "AVGO": {
    "impact": "악재",
-   "title": "AI 클라우드주 급락"
+   "title": "엔비디아 사태로 반도체주 급락"
   },
   "MU": {
    "impact": "악재",
-   "title": "메모리 반도체 약세"
+   "title": "미국 메모리 반도체 약세"
   },
   "SNDK": {
    "impact": "악재",
-   "title": "메모리 반도체 약세"
+   "title": "미국 메모리 반도체 약세"
+  },
+  "CBRS": {
+   "impact": "호재",
+   "title": "세레브라스 실적 서프라이즈"
+  },
+  "CSCO": {
+   "impact": "악재",
+   "title": "시스코, 실적 좋았지만 하락"
+  },
+  "MSFT": {
+   "impact": "악재",
+   "title": "마이크로소프트 서비스 장애"
   }
  }
 }
