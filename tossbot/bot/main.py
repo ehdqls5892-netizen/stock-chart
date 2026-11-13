@@ -614,6 +614,9 @@ class Bot:
         st = self.syms.get(p.symbol)
         if p.pnl < 0 and p.state == "closed" and p.exit_price and p.exit_price < p.entry:
             self.stopped[p.symbol] = now(self.m).date().isoformat()     # 손실로 판 종목은 며칠 다시 안 삼
+        if p.state == "closed" and p.extra.get("sw"):
+            self.recent_sold = getattr(self, "recent_sold", {})
+            self.recent_sold[p.symbol] = now(self.m).date().isoformat()  # 판 스윙 종목은 이익이어도 며칠 다시 안 삼 (사고팔기 반복·수수료 방지)
         if st and p.pnl < 0:
             st.cooldown_until = now(self.m) + dt.timedelta(minutes=self.cfg["strategy"]["cooldown_min"])
 
@@ -1199,6 +1202,8 @@ class Bot:
                 skip(x, "이미 보유 중")
             elif x["code"] in self.stopped:
                 skip(x, "최근 손절한 종목 (며칠 재매수 금지)")
+            elif x["code"] in getattr(self, "recent_sold", {}) and not manual:
+                skip(x, f"최근({self.recent_sold[x['code']]})에 판 종목 — {self.cfg.get('reentry_block', {}).get('any_days', 3)}일은 다시 안 삼 (사고팔기 반복 방지)")
             else:
                 cands.append(x)
         later = [] if dry or manual else [x for x in cands if Bot.swing_timing(self, x, d) != when]
@@ -1261,6 +1266,12 @@ class Bot:
                         [x for x in cands if x.get("setup") not in caps and x.get("setup") not in extra]
             if not dry:
                 cands = cands[: max(0, slots) * 3 + 3 + sum(caps.values()) + sum(extra.values()) * 2]
+        if rerank and not dry and slots <= 0:
+            try:
+                if Bot.rotate(self, cands, have, extra, px, today):
+                    slots += 1
+            except Exception as ex_:
+                self.log(f"🔁 교체 판단 오류: {ex_}")
         for x in cands:
             is_ex = x.get("setup") in extra
             room_ex = lambda: sum(max(0, n_ - held_by.get(k_, 0)) for k_, n_ in extra.items())
@@ -1453,6 +1464,10 @@ class Bot:
                            sector=sec, earn_react=ev.get("react"), earn_gap=ev.get("gap_avg"), earn_hold=plan in ("hold", "early"),
                            mkt_gap=mgap, entry_when=when, risk_pct=x.get("_rp"), tgt=x.get("_tgt"), fscore=x.get("_fscore"), fwhy=(x.get("_fwhy") or [])[:10],
                            grade=SW.grade_of(x["_fscore"]) if x.get("_fscore") is not None else None)
+            try:                                               # 산 직후부터 앱에 로봇 판정을 보여 줌 (옛 '나쁨' 표시 대신)
+                Bot.set_review(self, p, x.get("_fscore"), x.get("_fwhy") or [], 0.0)
+            except Exception:
+                pass
             if when == "close":
                 p.extra["carry_done"] = today.isoformat()      # 방금 샀으니 오늘 일봉 점검·정리 대상 아님
             if sec:
@@ -1917,6 +1932,46 @@ class Bot:
             fs, fw = None, []
         return fs, fw, txt
 
+    def rotate(self, cands, have, extra, px, today) -> bool:
+        """자리가 꽉 찼을 때 교체: 지금 확실히 좋은 후보(점수 높고 AI 긍정·점검 통과)가 있고, 들고 있는 종목 중
+        며칠째 제자리이면서 점수가 약해진 종목이 있으면 → 약한 종목을 팔고 그 자리에 삼. 하루 한 번만."""
+        c = self.cfg["daily_swing"]
+        rot = c.get("rotation") or {}
+        if not rot.get("enabled") or getattr(self, "_rot_day", None) == today.isoformat():
+            return False
+        strict = set(c.get("strict_setups") or ["fs"])
+        best = next((x for x in cands if x.get("_chk") and not x["_chk"][1][0] and (x.get("setup") or "fs") in strict
+                     and (x.get("_fscore") or 0) >= rot.get("min_score", 10)
+                     and ((x.get("ev") or {}).get("ai") or {}).get("view") == "긍정"
+                     and not ((x.get("ev") or {}).get("ai") or {}).get("veto")), None)
+        if not best:
+            return False
+        weak = []
+        for p in have:
+            if p.state != "open" or not p.extra.get("sw") or p.extra.get("sw_kind") in extra or p.extra.get("etf_long"):
+                continue
+            rv = p.extra.get("review") or {}
+            st = self.syms.get(p.symbol)
+            last = (st.last if st and st.last else None) or px.get(p.symbol)
+            if rv.get("fs") is None or not last or time.time() - float(rv.get("t") or 0) > 3 * 3600:
+                continue
+            gain = (last / p.entry - 1) * 100
+            if (int(p.extra.get("sw_days", 0)) >= rot.get("min_days", 3) and rot.get("min_gain", -3) <= gain <= rot.get("max_gain", 1.5)
+                    and rv["fs"] <= rot.get("max_held_score", 5) and not p.extra.get("pt_done")):
+                weak.append((rv["fs"], gain, p, last))
+        if not weak:
+            return False
+        weak.sort(key=lambda t: (t[0], t[1]))
+        fs_w, gain, p, last = weak[0]
+        if (best.get("_fscore") or 0) - fs_w < rot.get("gap", 5):
+            return False
+        why = (f"교체 — {int(p.extra.get('sw_days', 0))}일째 {gain:+.1f}% 제자리에 점수 {fs_w:+d}로 약해짐 → "
+               f"더 확실한 {best['name']}(점수 {best.get('_fscore', 0):+d}, AI 긍정)으로 바꿈")
+        self.broker.flatten(p.symbol, why, last)
+        self._rot_day = today.isoformat()
+        self.notify(f"🔁 {p.name} 팔고 {best['name']} 사요 — {why}")
+        return True
+
     def setup_cfg(self, p=None) -> dict:
         """그 종목을 산 방식의 규칙 (방식별 예외 exit_by_setup 를 덮어씀) — 마감 점검과 같은 기준."""
         c = dict(self.cfg["daily_swing"])
@@ -2121,12 +2176,20 @@ class Bot:
         """최근 N일 안에 손실로 판 종목 → 다시 사지 않음 (같은 종목에 연달아 손절 방지, 예: 코세스 이틀 연속)."""
         c = self.cfg.get("reentry_block", {})
         self.stopped = {}
+        self.recent_sold = {}
         if not c.get("enabled"):
             return
         from .stats import load, merge
-        for r in merge(load(ROOT, self.m, c.get("days", 5), self.mode if self.mode in ("live", "paper") else "live")):
-            if float(r.get("pnl") or 0) < 0 and r.get("kind") == "exit":
+        recs = merge(load(ROOT, self.m, max(c.get("days", 5), c.get("any_days", 3)), self.mode if self.mode in ("live", "paper") else "live"))
+        cut_any = (now(self.m).date() - dt.timedelta(days=c.get("any_days", 3))).isoformat()
+        cut_loss = (now(self.m).date() - dt.timedelta(days=c.get("days", 5))).isoformat()
+        for r in recs:
+            if r.get("kind") != "exit":
+                continue
+            if float(r.get("pnl") or 0) < 0 and r["_day"] >= cut_loss:
                 self.stopped[r.get("symbol")] = r["_day"]
+            if r["_day"] >= cut_any and (r.get("extra") or {}).get("sw"):
+                self.recent_sold[r.get("symbol")] = r["_day"]
         if self.stopped:
             self.log(f"⛔ 최근 {c.get('days', 5)}일 안에 손실로 판 종목 {len(self.stopped)}개는 다시 안 사요")
 

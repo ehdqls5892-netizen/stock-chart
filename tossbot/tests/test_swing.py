@@ -916,3 +916,23 @@ assert abs(k1.sl - 114.0) < 0.02, k1.sl
 assert any("이익으로 팔려요" in m_ for m_ in sent), sent
 c["profit_lock"] = {"enabled": False}
 print("✅ 이익 잠금 시험 통과")
+import time
+# 교체: 자리가 꽉 찼고, 3일 넘게 제자리 + 점수 약한 보유 종목이 있고, 점수 10↑·AI 긍정 후보가 있으면 하루 한 번 바꿈
+c["rotation"] = {"enabled": True, "min_score": 10, "min_days": 3, "min_gain": -3, "max_gain": 1.5, "max_held_score": 5, "gap": 5}
+bo = PaperBroker("KR", cfg, Path(tempfile.mkdtemp()), print, lambda m: None)
+rb_ = SimpleNamespace(cfg=cfg, m="KR", broker=bo, syms={}, log=print, notify=sent.append)
+o1 = bo.enter("O1", "약한", 10000, 10, 20000, 9500, "시험")
+o1.extra.update(sw=True, sw_kind="fs", sw_days=4, review={"fs": 2, "t": time.time()})
+o2 = bo.enter("O2", "괜찮은", 10000, 10, 20000, 9500, "시험")
+o2.extra.update(sw=True, sw_kind="fs", sw_days=4, review={"fs": 9, "t": time.time()})
+good = {"code": "N1", "name": "새후보", "setup": "fs", "_fscore": 12, "_chk": (10000, (None, "", [])), "ev": {"ai": {"view": "긍정"}}}
+today_ = dt.date(2026, 11, 13)
+assert M.Bot.rotate(rb_, [good], list(bo.pos.values()), {}, {"O1": 10050, "O2": 10050}, today_) is True
+assert "O1" not in bo.pos and "O2" in bo.pos and "교체" in bo.closed[-1].exit_reason, bo.closed[-1].exit_reason
+assert M.Bot.rotate(rb_, [good], list(bo.pos.values()), {}, {"O2": 10050}, today_) is False      # 하루 한 번
+rb_._rot_day = None
+o3 = bo.enter("O3", "새로산", 10000, 10, 20000, 9500, "시험")
+o3.extra.update(sw=True, sw_kind="fs", sw_days=1, review={"fs": 1, "t": time.time()})        # 산 지 하루 → 안 바꿈
+assert M.Bot.rotate(rb_, [{**good, "ev": {"ai": {"view": "중립"}}}], list(bo.pos.values()), {}, {}, today_) is False   # AI 중립 후보 → 안 바꿈
+assert M.Bot.rotate(rb_, [good], [o3], {}, {"O3": 10000}, today_) is False
+print("✅ 교체 시험 통과")
