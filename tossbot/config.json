@@ -500,7 +500,8 @@
     }
   },
   "etf_long": {
-    "enabled": true,
+    "enabled": false,
+    "_off_note": "2026-11-13 사용자 결정: ETF 기능 전부 뺌 (자동 매수·매달 추천 알림·텔레그램 ETF 버튼 모두 안 씀)",
     "delay_min": 10,
     "list": {
       "KR": [

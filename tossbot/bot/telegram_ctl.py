@@ -18,7 +18,7 @@ import requests
 
 KB = {"keyboard": [[{"text": "📊 상태"}, {"text": "💵 투자금"}],
                    [{"text": "▶️ 연습 시작"}, {"text": "🔴 실전 시작"}],
-                   [{"text": "📦 보유종목"}, {"text": "🧭 스윙"}, {"text": "🏦 ETF"}],
+                   [{"text": "📦 보유종목"}, {"text": "🧭 스윙"}],
                    [{"text": "📈 성적"}, {"text": "📰 분석"}, {"text": "📜 기록"}]],
       "resize_keyboard": True, "is_persistent": True}
 
@@ -281,7 +281,7 @@ class TelegramControl:
                 return self.send(self.resume_fn())
             return self.send("확인 시간이 지났어요. 다시 '재개' 를 보내 주세요.")
         if t.upper().startswith("ETF") or t.startswith("🏦"):
-            return self.send(self.etf_fn(t) if getattr(self, "etf_fn", None) else "이 기능을 쓸 수 없어요")
+            return self.send("ETF 기능은 껐어요 (사용자 결정).")
         if t in ("분석", "📰 분석", "/brief"):
             from . import app as A
             self.send("📰 보유 종목 지금 상황을 모으는 중이에요 (종목마다 몇 초)…", kb=False)
