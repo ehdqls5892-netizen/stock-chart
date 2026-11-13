@@ -11,7 +11,7 @@ from bot.broker import PaperBroker
 
 cfg = json.loads((Path(__file__).resolve().parent.parent / "config.json").read_text(encoding="utf-8"))
 cfg["daily_swing"]["ai_required_other"] = False      # 시험: AI 키 없이 돌리므로 판독 없으면 안 사기는 따로 시험
-cfg["daily_swing"].update(stop_by_market={}, risk_pct=1.0, risk_by_grade={"A": 1.0, "B": 0.6}, strong={"enabled": False}, profit_lock={"enabled": False})   # 시험 숫자는 1% 위험·신호 손절선 기준
+cfg["daily_swing"].update(stop_by_market={}, max_new_by_market={}, risk_pct=1.0, risk_by_grade={"A": 1.0, "B": 0.6}, strong={"enabled": False}, profit_lock={"enabled": False})   # 시험 숫자는 1% 위험·신호 손절선 기준
 cfg["daily_swing"]["extra_slots"] = {}                # 시험: 따로 자리는 마지막에 따로 시험
 c = cfg["daily_swing"]
 c["need_target"] = False   # 시험 종목엔 목표가가 없음 (목표가 필수 규칙은 아래에서 따로 시험)
@@ -936,3 +936,26 @@ o3.extra.update(sw=True, sw_kind="fs", sw_days=1, review={"fs": 1, "t": time.tim
 assert M.Bot.rotate(rb_, [{**good, "ev": {"ai": {"view": "중립"}}}], list(bo.pos.values()), {}, {}, today_) is False   # AI 중립 후보 → 안 바꿈
 assert M.Bot.rotate(rb_, [good], [o3], {}, {"O3": 10000}, today_) is False
 print("✅ 교체 시험 통과")
+# 국장 후보 1위 교체 우선: 다시 점검한 1위(점수 10↑·AI 긍정)면 산 지 하루 된 제자리 종목도 바꿈
+rb_._rot_day = None
+c["rotation"]["top1_by_market"] = {"KR": {"min_days": 1, "max_gain": 3, "max_held_score": 7, "gap": 3}}
+mid = {**good, "code": "N0", "name": "중립후보", "ev": {"ai": {"view": "중립"}}}
+assert M.Bot.rotate(rb_, [mid, good], [o3], {}, {"O3": 10000}, today_) is False   # 1위가 아니면 원래 기준
+assert M.Bot.rotate(rb_, [good], [o3], {}, {"O3": 10000}, today_) is True
+c["rotation"] = {"enabled": False}
+print("✅ 1위 교체 시험 통과")
+# 놓친 후보 기록: 안 산 이유 + 다음 매수일에 그 뒤 가격 변화
+lm_dir = Path(tempfile.mkdtemp())
+lm = SimpleNamespace(m="KR", dir=lm_dir, notify=sent.append, log=print,
+                     api=SimpleNamespace(prices=lambda codes: [{"symbol": "A1", "lastPrice": 110}, {"symbol": "B1", "lastPrice": 95}]))
+M.now = (lambda f: (lambda m: dt.datetime(2026, 11, 12, 15, 15, tzinfo=M.TZ["KR"])))(M.now)
+M.Bot.log_missed(lm, [{"code": "A1", "name": "가", "close": 100, "_fscore": 11}, {"code": "B1", "name": "나", "close": 100}],
+                 {}, {"B1"}, {"A1": 100, "B1": 100}, slots_full=True)
+M.now = (lambda f: (lambda m: dt.datetime(2026, 11, 13, 15, 15, tzinfo=M.TZ["KR"])))(M.now)
+M.Bot.log_missed(lm, [], {}, set(), {})
+h = json.loads((lm_dir / "missed.json").read_text(encoding="utf-8"))
+r0 = {r["code"]: r for r in h[0]["rows"]}
+assert r0["A1"]["st"] == "안 삼" and "자리 꽉 참" in r0["A1"]["why"] and r0["A1"]["chg"] == 10.0, r0
+assert r0["B1"]["st"] == "매수" and r0["B1"]["chg"] == -5.0, r0
+assert any("📒" in m_ and "가 +10.0%" in m_ and "나 -5.0%" in m_ for m_ in sent), sent[-2:]
+print("✅ 놓친 후보 기록 시험 통과")

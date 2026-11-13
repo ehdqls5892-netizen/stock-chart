@@ -1168,7 +1168,10 @@ class Bot:
         d, c = self.sw_picks or {}, self.cfg["daily_swing"]
         table = self.sw_table = []
 
+        why_map, bought = {}, set()
+
         def skip(x, why, loud=False):
+            why_map.setdefault(x.get("code"), why)
             if dry:
                 table.append((x, "탈락", why, 0))
             elif loud or x.get("_manual"):
@@ -1223,8 +1226,19 @@ class Bot:
                 sec_n[p0.extra["sector"]] = sec_n.get(p0.extra["sector"], 0) + 1
         if manual and slots <= 0 and cands:
             self.notify(f"🧭 {cands[0]['name']} 봇 매수 요청 — 스윙 동시 보유 한도({c.get('max_pos', 6)}종목)가 꽉 차서 안 샀어요")
-        if (slots <= 0 and ex_room <= 0 and not dry) or not cands:
-            return 0.0
+        rot_on = bool((c.get("rotation") or {}).get("enabled")) and not manual
+        log_on = not dry and not manual
+        log_c = [cands]
+
+        def done(ret, pxm=None):
+            if log_on:
+                try:
+                    Bot.log_missed(self, log_c[0], why_map, bought, pxm or {}, slots_full=slots <= 0 and ex_room <= 0)
+                except Exception as ex_:
+                    self.log(f"📒 놓친 후보 기록 오류: {ex_}")
+            return ret
+        if (slots <= 0 and ex_room <= 0 and not dry and not rot_on) or not cands:   # 자리가 꽉 차도 교체 판단은 해야 함
+            return done(0.0)
         if dry:
             px, cash = {x["code"]: float(x["close"]) for x in cands}, None
             if rerank and os.getenv("TOSSBOT_OFFLINE") != "1" and getattr(self, "api", None):
@@ -1240,7 +1254,7 @@ class Bot:
                 px = {x.get("symbol"): f(x.get("lastPrice")) for x in (self.api.prices([x["code"] for x in cands]) or [])}
             except TossError as e:
                 self.log(f"🧭 스윙 시세 조회 실패: {e}")
-                return 0.0
+                return done(0.0)
         cap = self.risk.capital or 0
         spent = 0.0
         alt = 0
@@ -1264,6 +1278,7 @@ class Bot:
             if caps or extra:
                 cands = [x for x in cands if x.get("setup") in caps or x.get("setup") in extra] + \
                         [x for x in cands if x.get("setup") not in caps and x.get("setup") not in extra]
+            log_c[0] = cands
             if not dry:
                 cands = cands[: max(0, slots) * 3 + 3 + sum(caps.values()) + sum(extra.values()) * 2]
         if rerank and not dry and slots <= 0:
@@ -1272,8 +1287,14 @@ class Bot:
                     slots += 1
             except Exception as ex_:
                 self.log(f"🔁 교체 판단 오류: {ex_}")
+        mn = None if manual else (c.get("max_new_by_market") or {}).get(self.m)    # 하루 새로 사는 종목 수 한도 (자리를 남겨 다음 날 좋은 후보도 살 수 있게)
+        nd = getattr(self, "_new_day", (None, 0))
+        newn = nd[1] if (nd[0] == today.isoformat() and not dry) else 0
         for x in cands:
             is_ex = x.get("setup") in extra
+            if mn and newn >= mn:
+                skip(x, f"오늘 새로 사는 건 최대 {mn}종목까지 — 자리를 남겨 다음 날 좋은 후보도 살 수 있게")
+                continue
             room_ex = lambda: sum(max(0, n_ - held_by.get(k_, 0)) for k_, n_ in extra.items())
             if slots <= 0 and room_ex() <= 0 and not dry:
                 break
@@ -1444,6 +1465,7 @@ class Bot:
                 if (is_ex and held_by.get(x["setup"], 0) < extra[x["setup"]]) or (not is_ex and slots > 0):
                     planned_r += (e - round_tick(self.m, stop, "down")) * q
                     table.append((x, "매수", etxt, q))
+                    newn += 1
                     if not is_ex:
                         slots -= 1
                     held_by[x.get("setup")] = held_by.get(x.get("setup"), 0) + 1
@@ -1478,13 +1500,66 @@ class Bot:
                 self.stream.set_codes(list(dict.fromkeys(list(self.broker.pos) + self.universe)))
             self.broker.save_state()
             spent += e * q
+            bought.add(sym)
+            newn += 1
+            self._new_day = (today.isoformat(), newn)
             if not is_ex:
                 slots -= 1
             held_by[x.get("setup")] = held_by.get(x.get("setup"), 0) + 1
             self.notify(f"🧭 스윙 매수 {x['name']} {q}주 ≈ {money(self.m, e)} · 손절 {money(self.m, sl)} "
                         f"(-{(1 - sl / e) * 100:.1f}%, 손실 한도 투자금의 {rp:g}%)\n산 이유: {x['reason']}"
                         + SW.ev_text(ev, etxt) + (f"\n{x['_brief']}" if x.get("_brief") else ""))
-        return spent
+        return done(spent, px)
+
+    def log_missed(self, cands, why_map, bought, px, slots_full=False):
+        """매수 때 본 후보 전부와 안 산 이유를 기록 (logs/missed-시장.json, 최근 10일).
+        지난 기록은 지금 가격으로 '그 뒤 얼마나 움직였나'를 채움 → 안 산 판단이 맞았는지 앱·알림으로 확인."""
+        if not getattr(self, "dir", None):
+            return
+        f_ = Path(self.dir) / "missed.json"
+        try:
+            hist = json.loads(f_.read_text(encoding="utf-8"))
+        except Exception:
+            hist = []
+        today = now(self.m).date().isoformat()
+        rows = []
+        for i, x in enumerate(cands[:30]):
+            code = x.get("code")
+            if code in bought:
+                st, why = "매수", ""
+            else:
+                st = "안 삼"
+                why = why_map.get(code) or ((x.get("_chk") or (None, (None,)))[1][0] if x.get("_chk") else None) \
+                    or ("자리 꽉 참 (보유 종목이 한도까지 참)" if slots_full else "순서가 밀림 (앞 순위 종목으로 자리·한도가 참)")
+            rows.append({"rank": i + 1, "code": code, "name": x.get("name"), "setup": x.get("setup") or "fs",
+                         "score": x.get("_fscore", x.get("score")), "ai": ((x.get("ev") or {}).get("ai") or {}).get("view"),
+                         "px": px.get(code) or x.get("close"), "st": st, "why": str(why)[:120]})
+        hist = [h for h in hist if h.get("date") != today and h.get("date", "") >= (now(self.m).date() - dt.timedelta(days=14)).isoformat()]
+        old = [r for h in hist for r in h.get("rows", []) if r.get("px")]
+        if old and getattr(self, "api", None):
+            try:
+                cur = {r_.get("symbol"): f(r_.get("lastPrice")) for r_ in (self.api.prices(list({r["code"] for r in old})[:100]) or [])}
+                for r in old:
+                    if cur.get(r["code"]):
+                        r["now"] = cur[r["code"]]
+                        r["chg"] = round((cur[r["code"]] / float(r["px"]) - 1) * 100, 1)
+            except Exception:
+                pass
+        hist.append({"date": today, "rows": rows})
+        hist = hist[-10:]
+        f_.parent.mkdir(parents=True, exist_ok=True)
+        f_.write_text(json.dumps(hist, ensure_ascii=False), encoding="utf-8")
+        if len(hist) >= 2:                                    # 지난 매수일 후보들이 그 뒤 어떻게 됐는지 한 줄 알림 (산 것·안 산 것 모두)
+            prev = [r for r in hist[-2]["rows"] if r.get("chg") is not None]
+            if prev:
+                no = sorted([r for r in prev if r["st"] != "매수"], key=lambda r: -r["chg"])
+                yes = [r for r in prev if r["st"] == "매수"]
+                t = lambda r: f"{r['name']} {r['chg']:+.1f}%"
+                msg = f"📒 지난 매수일({hist[-2]['date']}) 후보 그 뒤: 산 것 " + (", ".join(t(r) for r in yes) or "없음")
+                if no:
+                    msg += " / 안 산 것 중 많이 오른 " + ", ".join(f"{t(r)}({r['why'][:20]})" for r in no[:3] if r["chg"] > 0) \
+                           + " / 많이 내린 " + ", ".join(t(r) for r in no[::-1][:2] if r["chg"] < 0)
+                self.notify(msg)
 
     def rerank(self, cands, px, today, ec, dry=False) -> list:
         """매수 직전 후보 전체 다시 점검: 지금 가격(프리장·장중)으로 모든 후보의 점수·차트·뉴스를 다시 계산해서
@@ -1946,6 +2021,10 @@ class Bot:
                      and not ((x.get("ev") or {}).get("ai") or {}).get("veto")), None)
         if not best:
             return False
+        first = next((x for x in cands if x.get("_chk") and not x["_chk"][1][0]), None)
+        t1 = (rot.get("top1_by_market") or {}).get(self.m)
+        if t1 and best is first:                 # 다시 점검한 후보 1위가 확실하면 교체 기준을 조금 넓힘 (예: 한국가스공사 놓친 경우)
+            rot = {**rot, **t1}
         weak = []
         for p in have:
             if p.state != "open" or not p.extra.get("sw") or p.extra.get("sw_kind") in extra or p.extra.get("etf_long"):

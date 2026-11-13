@@ -154,6 +154,7 @@ function planCard(){
       <div class="kv"><span>약 <b>${esc(x.amount)}</b></span><span class="down">손절 ${money(x.stop,mk)}</span>${x.loss?`<span>최대 손실 약 ${esc(x.loss)}</span>`:""}${x.rr?`<span>손익비 ${x.rr}</span>`:""}</div>${x.earn_note?`<div class="why">📅 ${esc(x.earn_note)}</div>`:""}</div>`).join("")
       :`<div class="why">살 종목 없음${p.slots===0?" (빈자리 없음)":""}</div>`;
     if(p.wait.length)h+=`<div class="why">⏭ 예비: ${p.wait.map(x=>esc(x.name)).join(", ")} (앞 종목이 점검에서 빠지면 차례로)</div>`;
+    if((p.missed||[]).length)h+=`<details><summary>📒 지난 후보 결과 (산 것·안 산 것 그 뒤 변화)</summary>${p.missed.map(m=>`<div class="why"><b>${esc(m.date)}</b></div>`+m.rows.map(r=>`<div class="why">${r.st==="매수"?"✅":"⛔"} ${esc(r.name)} <b style="color:${r.chg>=0?"#e5484d":"#3b82f6"}">${r.chg>=0?"+":""}${r.chg}%</b> · ${r.rank}위${r.st==="매수"?" 매수":" — "+esc(r.why)}</div>`).join("")).join("")}</details>`;
     if(p.skip.length)h+=`<details><summary>안 사는 후보 ${p.skip.length}개 · 이유</summary>${p.skip.map(x=>`<div class="why"${x.why.startsWith("🚫")?` onclick="exclude('${mk}','${esc(x.code)}','${esc(x.name)}',false)"`:""}>⛔ ${esc(x.name)} — ${esc(x.why)}</div>`).join("")}</details>`;
     h+=`</div>`}
   h+=`<div class="why" style="margin-top:8px">후보는 전날 밤에 뽑고, 장중에 오늘 흐름으로 한 번 더 다시 뽑아요. 사는 건 장 마감 15분 전 한 번 — 그날 흐름을 다 보고, 지금 가격으로 후보 전체를 다시 점검해 점수 높은 순으로 사요.</div></div>`;

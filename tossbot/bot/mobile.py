@@ -932,6 +932,11 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
                 sec_n[x["sector"]] = sec_n.get(x["sector"], 0) + 1
         elif len(wait) < 3:
             wait.append(row)
+    mn = (c.get("max_new_by_market") or {}).get(mk)        # 봇과 같은 규칙: 하루 새로 사는 종목 수 한도
+    if mn and len(buy) > mn:
+        for r in buy[mn:]:
+            skip.insert(0, {"code": r["code"], "name": r["name"], "why": f"오늘 새로 사는 건 최대 {mn}종목 — 자리를 남겨 다음 날 후보도 살 수 있게"})
+        buy = buy[:mn]
     seen = {r["code"] for r in buy + wait + skip}
     for x in d.get("picks", []):
         if x.get("eplan") == "hold" and x["code"] not in seen and (x.get("score") or 0) >= c.get("min_forward_score", 3):
@@ -953,7 +958,7 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
         buy, wait = [], []
     return {"market": mk, "date": d.get("date"), "live": d.get("live", False), "index_today": d.get("index_today"), "pause": pause,
             "at": next_buy_time(mk, now), "slots": slots, "buy": buy, "wait": wait,
-            "skip": skip[:12], "running": bool(b is not None and getattr(b, "phase", "") not in ("종료됨", "")),
+            "skip": skip[:12], "missed": missed(mk), "running": bool(b is not None and getattr(b, "phase", "") not in ("종료됨", "")),
             "robot": bool(A.running()) if hasattr(A, "running") else False}
 
 
@@ -1047,3 +1052,17 @@ def _refresh_loop():
 def start_refresh():
     import threading
     threading.Thread(target=_refresh_loop, daemon=True).start()
+
+
+def missed(mk: str, days: int = 5) -> list:
+    """지난 매수일들에 본 후보와 결과 (봇이 logs/missed-시장.json 에 기록): 안 산 이유 + 그 뒤 가격 변화. 안 산 판단이 맞았는지 확인용."""
+    try:
+        hist = json.loads((_journal_dir(mk.upper()) / "missed.json").read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    out = []
+    for h in hist[-days:][::-1]:
+        rows = [r for r in h.get("rows", []) if r.get("chg") is not None]
+        if rows:
+            out.append({"date": h["date"], "rows": sorted(rows, key=lambda r: -r["chg"])[:15]})
+    return out
