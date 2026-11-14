@@ -30,6 +30,8 @@ jobs:
       - run: pip install -r requirements.txt lxml html5lib
       - name: 미장 10년 일봉 받기
         run: python tossbot/tools/swing_data.py us --years 10 --out loopdata && mv loopdata/swing-us.pkl.gz loopdata/s10-us.pkl.gz
+      - name: 과거 정보(애널리스트 등급·내부자 거래) 받기
+        run: curl -sfL -o loopdata/hist-us.json.gz https://raw.githubusercontent.com/${{ github.repository }}/loophist/hist-us.json.gz || true
       - name: 점수 미리 계산
         env:
           LOOP_DATA: ${{ github.workspace }}/loopdata

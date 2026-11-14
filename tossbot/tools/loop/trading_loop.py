@@ -101,6 +101,43 @@ CANDIDATES = [
 ]
 
 
+FAC_CANDIDATES = [
+    ("an_nodown90", "최근 90일 애널리스트 하향이 상향보다 많으면 안 사기", "an", lambda an, ins: an >= 0),
+    ("an_up90", "최근 90일 애널리스트 상향이 하향보다 많을 때만 사기", "an", lambda an, ins: an >= 1),
+    ("ins_nosell5m", "최근 90일 내부자 순매도 500만 달러 넘으면 안 사기", "ins", lambda an, ins: ins > -5e6),
+    ("ins_nosell1m", "최근 90일 내부자 순매도 100만 달러 넘으면 안 사기", "ins", lambda an, ins: ins > -1e6),
+    ("an_ins_both", "애널리스트 하향 우세 또는 내부자 순매도 500만 달러 넘으면 안 사기", "both", lambda an, ins: an >= 0 and ins > -5e6),
+]
+
+
+def load_hist(codes):
+    """hist-us.json.gz → (종목, 날짜)마다 '최근 90일 등급 상향−하향', '최근 90일 내부자 순매수 금액'. 그날 이전 기록만 씀."""
+    import bisect
+    import gzip
+    p = Path(os.getenv("LOOP_HIST", os.getenv("LOOP_DATA", str(HERE / "data")))) / "hist-us.json.gz"
+    if not p.exists():
+        return None, {"grades": 0, "insider": 0, "universe": len(codes)}
+    H = json.loads(gzip.open(p).read())
+    G, I = {}, {}
+    for c, rows in (H.get("grades") or {}).items():
+        ev = sorted((d, 1 if a == "upgr" else -1) for d, a in rows if a in ("upgr", "down"))
+        G[c] = ([d for d, _ in ev], [0] + list(__import__("itertools").accumulate(v for _, v in ev)))
+    for c, rows in (H.get("insider") or {}).items():
+        ev = sorted((d, float(ch or 0) * float(px or 0)) for d, code, ch, px in rows)
+        I[c] = ([d for d, _ in ev], [0] + list(__import__("itertools").accumulate(v for _, v in ev)))
+
+    def win(T, c, d):
+        if c not in T:
+            return 0.0
+        ds, cs = T[c]
+        d0 = (dt.date.fromisoformat(str(d)[:10]) - dt.timedelta(days=90)).isoformat()
+        hi = bisect.bisect_left(ds, str(d)[:10])          # 그날 '이전' 기록만
+        lo = bisect.bisect_left(ds, d0)
+        return cs[hi] - cs[lo]
+    cov = {"grades": sum(1 for c in codes if c in G), "insider": sum(1 for c in codes if c in I), "universe": len(codes)}
+    return (lambda c, d: win(G, c, d), lambda c, d: win(I, c, d)), cov
+
+
 def journal() -> list:
     try:
         return [json.loads(x) for x in JOURNAL.read_text(encoding="utf-8").splitlines() if x.strip()]
@@ -162,13 +199,27 @@ def main():
     base_P = baseline()
     base = score(base_P, a.seeds)
     print("기준(지금 설정):", base, flush=True)
+    codes = list(sim.load("us")[0]["bars"])
+    fn, cov = load_hist(codes)
+    print("과거 정보 범위:", cov, flush=True)
+    fac_ready = []
+    if fn:
+        an_f, ins_f = fn
+        for cid, desc, need, rule in FAC_CANDIDATES:
+            ok_g = cov["grades"] >= 0.9 * cov["universe"]
+            ok_i = cov["insider"] >= 0.9 * cov["universe"]
+            if (need == "an" and not ok_g) or (need == "ins" and not ok_i) or (need == "both" and not (ok_g and ok_i)):
+                continue
+            sim.FAC[cid] = (lambda r: (lambda c, d: r(an_f(c, d), ins_f(c, d))))(rule)
+            fac_ready.append((cid, desc, {"fac": cid}))
+    cands = CANDIDATES + fac_ready
     jr = journal()
     new_lines, skipped, passed = [], [], []
     cur_P, cur = dict(base_P), base
     tried = set()
     for rnd in range(1, a.rounds + 1):
         found = []
-        for cid, desc, diff in CANDIDATES:
+        for cid, desc, diff in cands:
             if cid in tried:
                 continue
             if any(k in LOCKED for k in diff):
@@ -208,6 +259,8 @@ def main():
                                     ensure_ascii=False, indent=1), encoding="utf-8")
     L = [f"# 매매 점검 루프 결과 ({today}, 자료 ~{data_end})", "",
          f"고치는 기간 ~{SPLIT} / 확인 기간 그 뒤 · 무작위 {a.seeds}번 평균 · 미장 스윙(차트 점수 부분만 — 애널리스트·AI·수급은 빠짐)", "",
+         f"과거 정보(그때 알 수 있던 것만): 애널리스트 등급 기록 {cov['grades']}/{cov['universe']}종목 · 내부자 거래 {cov['insider']}/{cov['universe']}종목"
+         + ("" if fac_ready else " — 90% 넘게 모이면 이 정보로 거르는 수정안도 시험"), "",
          f"**지금 설정**: 고치는 기간 연 {base['fix']['cagr']:+.1f}% · 확인 기간 연 {base['check']['cagr']:+.1f}% (최대 낙폭 {base['check']['mdd']:.0f}%)", ""]
     if passed:
         L.append("## 통과한 수정안 (승인해야 반영)")

@@ -8,6 +8,7 @@ from bot import swing as SW  # noqa: E402
 DIR = os.getenv("LOOP_DATA", str(Path(__file__).resolve().parent / "data")) + "/"
 COST = {"kr": 0.0035, "us": 0.0015}
 _C = {}
+FAC = {}          # 이름 → (종목, 날짜) → 사도 되나 (trading_loop 가 과거 정보로 채움)
 
 
 def load(m):
@@ -199,6 +200,8 @@ def run(m, P=None, d0=None, d1=None, detail=False):
                 if f1[0] < P["min_fs"] or f1[1] < P["min_cq"] or e / f1[3] - 1 > P["max_ext"] or (e - stop) / e > P["max_stop"]:
                     continue
                 if P["fs_floor"] is not None and f1[0] < P["fs_floor"]:
+                    continue
+                if P.get("fac") and P["fac"] in FAC and not FAC[P["fac"]](code, prev):      # 애널리스트·내부자 등 그때 알 수 있던 정보로 거르기
                     continue
                 cands.append((-(f1[0] if P["rerank"] else sc0), code, e, stop, False))
             cands.sort(key=lambda t: (not t[4], t[0]))
