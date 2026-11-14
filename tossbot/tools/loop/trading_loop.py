@@ -106,6 +106,7 @@ FAC_CANDIDATES = [
     ("an_up90", "최근 90일 애널리스트 상향이 하향보다 많을 때만 사기", "an", lambda an, ins: an >= 1),
     ("ins_nosell5m", "최근 90일 내부자 순매도 500만 달러 넘으면 안 사기", "ins", lambda an, ins: ins > -5e6),
     ("ins_nosell1m", "최근 90일 내부자 순매도 100만 달러 넘으면 안 사기", "ins", lambda an, ins: ins > -1e6),
+    ("ins_buy90", "최근 90일 내부자 순매수가 있을 때만 사기", "ins", lambda an, ins: ins > 0),
     ("an_ins_both", "애널리스트 하향 우세 또는 내부자 순매도 500만 달러 넘으면 안 사기", "both", lambda an, ins: an >= 0 and ins > -5e6),
 ]
 

@@ -44,7 +44,7 @@ def main():
     uni = sorted(us_universe())
     fk, pk = os.getenv("FINNHUB_KEY"), os.getenv("FMP_KEY")
     ses = requests.Session()
-    n_f = n_i = 0
+    n_f = n_i = n_err = 0
     t0 = time.time()
     for s in uni:
         sym = s.replace(".", "-")
@@ -57,11 +57,18 @@ def main():
                     H["grades"][s] = [[x.get("date", "")[:10], (x.get("action") or "").lower()[:4]] for x in j if x.get("date")]
                     got["grades"] = today.isoformat()
                     n_f += 1
+                    n_err = 0
                 else:
                     print("FMP 한도 도달 또는 응답 이상 → 오늘은 여기까지", r.status_code, str(r.text)[:80])
                     n_f = a.fmp
+                time.sleep(0.4)
             except Exception as e:
                 print("FMP 오류", s, type(e).__name__)
+                n_err += 1
+                if n_err >= 3:                       # 연속 오류 = 한도 → 오늘은 그만 (남은 건 내일)
+                    print("FMP 연속 오류 → 오늘은 여기까지")
+                    n_f = a.fmp
+                time.sleep(2)
         if fk and got.get("insider", "") < cut:
             try:
                 r = ses.get("https://finnhub.io/api/v1/stock/insider-transactions", params={"symbol": sym, "token": fk, "from": "2015-01-01"}, timeout=20)
@@ -81,7 +88,7 @@ def main():
         json.dump(H, fp)
     cg = sum(1 for s in uni if s in H["grades"])
     ci = sum(1 for s in uni if s in H["insider"])
-    print(f"이번에 받음: 등급 {n_f} · 내부자 {n_i} · 누적 등급 {cg}/{len(uni)} · 내부자 {ci}/{len(uni)} · {time.time() - t0:.0f}초")
+    print(f"이번에 받음: 등급 {sum(1 for s in uni if (H['got'].get(s) or {}).get('grades') == today.isoformat())} · 내부자 {n_i} · 누적 등급 {cg}/{len(uni)} · 내부자 {ci}/{len(uni)} · {time.time() - t0:.0f}초")
     (out / "hist-status.json").write_text(json.dumps({"date": today.isoformat(), "grades": cg, "insider": ci, "universe": len(uni)}))
 
 
