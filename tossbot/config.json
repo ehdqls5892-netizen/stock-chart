@@ -408,11 +408,11 @@
   },
   "daily_swing": {
     "enabled": true,
-    "markets": {"KR": [], "US": ["fs", "hi52", "rb"]}, "any_regime": ["fs"],
+    "markets": {"KR": [], "US": ["fs", "rb"]}, "any_regime": ["fs"],
     "_markets_note": "2026-11-13 사용자 결정: 국장 스윙 새 매수 중단 (실제 11월 국장 -7.7만원·10월 -30만원, 10년 시험도 어떤 규칙이든 마이너스, 국장 단타도 연습 기록·10년 시험 모두 마이너스). 다시 켜려면 KR 에 [\"fs\", \"ep\"] 넣기. 혹시 남은 국장 스윙 종목은 손절·정리 규칙대로 계속 관리",
     "any_regime_by_market": {"KR": ["fs"], "US": ["fs", "hi52", "rb"]},
     "bad_regime_min_score": {"KR": {"ep": 10}},
-    "strict_setups": ["fs"], "rebound_setups": ["rb"], "rebound_fail_pct": 3, "setup_slots": {}, "extra_slots": {"US": {"hi52": 3, "rb": 3}}, "extra_open_risk_by_market": {"US": 4},
+    "strict_setups": ["fs"], "rebound_setups": ["rb"], "rebound_fail_pct": 3, "setup_slots": {}, "extra_slots": {"US": {"rb": 5}}, "extra_open_risk_by_market": {"US": 8}, "_alloc_note": "2026-11-14 사용자 승인(가장 좋은 쪽으로): 신고가(hi52) 끔 · 반등(rb) 3→5자리 · 추가 자리 위험 한도 4→8%. 점검 루프 로봇 전체 10년·무작위 12번: 2017~22 연 -2.5→+5.1%, 2023~ +9.8→+9.6%, 최대 낙폭 36→28%. 방식별 거래당: rb +1.15/+0.92%, hi52 -0.19/+0.07%. 다시 켜려면 markets.US 에 hi52 넣고 extra_slots 에 hi52",
     "_extra_note": "2026-11-11 사용자 결정: 미장 신고가·반등은 기본 8자리와 별개로 각 3자리(최대 14종목), 손실 한도도 따로 +4%(합계 8%). 10년 자료에서 수익이 가장 좋았던 두 방식이 자리가 꽉 차서 못 사는 일을 막음",
     "stop_by_market": {"KR": {"atr": 3, "all": true}, "US": {"pct": 5, "all": true},
                        "_note": "2026-11-13 사용자 선택: 국장은 하루 변동이 큰 종목이 많아 -5% 고정이면 너무 자주 잘림(10년 시험 연 -23.5% → 종목 변동폭 3배 손절 -5.5%) → 국장만 '신호 날 종가 − 3×하루 평균 변동폭'. 손절 폭이 넓은 종목은 수량이 자동으로 줄어 손실 한도(1.5%)는 같음. 미장은 -5% 고정 그대로. 이미 가진 종목 손절선은 내리지 않음"},
