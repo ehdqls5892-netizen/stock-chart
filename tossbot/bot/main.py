@@ -794,6 +794,106 @@ class Bot:
         c = self.cfg.get("daily_swing", {})
         return (c.get("markets") or {}).get(self.m, []) if c.get("enabled") else []
 
+    @staticmethod
+    def entry_factors(x, ev):
+        """살 때 본 정보를 숫자로 남김 — 나중에 '어떤 정보가 실제로 돈이 됐나'를 실전 기록으로 따져 보려고."""
+        ai = (ev or {}).get("ai") or {}
+        g = lambda k: (lambda v: round(float(v), 4) if v not in (None, "") else None)((ev or {}).get(k)) if (ev or {}).get(k) not in (None, "") else None
+        out = dict(ai=ai.get("view"), ai_adj=ai.get("adj"), ai_veto=ai.get("veto"), rec=g("rec"), tgt_up=g("tgt_up"),
+                   n_an=g("n_analysts"), up30=g("up30"), down30=g("down30"), eps_yoy=g("eps_yoy"), surprise=g("last_surprise"),
+                   short=g("short_pct"), fpe=g("fpe"), score=x.get("_fscore", x.get("score")), setup=x.get("setup") or "fs")
+        for k in ("flow", "frg", "inst", "insider"):
+            if (ev or {}).get(k) is not None:
+                out[k] = ev[k]
+        return {k: v for k, v in out.items() if v is not None}
+
+    def real_review(self, days: int = 120):
+        """실전 기록 점검 (매주 한 번): 로봇이 실제로 산 종목을 '살 때 본 정보'별로 나눠 승률·평균 수익을 봄.
+        차트만 보는 10년 시험과 달리, 애널리스트·실적 전망·AI 판단·수급까지 그때 본 그대로 반영된 결과."""
+        from .stats import load, merge
+        recs = [r for r in merge(load(ROOT, self.m, days, self.mode)) if (r.get("extra") or {}).get("sw")]
+        if not recs:
+            return None
+
+        def pct(r):
+            try:
+                return (float(r["exit_price"]) / float(r["entry"]) - 1) * 100
+            except Exception:
+                return 0.0
+
+        def fac(r):
+            ex = r.get("extra") or {}
+            fc = dict(ex.get("fac") or {})
+            why = " ".join(ex.get("fwhy") or [])
+            if "rec" not in fc and "애널리스트 의견 매수 우세" in why:
+                fc["rec"] = 1.9
+            if "up30" not in fc and "이익 전망 상향" in why:
+                fc["up30"], fc["down30"] = 1, 0
+            fc.setdefault("setup", ex.get("sw_kind") or "fs")
+            fc.setdefault("score", ex.get("fscore"))
+            return fc
+
+        groups = {
+            "AI 판단": lambda f: {"긍정": "긍정", "중립": "중립", "부정": "부정"}.get(f.get("ai"), "판단 없음"),
+            "애널리스트 의견": lambda f: "매수 우세(≤2.0)" if (f.get("rec") or 9) <= 2.0 else ("보통 이하" if f.get("rec") else "정보 없음"),
+            "목표가 여유": lambda f: "15% 이상" if (f.get("tgt_up") or -1) >= 0.15 else ("15% 미만" if f.get("tgt_up") is not None else "정보 없음"),
+            "이익 전망 (30일)": lambda f: "상향이 더 많음" if (f.get("up30") or 0) > (f.get("down30") or 0) else
+                                  ("하향이 더 많음" if (f.get("down30") or 0) > (f.get("up30") or 0) else "변화 없음/정보 없음"),
+            "점수": lambda f: "10 이상" if (f.get("score") or 0) >= 10 else ("6~9" if (f.get("score") or 0) >= 6 else "5 이하"),
+            "방식": lambda f: {"fs": "현재·미래 점수", "hi52": "52주 신고가", "rb": "하락장 저점", "ep": "큰 재료 갭"}.get(f.get("setup"), str(f.get("setup"))),
+        }
+        L = [f"📋 실전 기록 점검 ({'미장' if self.m == 'US' else '국장'} 최근 {days}일 · 로봇이 산 스윙 {len(recs)}건)",
+             "살 때 본 정보별로 나눠 본 실제 결과 (애널리스트·실적 전망·AI·수급 포함):"]
+        tot = sum(float(r.get("pnl") or 0) for r in recs)
+        L.append(f"전체: 승률 {sum(1 for r in recs if float(r.get('pnl') or 0) > 0) / len(recs) * 100:.0f}% · 평균 {sum(map(pct, recs)) / len(recs):+.2f}% · 합계 {money(self.m, tot)}")
+        for gname, fn in groups.items():
+            b = {}
+            for r in recs:
+                b.setdefault(fn(fac(r)), []).append(r)
+            if len(b) < 2:
+                continue
+            L.append(f"\n[{gname}]")
+            for k, rs in sorted(b.items(), key=lambda kv: -len(kv[1])):
+                w = sum(1 for r in rs if float(r.get("pnl") or 0) > 0)
+                L.append(f"  {k}: {len(rs)}건 승률 {w / len(rs) * 100:.0f}% 평균 {sum(map(pct, rs)) / len(rs):+.2f}% 합계 {money(self.m, sum(float(r.get('pnl') or 0) for r in rs))}")
+        ex = {}
+        for r in recs:
+            ex.setdefault(str(r.get("exit_reason") or "?").split(":")[0].split("(")[0].strip()[:18], []).append(r)
+        L.append("\n[판 이유]")
+        for k, rs in sorted(ex.items(), key=lambda kv: -len(kv[1]))[:6]:
+            L.append(f"  {k}: {len(rs)}건 평균 {sum(map(pct, rs)) / len(rs):+.2f}% 합계 {money(self.m, sum(float(r.get('pnl') or 0) for r in rs))}")
+        try:                                                  # 안 산 후보는 그 뒤 어떻게 됐나 (이유별)
+            hist = json.loads((Path(self.dir) / "missed.json").read_text(encoding="utf-8"))
+            mb = {}
+            for h in hist:
+                for r in h.get("rows", []):
+                    if r.get("st") != "매수" and r.get("chg") is not None:
+                        mb.setdefault((r.get("why") or "?").split("—")[0].split("(")[0].strip()[:22], []).append(r["chg"])
+            if mb:
+                L.append("\n[안 산 후보의 그 뒤 변화 (이유별)]")
+                for k, v in sorted(mb.items(), key=lambda kv: -len(kv[1]))[:6]:
+                    L.append(f"  {k}: {len(v)}건 평균 {sum(v) / len(v):+.1f}% (5% 넘게 오른 것 {sum(1 for x in v if x >= 5)}건)")
+        except Exception:
+            pass
+        L.append("\n※ 건수가 적으면 우연일 수 있어요. 10건 넘게 쌓인 묶음만 판단에 씀.")
+        return "\n".join(L)
+
+    def real_review_weekly(self):
+        if os.getenv("TOSSBOT_OFFLINE") == "1" or not getattr(self, "dir", None) or not self.swing_on():
+            return
+        wk = now(self.m).date().isocalendar()
+        key = f"{wk[0]}-{wk[1]}"
+        f_ = Path(self.dir) / "review_week.txt"
+        try:
+            if f_.read_text().strip() == key:
+                return
+        except Exception:
+            pass
+        txt = Bot.real_review(self)
+        f_.write_text(key)
+        if txt:
+            self.notify(txt)
+
     def loop_notice(self):
         """매주 GitHub 에서 돈 '매매 점검 루프' 결과(research/loop-proposals.json)가 새로 나오면 한 번 알림.
         통과한 수정안은 '제안'일 뿐 — 로봇 설정은 사용자가 승인해야 바뀜."""
@@ -1511,7 +1611,8 @@ class Bot:
                            expire=(base + dt.timedelta(days=c.get("expire_days", 20))).isoformat(),
                            sector=sec, earn_react=ev.get("react"), earn_gap=ev.get("gap_avg"), earn_hold=plan in ("hold", "early"),
                            mkt_gap=mgap, entry_when=when, risk_pct=x.get("_rp"), tgt=x.get("_tgt"), fscore=x.get("_fscore"), fwhy=(x.get("_fwhy") or [])[:10],
-                           grade=SW.grade_of(x["_fscore"]) if x.get("_fscore") is not None else None)
+                           grade=SW.grade_of(x["_fscore"]) if x.get("_fscore") is not None else None,
+                           fac=Bot.entry_factors(x, ev))           # 살 때 본 모든 정보(애널리스트·실적 전망·AI·수급) → 실전 기록 점검용
             try:                                               # 산 직후부터 앱에 로봇 판정을 보여 줌 (옛 '나쁨' 표시 대신)
                 Bot.set_review(self, p, x.get("_fscore"), x.get("_fwhy") or [], 0.0)
             except Exception:
@@ -2599,6 +2700,7 @@ class Bot:
             self.log(f"🧭 스윙 후보 불러오기 오류: {e}")
         try:
             Bot.loop_notice(self)
+            Bot.real_review_weekly(self)
         except Exception as e:
             self.log(f"🔁 점검 루프 알림 오류: {e}")
         self.dd_check(flatten=True)

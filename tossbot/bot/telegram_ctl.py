@@ -293,6 +293,20 @@ class TelegramControl:
             return
         if t in ("스윙", "🧭 스윙", "/swing"):
             return self.send(self.swing_text())
+        if t.replace(" ", "").startswith("실전점검"):
+            from pathlib import Path
+            from types import SimpleNamespace
+            from .main import Bot, ROOT
+            out = []
+            for mk in ("US", "KR"):
+                for mode in ("live", "paper"):
+                    d = ROOT / "logs" / mode / mk
+                    if d.exists():
+                        txt = Bot.real_review(SimpleNamespace(m=mk, mode=mode, dir=d))
+                        if txt:
+                            out.append(("[연습] " if mode == "paper" else "") + txt)
+                        break
+            return self.send("\n\n".join(out) or "아직 로봇이 판 스윙 기록이 없어요")
         if t.startswith("단타기록") or t.startswith("단타 기록") or t.startswith("👻"):
             from pathlib import Path
             from .stats import shadow_report

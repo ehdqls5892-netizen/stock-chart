@@ -959,3 +959,19 @@ assert r0["A1"]["st"] == "안 삼" and "자리 꽉 참" in r0["A1"]["why"] and r
 assert r0["B1"]["st"] == "매수" and r0["B1"]["chg"] == -5.0, r0
 assert any("📒" in m_ and "가 +10.0%" in m_ and "나 -5.0%" in m_ for m_ in sent), sent[-2:]
 print("✅ 놓친 후보 기록 시험 통과")
+# 실전 기록 점검: 살 때 본 정보별 결과
+import json as _j
+rv_dir = Path(tempfile.mkdtemp()) / "logs" / "live" / "US"
+rv_dir.mkdir(parents=True)
+rows = [dict(kind="exit", symbol=f"S{i}", opened_at=f"t{i}", entry=100, exit_price=104 if i % 2 else 97, pnl=4 if i % 2 else -3, qty=1,
+             exit_reason="스윙 정리: 10일선" if i % 2 == 0 else "익절",
+             extra=dict(sw=True, sw_kind="fs", fscore=8, fwhy=["애널리스트 의견 매수 우세(1.5)"], fac=dict(ai="긍정" if i % 2 else "중립", rec=1.5)))
+        for i in range(6)]
+(rv_dir / f"trades-{dt.date.today().isoformat()}.jsonl").write_text("\n".join(_j.dumps(r, ensure_ascii=False) for r in rows), encoding="utf-8")
+_root0 = M.ROOT
+M.ROOT = rv_dir.parents[2]
+txt = M.Bot.real_review(SimpleNamespace(m="US", mode="live", dir=rv_dir))
+M.ROOT = _root0
+assert "6건" in txt and "긍정: 3건 승률 100%" in txt and "중립: 3건 승률 0%" in txt, txt
+assert M.Bot.entry_factors({"_fscore": 9, "setup": "fs"}, {"rec": "1.55", "tgt_up": "0.13", "ai": {"view": "긍정"}})["rec"] == 1.55
+print("✅ 실전 기록 점검 시험 통과")
