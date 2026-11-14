@@ -46,3 +46,5 @@
 {"id": "lock_stop_7", "desc": "손절 -7%", "diff": {"stop_pct": 7}, "date": "2026-11-14", "verdict": "fail", "why": ["잠긴 규칙 정보용 시험: 확인 기간 +8.6% → +3.9% (무작위 6번)"], "source": "manual"}
 {"id": "lock_pt_off", "desc": "+4% 첫 익절 끔", "diff": {"pt": null}, "date": "2026-11-14", "verdict": "fail", "why": ["잠긴 규칙 정보용 시험: 고치는 기간 -4.3% → -7.2% (무작위 6번)"], "source": "manual"}
 {"id": "plock_off", "desc": "수익 잠금 사다리 끄기", "diff": {"plock": null}, "date": "2026-11-14", "verdict": "applied", "why": ["사용자 승인 → config 반영"], "source": "manual"}
+{"id": "ex_gap3", "desc": "재료 갭 추가 3자리", "diff": {"extra_add": {"gap": 3}}, "date": "2026-11-14", "verdict": "fail", "why": ["10년 6건뿐, 단독 거래당 +0.2~0.3% (t<1) — 효과 없음"], "source": "manual"}
+{"id": "ex_mo3", "desc": "테마·급등주 추가 3자리", "diff": {"extra_add": {"mo": 3}}, "date": "2026-11-14", "verdict": "fail", "why": ["단독 거래당 2017~22 -0.18%, 2023~ +0.90% (t 1.3) — 들쭉날쭉"], "source": "manual"}

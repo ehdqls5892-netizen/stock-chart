@@ -46,7 +46,7 @@ def signals(m):
     if m in _SG:
         return _SG[m]
     D = load(m)[0]
-    out = {"hi52": {}, "rb": {}}
+    out = {"hi52": {}, "rb": {}, "mo": {}, "mo2": {}, "gap": {}}
     minp, mintv = (1000, 3e9) if m == "kr" else (5, 3e7)
     for code, bs in D["bars"].items():
         n = len(bs)
@@ -65,6 +65,13 @@ def signals(m):
             g = c / bs[i - 1][4] - 1
             if dd <= -0.20 and g >= 0.03 and c > sum(x[4] for x in bs[i - 4:i + 1]) / 5 and bs[i - 1][4] <= sum(x[4] for x in bs[i - 5:i]) / 5:
                 out["rb"].setdefault(d, []).append((g, code))
+            r20 = c / bs[i - 20][4] - 1
+            if r20 >= 0.25 and g >= 0.05 and v >= 2 * v20 and c >= h * 0.97:          # 테마·급등주: 20일 +25% 넘게 오른 종목이 오늘도 +5%·거래량 2배·고가 마감
+                out["mo"].setdefault(d, []).append((g, code))
+            if r20 >= 0.15 and c >= max(x[2] for x in bs[i - 20:i]) and v >= 2 * v20 and g >= 0.03:   # 덜 과열: 20일 +15%·20일 신고가·거래량 2배
+                out["mo2"].setdefault(d, []).append((v / v20, code))
+            if o / bs[i - 1][4] - 1 >= 0.05 and v >= 3 * v20 and c >= o and c >= l + (h - l) * 0.6:   # 재료 갭(국장 ep 와 같은 모양)
+                out["gap"].setdefault(d, []).append((v / v20, code))
     for k in out:
         for d in out[k]:
             out[k][d].sort(reverse=True)

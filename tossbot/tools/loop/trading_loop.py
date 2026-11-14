@@ -110,6 +110,10 @@ CANDIDATES = [
     ("rb_hold_10", "반등(rb) 최대 보유 15일 → 10일", {"rb_hold": 10}),
     ("rb_hold_25", "반등(rb) 최대 보유 15일 → 25일", {"rb_hold": 25}),
     ("fs_pos_6_rb5", "점수 방식 8 → 6자리, 반등 5자리", {"max_pos": 6, "extra": {"hi52": 3, "rb": 5}}),
+    ("ex_rb5_r8", "신고가 끄고 반등 5자리 + 추가 자리 위험 한도 8%", {"extra": {"rb": 5}, "extra_risk": 8}),
+    ("ex_hi1_rb5_r9", "신고가 1자리 + 반등 5자리 + 추가 위험 한도 9%", {"extra": {"hi52": 1, "rb": 5}, "extra_risk": 9}),
+    ("ex_gap3", "재료 갭(+5% 갭·거래량 3배) 추가 3자리", {"extra_add": {"gap": 3}}),
+    ("ex_mo3", "테마·급등주(20일 +25%·오늘 +5%·거래량 2배) 추가 3자리", {"extra_add": {"mo": 3}}),
     ("max_new_3_ex", "하루 새 매수 3종목 (추가 자리 포함 계산 아님)", {"max_new": 3}),
     ("time_5", "5일 지나도 +0.5R 못 가면 정리", {"time_days": 5}),
     ("time_3", "3일 지나도 +0.5R 못 가면 정리", {"time_days": 3}),
@@ -183,7 +187,13 @@ def score(P, seeds):
 
 
 def verdict(r, b, gain=1.0):
-    """통과: 확인 기간 연 수익 +gain%p 이상 좋아짐 · 고치는 기간도 0.5%p 넘게 나빠지지 않음 · 확인 기간 최대 낙폭 3%p 넘게 늘지 않음."""
+    """통과 (둘 중 하나):
+      ① 확인 기간 연 +gain%p 이상 좋아짐 · 고치는 기간 0.5%p 넘게 안 나빠짐
+      ② 고치는 기간 연 +2%p 이상 좋아짐 · 확인 기간 0.5%p 넘게 안 나빠짐 (나쁜 장에 강해지는 수정)
+    공통: 확인 기간 최대 낙폭 3%p 넘게 안 늘어남. 무작위 반복 차이(±2~3%p)보다 작은 개선은 통과 못 하게 seeds 를 넉넉히."""
+    if (r["fix"]["cagr"] >= b["fix"]["cagr"] + 2 and r["check"]["cagr"] >= b["check"]["cagr"] - 0.5
+            and r["check"]["mdd"] <= b["check"]["mdd"] + 3):
+        return "pass", []
     why = []
     if r["check"]["cagr"] < b["check"]["cagr"] + gain:
         why.append(f"확인 기간 수익 {r['check']['cagr']:+.1f}% (기준 {b['check']['cagr']:+.1f}%) — 충분히 안 좋아짐")
@@ -250,7 +260,10 @@ def main():
                 skipped.append((cid, desc, old.get("date")))
                 tried.add(cid)
                 continue
-            r = score({**cur_P, **diff}, a.seeds)
+            dd = dict(diff)
+            if "extra_add" in dd:
+                dd["extra"] = {**(cur_P.get("extra") or {}), **dd.pop("extra_add")}
+            r = score({**cur_P, **dd}, a.seeds)
             v, why = verdict(r, cur)
             print(f"[{rnd}] {cid:14s} {v} 고침 {r['fix']['cagr']:+.1f} 확인 {r['check']['cagr']:+.1f} 낙폭 {r['check']['mdd']:.0f}", flush=True)
             rec = dict(id=cid, desc=desc, diff=diff, date=today, data_end=data_end, round=rnd, verdict=v, why=why,
@@ -266,6 +279,8 @@ def main():
         g, cid, desc, diff, r = found[0]           # 가장 좋은 수정 하나만 채택 → 그 위에서 나머지 다시 시험 (루프)
         passed.append((cid, desc, diff, r, cur))
         tried.add(cid)
+        if "extra_add" in diff:
+            diff = {**{k: v for k, v in diff.items() if k != "extra_add"}, "extra": {**(cur_P.get("extra") or {}), **diff["extra_add"]}}
         cur_P, cur = {**cur_P, **diff}, r
     # 기록
     JOURNAL.parent.mkdir(parents=True, exist_ok=True)
