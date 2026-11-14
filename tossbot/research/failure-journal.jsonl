@@ -30,3 +30,4 @@
 {"id": "ins_nosell5m", "desc": "최근 90일 내부자 순매도 500만 달러 넘으면 안 사기", "diff": {"fac": "ins_nosell5m"}, "date": "2026-11-14", "verdict": "fail", "why": ["확인 기간 연 +5.2% → +2.9% (실제 내부자 거래 10년 기록, 무작위 8번 평균)"], "source": "manual"}
 {"id": "ins_nosell1m", "desc": "최근 90일 내부자 순매도 100만 달러 넘으면 안 사기", "diff": {"fac": "ins_nosell1m"}, "date": "2026-11-14", "verdict": "fail", "why": ["확인 기간 연 +5.2% → +1.6%, 낙폭 16% → 21% (실제 내부자 거래 10년 기록, 무작위 8번 평균)"], "source": "manual"}
 {"id": "ins_buy90", "desc": "최근 90일 내부자 순매수가 있을 때만 사기", "diff": {"fac": "ins_buy90"}, "date": "2026-11-14", "verdict": "fail", "why": ["확인 기간 연 +5.2% → +1.4% (실제 내부자 거래 10년 기록, 무작위 8번 평균)"], "source": "manual"}
+{"id": "lr_k_4", "desc": "손실 -3%·점수≤4 면 마감 정리", "diff": {"lr_k": 4}, "date": "2026-11-14", "verdict": "applied", "why": ["사용자 승인 → config 반영"], "source": "manual"}
