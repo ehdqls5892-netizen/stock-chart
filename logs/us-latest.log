@@ -10,9 +10,9 @@ HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","desc
 미장 400/503
 미장 450/503
 미장 500/503
-FMP 응답 EQIX 402 Premium Query Parameter: 'Special Endpoint : This value set for 'symbol' is not available under your current subscriptio
+FMP 응답 FITB 402 Premium Query Parameter: 'Special Endpoint : This value set for 'symbol' is not available under your current subscriptio
 FMP 목표가 0종목
-Finnhub 애널리스트 의견 499종목
+Finnhub 애널리스트 의견 502종목
 FRED 경제 지표 7개
-시장 정보 30개 → store/macro/2026-11-13-us.csv
-완료 503개 · 오류 없음 503 · 추정치 있음 502 → store/us/2026-11-13.csv
+시장 정보 30개 → store/macro/2026-11-14-us.csv
+완료 503개 · 오류 없음 503 · 추정치 있음 502 → store/us/2026-11-14.csv
