@@ -28,6 +28,9 @@ def fp(heads: list) -> str:
     return hashlib.sha1("\n".join(sorted(heads)).encode()).hexdigest()[:12]
 
 
+LAST_ERR = None     # 마지막 AI 호출 실패 이유 ('credit' = Anthropic 크레딧 부족)
+
+
 def _call(prompt: str, model: str, claude=None) -> dict:
     if claude:
         return claude(model, prompt) or {}
@@ -42,8 +45,11 @@ def _call(prompt: str, model: str, claude=None) -> dict:
                           json={"model": model, "max_tokens": 4000, "messages": [{"role": "user", "content": prompt}]})
         js = r.json()
         if r.status_code != 200:
+            global LAST_ERR
+            LAST_ERR = "credit" if "credit balance" in str(js) else f"http {r.status_code}"
             print("뉴스 AI 응답 오류", r.status_code, str(js)[:200])
             return {}
+        LAST_ERR = None
         txt = "".join(c.get("text", "") for c in js.get("content", []) if c.get("type") == "text")
         m = re.search(r"\{.*\}", txt, re.S)
         return json.loads(m.group(0)) if m else {}
@@ -70,7 +76,7 @@ def judge(market: str, items: list, news_fn, prev: dict | None = None, claude=No
     """items = [{"code","name"}]. news_fn(code, name) → 기사 제목 목록. prev = 지난 결과(같은 기사면 재사용)."""
     prev = prev or {}
     now = now or dt.datetime.now(dt.timezone.utc).isoformat(timespec="minutes")
-    model = os.getenv(MODEL_ENV, "").strip() or os.getenv("CLAUDE_MODEL", "").strip() or "claude-haiku-5-5"
+    model = os.getenv(MODEL_ENV, "").strip() or os.getenv("CLAUDE_MODEL", "").strip() or "claude-opus-5-5"
     out, todo = {}, []
     for it in items:
         c, nm = str(it["code"]), it.get("name") or str(it["code"])

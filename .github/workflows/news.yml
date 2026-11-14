@@ -37,7 +37,7 @@ jobs:
       - name: 판정
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          CLAUDE_NEWS_MODEL: ${{ vars.CLAUDE_NEWS_MODEL }}   # 기본 claude-haiku-5-5
+          CLAUDE_NEWS_MODEL: ${{ vars.CLAUDE_NEWS_MODEL }}   # 기본 claude-opus-5-5
         run: python tossbot/tools/news_judge.py ${{ steps.mk.outputs.m }} --out out 2> >(tee out.log >&2)
       - name: 올리기 (swingnews-<m> 브랜치)
         if: always()

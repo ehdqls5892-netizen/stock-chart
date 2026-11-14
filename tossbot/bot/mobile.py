@@ -921,6 +921,7 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
         _ex = (c.get("extra_slots") or {}).get(mk) or {}
         if x.get("setup") in _ex:                              # 따로 자리를 받는 방식 (기본 자리와 별개)
             exn[x["setup"]] = exn.get(x["setup"], 0) + 1
+            row["_ex"] = True                                   # 기본 자리·하루 매수 한도에 안 셈 (봇과 같음)
             if exn[x["setup"]] <= _ex[x["setup"]]:
                 buy.append(row)
             elif len(wait) < 3:
@@ -933,10 +934,12 @@ def plan(mk: str, hold=None, cap=None, pk=None, now=None) -> dict:
         elif len(wait) < 3:
             wait.append(row)
     mn = (c.get("max_new_by_market") or {}).get(mk)        # 봇과 같은 규칙: 하루 새로 사는 종목 수 한도
-    if mn and len(buy) > mn:
-        for r in buy[mn:]:
+    reg_buy = [r for r in buy if not r.get("_ex")]
+    if mn and len(reg_buy) > mn:
+        for r in reg_buy[mn:]:
             skip.insert(0, {"code": r["code"], "name": r["name"], "why": f"오늘 새로 사는 건 최대 {mn}종목 — 자리를 남겨 다음 날 후보도 살 수 있게"})
-        buy = buy[:mn]
+        cut = {r["code"] for r in reg_buy[mn:]}
+        buy = [r for r in buy if r["code"] not in cut]
     seen = {r["code"] for r in buy + wait + skip}
     for x in d.get("picks", []):
         if x.get("eplan") == "hold" and x["code"] not in seen and (x.get("score") or 0) >= c.get("min_forward_score", 3):

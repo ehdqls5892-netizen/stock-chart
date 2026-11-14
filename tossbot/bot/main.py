@@ -1211,6 +1211,15 @@ class Bot:
                     + (f" · 빠짐: {', '.join(drop)}" if drop else "") + (f" · 지수 오늘 {ix:+.1f}%" if ix is not None else ""))
         return True
 
+    def ai_alert(self):
+        """AI 크레딧이 떨어지면 하루 한 번 크게 알림 — 조용히 AI 판단 없이 돌아가지 않게."""
+        day = now(self.m).date().isoformat()
+        if getattr(self, "_ai_alert_day", None) == day:
+            return
+        self._ai_alert_day = day
+        self.notify("⚠️ AI 판단이 안 되고 있어요: Anthropic API 크레딧이 부족해요 (console.anthropic.com → Plans & Billing 에서 충전).\n"
+                    "그동안: 반등 후보는 AI 확인을 못 해서 안 사고, '확실한 종목 크게 사기'도 안 돼요. 점수 방식 매수는 그대로예요.")
+
     def ai_check(self, x, price) -> dict:
         """매수 직전 AI 판독 (신고가·반등·재료 갭처럼 밤에 AI 가 안 읽은 후보용).
         보는 것: 신호 이유, 지금 가격, 현재·미래 점수 근거(차트·거래량·추세), 애널리스트 목표가·의견·이익 전망, 실적일·서프라이즈,
@@ -1242,6 +1251,8 @@ class Bot:
         model = os.getenv("CLAUDE_BUY_MODEL", "").strip() or "claude-opus-5-5"
         d = NJ._call(prompt, model)
         if not isinstance(d, dict) or not d.get("view"):
+            if getattr(NJ, "LAST_ERR", None) == "credit":
+                Bot.ai_alert(self)
             return {}
         v = str(d.get("view"))
         v = "긍정" if "긍정" in v else "부정" if "부정" in v else "중립"
@@ -1418,7 +1429,7 @@ class Bot:
         newn = nd[1] if (nd[0] == today.isoformat() and not dry) else 0
         for x in cands:
             is_ex = x.get("setup") in extra
-            if mn and newn >= mn:
+            if mn and not is_ex and newn >= mn:          # 추가 자리 방식(반등 등)은 한도와 따로 — 시험기와 같음
                 skip(x, f"오늘 새로 사는 건 최대 {mn}종목까지 — 자리를 남겨 다음 날 좋은 후보도 살 수 있게")
                 continue
             room_ex = lambda: sum(max(0, n_ - held_by.get(k_, 0)) for k_, n_ in extra.items())
@@ -1591,7 +1602,7 @@ class Bot:
                 if (is_ex and held_by.get(x["setup"], 0) < extra[x["setup"]]) or (not is_ex and slots > 0):
                     planned_r += (e - round_tick(self.m, stop, "down")) * q
                     table.append((x, "매수", etxt, q))
-                    newn += 1
+                    newn += 0 if is_ex else 1
                     if not is_ex:
                         slots -= 1
                     held_by[x.get("setup")] = held_by.get(x.get("setup"), 0) + 1
@@ -1628,7 +1639,7 @@ class Bot:
             self.broker.save_state()
             spent += e * q
             bought.add(sym)
-            newn += 1
+            newn += 0 if is_ex else 1
             self._new_day = (today.isoformat(), newn)
             if not is_ex:
                 slots -= 1

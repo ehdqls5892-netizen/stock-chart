@@ -170,7 +170,7 @@ def ai_read(market: str, x: dict, news: list) -> dict:
     """1단계(전 후보, 싼 모델): 빠른 거르기. 올리는 건 +1 까지만, 내리는 건 −2 까지."""
     if not os.getenv("ANTHROPIC_API_KEY", "").strip():
         return {}
-    model = os.getenv("CLAUDE_MODEL", "").strip() or "claude-haiku-5-5"
+    model = os.getenv("CLAUDE_MODEL", "").strip() or "claude-opus-5-5"   # 사용자 요청: 모든 판단 Opus
     facts = {"종목": x.get("name"), "시장": market, "종가": x.get("close"), "점수 근거": x.get("reason"),
              "애널리스트·실적·공시": {k: v for k, v in (x.get("ev") or {}).items() if k not in ("est", "news", "ai")},
              "국장 컨센서스·수급": (x.get("ev") or {}).get("est"), "최근 뉴스 제목": news[:8]}
