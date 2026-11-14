@@ -45,3 +45,4 @@
 {"id": "lock_stop_atr3", "desc": "손절 -5% 대신 변동폭 3배", "diff": {"stop_pct": null, "stop_atr": 3}, "date": "2026-11-14", "verdict": "fail", "why": ["잠긴 규칙 정보용 시험: 확인 기간 +8.6% → +2.8% (무작위 6번)"], "source": "manual"}
 {"id": "lock_stop_7", "desc": "손절 -7%", "diff": {"stop_pct": 7}, "date": "2026-11-14", "verdict": "fail", "why": ["잠긴 규칙 정보용 시험: 확인 기간 +8.6% → +3.9% (무작위 6번)"], "source": "manual"}
 {"id": "lock_pt_off", "desc": "+4% 첫 익절 끔", "diff": {"pt": null}, "date": "2026-11-14", "verdict": "fail", "why": ["잠긴 규칙 정보용 시험: 고치는 기간 -4.3% → -7.2% (무작위 6번)"], "source": "manual"}
+{"id": "plock_off", "desc": "수익 잠금 사다리 끄기", "diff": {"plock": null}, "date": "2026-11-14", "verdict": "applied", "why": ["사용자 승인 → config 반영"], "source": "manual"}
