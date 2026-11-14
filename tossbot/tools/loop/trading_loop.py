@@ -66,6 +66,11 @@ def baseline() -> dict:
         be_R=c.get("be_after_R", 1), trail_R=c.get("trail_after_R", 2), trail_atr=c.get("trail_atr", 3),
         lr="close_fs" if lr.get("enabled") else "none", lr_pct=lr.get("pct", 3), lr_k=lr.get("max_score", 2),
         max_new=((c.get("max_new_by_market") or {}).get("US") or 99),
+        extra={k: v for k, v in ((c.get("extra_slots") or {}).get("US") or {}).items()
+               if k in ("hi52", "rb") and k in ((c.get("markets") or {}).get("US") or [])} or None,
+        extra_risk=(c.get("extra_open_risk_by_market") or {}).get("US", 4),
+        hi52_gap=((c.get("max_rel_gap_by_setup") or {}).get("hi52", 6)) / 100,
+        rb_hold=((c.get("exit_by_setup") or {}).get("rb") or {}).get("max_hold", 15),
     )
 
 
@@ -93,6 +98,19 @@ CANDIDATES = [
     ("min_cq_0", "차트 모양 점수 0 이상만 사기 (지금 -2)", {"min_cq": 0}),
     ("guard_1", "지수가 그날 -1% 넘게 빠지면 새로 안 사기 (지금 -2%)", {"guard": -1.0}),
     ("max_hold_30", "최대 30일 보유", {"max_hold": 30}),
+    # ── 추가 자리 방식 (52주 신고가 hi52 · 급락 뒤 반등 rb) 배분 ──
+    ("ex_hi52_off", "52주 신고가(hi52) 매수 끄기 → 반등(rb)만 추가 자리", {"extra": {"rb": 3}}),
+    ("ex_rb_5", "반등(rb) 추가 자리 3 → 5", {"extra": {"hi52": 3, "rb": 5}}),
+    ("ex_hi52_1", "신고가(hi52) 추가 자리 3 → 1", {"extra": {"hi52": 1, "rb": 3}}),
+    ("ex_hi52_off_rb5", "신고가 끄고 반등 5자리", {"extra": {"rb": 5}}),
+    ("ex_risk_6", "추가 자리 위험 한도 4% → 6%", {"extra_risk": 6}),
+    ("ex_risk_8", "추가 자리 위험 한도 4% → 8%", {"extra_risk": 8}),
+    ("hi52_close", "신고가는 다음 날 시가 대신 마감 15분 전에 사기", {"hi52_entry": "close"}),
+    ("hi52_gap3", "신고가는 다음 날 3% 넘게 갭 뜨면 안 사기 (지금 6%)", {"hi52_gap": 0.03}),
+    ("rb_hold_10", "반등(rb) 최대 보유 15일 → 10일", {"rb_hold": 10}),
+    ("rb_hold_25", "반등(rb) 최대 보유 15일 → 25일", {"rb_hold": 25}),
+    ("fs_pos_6_rb5", "점수 방식 8 → 6자리, 반등 5자리", {"max_pos": 6, "extra": {"hi52": 3, "rb": 5}}),
+    ("max_new_3_ex", "하루 새 매수 3종목 (추가 자리 포함 계산 아님)", {"max_new": 3}),
     ("time_5", "5일 지나도 +0.5R 못 가면 정리", {"time_days": 5}),
     ("time_3", "3일 지나도 +0.5R 못 가면 정리", {"time_days": 3}),
     ("max_pos_10", "최대 보유 10종목", {"max_pos": 10}),
@@ -224,6 +242,8 @@ def main():
             if cid in tried:
                 continue
             if any(k in LOCKED for k in diff):
+                continue
+            if all(cur_P.get(k) == v for k, v in diff.items()):      # 이미 지금 설정과 같음 → 시험할 게 없음
                 continue
             old = recent_fail(jr + new_lines, cid)
             if old and rnd == 1:

@@ -35,7 +35,41 @@ def load(m):
 BASE = dict(min_fs=3, exit_fs=0, top=30, max_pos=6, risk=1.0, cap=20, open_risk=3.0, max_ext=0.15, max_stop=0.12, min_cq=-2,
             pt=4.0, pt_frac=0.34, be_R=1, trail_R=2, trail_atr=3, exit_ma=10, time_days=10, time_R=0.5, max_hold=60,
             early=8, early_up=7.0, rerank=True, lr="none", lr_pct=3.0, lr_k=1, guard=-2.0, entry="close", stop_atr=2.0,
-            fs_floor=None, pt_be=True, regime=False, risk_hi=None, hi_k=99, max_new=99, plock=None, free=False, seed=None, drop=0.3, stop_pct=None, slip=0.0)
+            fs_floor=None, pt_be=True, regime=False, risk_hi=None, hi_k=99, max_new=99, plock=None, extra=None, extra_risk=4.0, hi52_gap=0.06, hi52_entry="open", ex_stop=0.05, rb_hold=15, ex_risk=None, ex_pt=True, free=False, seed=None, drop=0.3, stop_pct=None, slip=0.0)
+
+
+_SG = {}
+
+
+def signals(m):
+    """로봇 tools/swingbt.py 와 같은 신호 (날짜 → [(순위 점수, 종목)] 큰 순서). 신호 날 다음 거래일에 삼."""
+    if m in _SG:
+        return _SG[m]
+    D = load(m)[0]
+    out = {"hi52": {}, "rb": {}}
+    minp, mintv = (1000, 3e9) if m == "kr" else (5, 3e7)
+    for code, bs in D["bars"].items():
+        n = len(bs)
+        for i in range(260, n):
+            c, o, h, l, v = bs[i][4], bs[i][1], bs[i][2], bs[i][3], bs[i][5]
+            tv20 = sum(x[4] * x[5] for x in bs[i - 20:i]) / 20
+            if c < minp or tv20 < mintv:
+                continue
+            d = bs[i][0]
+            v20 = sum(x[5] for x in bs[i - 21:i - 1]) / 20 or 1
+            ma50 = sum(x[4] for x in bs[i - 49:i + 1]) / 50
+            hi252 = max(x[2] for x in bs[i - 252:i])
+            if c > hi252 and v >= 1.5 * v20 and c > ma50:
+                out["hi52"].setdefault(d, []).append((v / v20, code))
+            dd = bs[i - 1][4] / max(x[2] for x in bs[i - 60:i]) - 1
+            g = c / bs[i - 1][4] - 1
+            if dd <= -0.20 and g >= 0.03 and c > sum(x[4] for x in bs[i - 4:i + 1]) / 5 and bs[i - 1][4] <= sum(x[4] for x in bs[i - 5:i]) / 5:
+                out["rb"].setdefault(d, []).append((g, code))
+    for k in out:
+        for d in out[k]:
+            out[k][d].sort(reverse=True)
+    _SG[m] = out
+    return out
 
 
 def run(m, P=None, d0=None, d1=None, detail=False):
@@ -44,6 +78,9 @@ def run(m, P=None, d0=None, d1=None, detail=False):
     cost = COST[m]
     cfg = dict(be_after_R=P["be_R"], trail_after_R=P["trail_R"], trail_atr=P["trail_atr"], exit_ma=P["exit_ma"],
                time_stop_days=P["time_days"], time_need_R=P["time_R"], max_hold=P["max_hold"])
+    cfg_rb = dict(cfg, exit_ma=0, time_stop_days=99, max_hold=P["rb_hold"], be_after_R=99, trail_after_R=99)   # 로봇 exit_by_setup.rb 와 같음
+    SG = signals(m) if P["extra"] else {}
+    nfs = lambda: sum(1 for p_ in pos.values() if p_.get("k", "fs") == "fs")
     eq, cash0 = 1.0, 1.0
     import random
     rng = random.Random(P["seed"]) if P["seed"] is not None else None
@@ -62,7 +99,7 @@ def run(m, P=None, d0=None, d1=None, detail=False):
         p["pnl"] += pnl
         p["q"] -= q
         if p["q"] <= 1e-12 or frac >= 1.0:
-            trades.append((code, p["d"], d, p["pnl"] / p["risk0"], p["pnl"], why, p["held"], p["pnl"] / (p["q0"] * p["e"]), p.get("sc")))
+            trades.append((code, p["d"], d, p["pnl"] / p["risk0"], p["pnl"], why, p["held"], p["pnl"] / (p["q0"] * p["e"]), p.get("sc"), p.get("k", "fs")))
             del pos[code]
 
     for d in use:
@@ -102,7 +139,7 @@ def run(m, P=None, d0=None, d1=None, detail=False):
             if l <= p["sl"]:
                 close_pos(code, p["sl"] * (1 - P["slip"]), "stop", d)
                 continue
-            if P["pt"] and not p["pt"] and h >= p["e"] * (1 + P["pt"] / 100):
+            if P["pt"] and not p["pt"] and (P["ex_pt"] or p.get("k", "fs") == "fs") and h >= p["e"] * (1 + P["pt"] / 100):
                 px = max(o, p["e"] * (1 + P["pt"] / 100))
                 be = p["e"] * (1 + cost)
                 p["pt"] = True
@@ -140,13 +177,14 @@ def run(m, P=None, d0=None, d1=None, detail=False):
             p["i"] = i
             bars = [(x[0], x[2], x[3], x[4]) for x in bs[max(0, i - 39):i + 1]]
             c = b[4]
-            new, hi, why, _ = SW.daily_check(p["e"], p["sl"], p["sl0"], p["hi"], p["held"], bars, cfg, cost)
+            isrb = p.get("k") == "rb"
+            new, hi, why, _ = SW.daily_check(p["e"], p["sl"], p["sl0"], p["hi"], p["held"], bars, cfg_rb if isrb else cfg, cost)
             p["hi"] = hi
             p["held"] += 1
             f = F[code].get(d)
-            if not why and f and P["exit_fs"] is not None and f[0] <= P["exit_fs"] and p["held"] >= 2:
+            if not why and f and not isrb and P["exit_fs"] is not None and f[0] <= P["exit_fs"] and p["held"] >= 2:
                 why = "fs"
-            if not why and f and P["lr"] == "close_fs" and c <= p["e"] * (1 - P["lr_pct"] / 100) and f[0] <= P["lr_k"]:
+            if not why and f and not isrb and P["lr"] == "close_fs" and c <= p["e"] * (1 - P["lr_pct"] / 100) and f[0] <= P["lr_k"]:
                 why = "lr_close"
             if not why and f and P["lr"] == "close_weak" and c <= p["e"] * (1 - P["lr_pct"] / 100) and (c < f[3] or f[1] <= -1):
                 why = "lr_weak"
@@ -163,7 +201,7 @@ def run(m, P=None, d0=None, d1=None, detail=False):
             if bb:
                 p["last"] = bb[4]
         curve.append((d, equity))
-        if prev and len(pos) < P["max_pos"] and not (P["guard"] is not None and iday * 100 <= P["guard"]) and not blocked:
+        if prev and nfs() < P["max_pos"] and not (P["guard"] is not None and iday * 100 <= P["guard"]) and not blocked:
             night = []
             for code, fd in F.items():
                 f0 = fd.get(prev)
@@ -207,9 +245,9 @@ def run(m, P=None, d0=None, d1=None, detail=False):
             cands.sort(key=lambda t: (not t[4], t[0]))
             newn = 0
             for _, code, e, stop, early in cands:
-                if len(pos) >= P["max_pos"] or newn >= P["max_new"]:
+                if nfs() >= P["max_pos"] or newn >= P["max_new"]:
                     break
-                open_risk = sum(max(0.0, (p["last"] - p["sl"]) * p["q"]) for p in pos.values())
+                open_risk = sum(max(0.0, (p["last"] - p["sl"]) * p["q"]) for p in pos.values() if p.get("k", "fs") == "fs")
                 per = e - stop
                 if P["free"]:
                     q = 0.01 / e                       # 종목당 자본의 1% 같은 금액 → pnl/0.01 = 그 거래 수익률
@@ -228,6 +266,47 @@ def run(m, P=None, d0=None, d1=None, detail=False):
                         continue
                 pos[code] = dict(e=e, sl=stop, sl0=stop, hi=e, held=0, q=q, d=d, pt=False, pnl=0.0, risk0=q * per, last=B[code][d][4], i=None, q0=q, sc=-_)
                 newn += 1
+        # 4) 추가 자리 방식 (52주 신고가 hi52 · 급락 뒤 반등 rb) — 로봇 extra_slots 와 같음: 자리·위험 한도 따로
+        if P["extra"] and prev and not (P["guard"] is not None and iday * 100 <= P["guard"]):
+            equity = cash0 + realized + sum(p["q"] * (p["last"] - p["e"]) for p in pos.values())
+            for k, slots in P["extra"].items():
+                have = sum(1 for p_ in pos.values() if p_.get("k") == k)
+                for sc_, code in SG.get(k, {}).get(prev, []):
+                    if have >= slots:
+                        break
+                    if code in pos or (rng and rng.random() < P["drop"]):
+                        continue
+                    b, pb = B[code].get(d), B[code].get(prev)
+                    if not b or not pb:
+                        continue
+                    _, o, h, l, c, v = b
+                    if k == "hi52" and P["hi52_entry"] == "open":
+                        if o / pb[4] - 1 > P["hi52_gap"]:
+                            continue
+                        e = o * (1 + P["slip"])
+                    else:
+                        e = c
+                    stop = e * (1 - P["ex_stop"])
+                    if k != "hi52" or P["hi52_entry"] != "open":
+                        if l <= stop:
+                            continue
+                    per = e - stop
+                    rk = P["ex_risk"] or P["risk"]
+                    q = min(equity * rk / 100 / per, equity * P["cap"] / 100 / e)
+                    ex_risk = sum(max(0.0, (p["last"] - p["sl"]) * p["q"]) for p in pos.values() if p.get("k", "fs") != "fs")
+                    if ex_risk + q * per > equity * P["extra_risk"] / 100 * 1.0001:
+                        q = max(0.0, (equity * P["extra_risk"] / 100 - ex_risk) / per)
+                        if q * per < equity * rk / 100 * 0.5:
+                            continue
+                    used = sum(p["q"] * p["last"] for p in pos.values())
+                    if used + q * e > equity:
+                        q = max(0.0, (equity - used) / e)
+                        if q * per < equity * rk / 100 * 0.5:
+                            continue
+                    pos[code] = dict(e=e, sl=stop, sl0=stop, hi=e, held=0, q=q, d=d, pt=False, pnl=0.0, risk0=q * per, last=c, i=None, q0=q, sc=sc_, k=k)
+                    have += 1
+                    if k == "hi52" and P["hi52_entry"] == "open" and l <= stop:      # 시가에 샀는데 그날 손절선 닿음
+                        close_pos(code, stop * (1 - P["slip"]), "stop", d)
         prev = d
     for code in list(pos):
         close_pos(code, pos[code]["last"], "end", use[-1])

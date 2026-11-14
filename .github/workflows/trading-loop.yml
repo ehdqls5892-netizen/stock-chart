@@ -6,7 +6,7 @@ on:
       seeds:
         description: "무작위 몇 번 평균"
         required: false
-        default: "3"
+        default: "6"
   schedule:
     - cron: "20 2 * * 0"   # 매주 일요일 11:20(한국) — 미장 주간 장 끝난 뒤
 
@@ -42,7 +42,7 @@ jobs:
       - name: 루프 돌리기
         env:
           LOOP_DATA: ${{ github.workspace }}/loopdata
-        run: python tossbot/tools/loop/trading_loop.py --seeds ${{ github.event.inputs.seeds || '3' }} --rounds 3
+        run: python tossbot/tools/loop/trading_loop.py --seeds ${{ github.event.inputs.seeds || '6' }} --rounds 3
       - name: 결과·실패 기록 올리기
         run: |
           git config user.name "cof-bot" && git config user.email "cof-bot@users.noreply.github.com"
