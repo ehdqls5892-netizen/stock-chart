@@ -1,0 +1,383 @@
+국장 후보 2538 → 700
+일봉 60/700 · 받음 59
+일봉 120/700 · 받음 118
+일봉 180/700 · 받음 177
+일봉 240/700 · 받음 236
+일봉 300/700 · 받음 296
+일봉 360/700 · 받음 356
+일봉 420/700 · 받음 414
+일봉 480/700 · 받음 473
+일봉 540/700 · 받음 533
+일봉 600/700 · 받음 592
+일봉 660/700 · 받음 651
+일봉 700/700 · 받음 691
+야후 일봉을 거래소 일봉으로 맞춤: 15 종목
+일봉 1/1 · 받음 1
+HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"Quote not found for symbol: 180645.KS"}}}
+$180645.KS: No data found, symbol may be delisted
+
+1 Failed download:
+['180645.KS']: No data found, symbol may be delisted
+일봉 3/3 · 받음 2
+HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"Quote not found for symbol: 180645.KQ"}}}
+$180645.KQ: No data found, symbol may be delisted
+
+1 Failed download:
+['180645.KQ']: No data found, symbol may be delisted
+일봉 1/1 · 받음 0
+데스크 종목 추가 분석: 2/3
+같은 날 지난 AI 판독 0 개 (기사 같으면 다시 씀)
+002990 {'sector': 'Industrials', 'industry': 'Engineering & Construction', 'tgt_up': -0.5094, 'n_analysts': 2, 'fpe': 5.951686}
+263860 {'last_earn': '2026-08-13', 'last_surprise': -63.08, 'gap_avg': 0.0022, 'gap_max': 0.0033, 'sector': 'Technology', 'industry': 'Software - Infrastructure', 'tgt_up': -0.2128, 'n_analysts': 1, 'fpe': 20.52663}
+DART 회사 코드 3940
+DART 002990 00106313 {'op_yoy': 0.3626, 'op_period': '2026 3분기'}
+네이버 증권 뉴스 응답 확인 002990 200 [{"total":1,"items":[{"id":"0810003699360","officeId":"081","articleId":"0003699360","officeName":"서울신문","datetime":"202611140902","type":1,"title":"사라져가는 경쟁수주 속…용산서 ‘3파전’ 격돌하나","body":"HDC현대산업개발·자이에스앤디·금호건설, 강변강서 재건축 수주전 관심 대형 건설사들이 선별 수주 기조를 이어가면서 도시정비사업 시장 내 경쟁입찰이 드물어진 가운데, 서울 용산구 강변강서아파트 재건축사업에서
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+DART 263860 00962223 {'op_yoy': 2.7386, 'op_period': '2026 3분기'}
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+다른 방식 후보 2개 중 AI 판독 0개
+컨센서스 비교 기준일 2026-11-13 (700종목)
+깊게 점검: 점수 상위 80 + 데스크 종목 20
+028050 {'last_earn': '2026-08-14', 'last_surprise': -5.45, 'eps_yoy': 0.2883, 'gap_avg': 0.0099, 'gap_max': 0.0271, 'sector': 'Industrials', 'industry': 'Engineering & Construction', 'tgt_up': 0.1213, 'n_analysts': 21, 'fpe': 12.223451, 'eps0q': 1767.5444, 'eps0q_30d': 954.48, 'up30': 0.0, 'down30': 0.0}
+263860 {'last_earn': '2026-08-13', 'last_surprise': -63.08, 'gap_avg': 0.0022, 'gap_max': 0.0033, 'sector': 'Technology', 'industry': 'Software - Infrastructure', 'tgt_up': -0.2128, 'n_analysts': 1, 'fpe': 20.52663}
+012750 {'earn': '2027-01-14 01:00', 'react': '2027-01-14', 'gap_avg': 0.0052, 'gap_max': 0.0052, 'sector': 'Industrials', 'industry': 'Security & Protection Services', 'tgt_up': 0.0623, 'n_analysts': 8, 'fpe': 16.99002}
+051630.KS: No earnings dates found, symbol may be delisted
+051630 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Basic Materials', 'industry': 'Chemicals'}
+068270 {'last_earn': '2026-08-14', 'last_surprise': 10.93, 'eps_yoy': 5.1211, 'earn': '2027-02-04 01:00', 'react': '2027-02-04', 'gap_avg': 0.0089, 'gap_max': 0.0294, 'sector': 'Healthcare', 'industry': 'Biotechnology', 'tgt_up': 0.3016, 'n_analysts': 22, 'fpe': 27.072275, 'eps0q': 2075.5593, 'eps0q_30d': 1708.6744, 'up30': 2.0, 'down30': 0.0}
+003490 {'sector': 'Industrials', 'industry': 'Airlines', 'tgt_up': 0.216, 'n_analysts': 11, 'fpe': 8.681176}
+003780.KS: No earnings dates found, symbol may be delisted
+003780 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Consumer Cyclical', 'industry': 'Auto Parts'}
+036460 {'earn': '2027-02-19 01:00', 'react': '2027-02-19', 'sector': 'Utilities', 'industry': 'Utilities - Regulated Gas', 'tgt_up': 0.2121, 'n_analysts': 11, 'fpe': 3.6057801}
+077500.KS: No earnings dates found, symbol may be delisted
+077500 {'err': 'earn:AttributeError', 'sector': 'Technology', 'industry': 'Electronics & Computer Distribution', 'fpe': 5.306604}
+012030.KS: No earnings dates found, symbol may be delisted
+012030 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Technology', 'industry': 'Information Technology Services'}
+032640 {'last_earn': '2026-08-14', 'last_surprise': 9.3, 'eps_yoy': 0.0137, 'earn': '2027-02-04 01:00', 'react': '2027-02-04', 'gap_avg': 0.0071, 'gap_max': 0.0181, 'sector': 'Communication Services', 'industry': 'Telecom Services', 'tgt_up': 0.23, 'n_analysts': 23, 'fpe': 8.073473, 'eps0q': 322.98492, 'eps0q_30d': 279.32156, 'up30': 1.0, 'down30': 0.0}
+064400 {'last_earn': '2026-08-14', 'last_surprise': 2.73, 'eps_yoy': 0.2014, 'gap_avg': 0.0255, 'gap_max': 0.0883, 'sector': 'Technology', 'industry': 'Information Technology Services', 'tgt_up': 0.2648, 'n_analysts': 14, 'fpe': 14.306626, 'eps0q': 1774.7013, 'eps0q_30d': 1729.101, 'up30': 1.0, 'down30': 0.0}
+425420.KQ: No earnings dates found, symbol may be delisted
+425420 {'err': 'earn:AttributeError', 'sector': 'Technology', 'industry': 'Semiconductors', 'tgt_up': 0.4317, 'n_analysts': 1, 'fpe': 20.061865}
+294870 {'earn': '2027-02-04 01:00', 'react': '2027-02-04', 'sector': 'Industrials', 'industry': 'Engineering & Construction', 'tgt_up': 0.2603, 'n_analysts': 14, 'fpe': 3.008209}
+064290.KQ: No earnings dates found, symbol may be delisted
+064290 {'err': 'earn:AttributeError', 'sector': 'Technology', 'industry': 'Semiconductor Equipment & Materials', 'tgt_up': 0.5356, 'n_analysts': 1, 'fpe': 17.069746}
+159010.KQ: No earnings dates found, symbol may be delisted
+159010 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Industrials', 'industry': 'Tools & Accessories'}
+121600 {'sector': 'Basic Materials', 'industry': 'Specialty Chemicals', 'tgt_up': 0.3459, 'n_analysts': 2, 'fpe': 40.81913}
+128940 {'earn': '2027-02-04 01:00', 'react': '2027-02-04', 'sector': 'Healthcare', 'industry': 'Drug Manufacturers - Specialty & Generic', 'tgt_up': 0.3671, 'n_analysts': 11, 'fpe': 29.606018}
+316140 {'last_earn': '2026-07-24', 'last_surprise': -10.6, 'eps_yoy': -0.1045, 'earn': '2027-02-05 01:00', 'react': '2027-02-05', 'gap_avg': 0.0056, 'gap_max': 0.0097, 'sector': 'Financial Services', 'industry': 'Banks - Regional', 'tgt_up': 0.2806, 'n_analysts': 21, 'fpe': 6.771857, 'eps0q': 812.9966, 'eps0q_30d': 929.4305, 'up30': 0.0, 'down30': 2.0}
+180640 {'earn': '2026-11-17 01:00', 'react': '2026-11-17', 'gap_avg': 0.0008, 'gap_max': 0.0008, 'sector': 'Real Estate', 'industry': 'Real Estate Services', 'err': 'eps:KeyError'}
+086790 {'last_earn': '2026-10-22', 'last_surprise': 0.52, 'eps_yoy': 0.1053, 'earn': '2027-01-29 01:00', 'react': '2027-01-29', 'gap_avg': 0.0064, 'gap_max': 0.0152, 'sector': 'Financial Services', 'industry': 'Banks - Regional', 'tgt_up': 0.3146, 'n_analysts': 23, 'fpe': 7.012706, 'eps0q': 2658.8848, 'eps0q_30d': 2917.024, 'up30': 1.0, 'down30': 2.0}
+007070 {'last_earn': '2026-08-13', 'last_surprise': 2.85, 'eps_yoy': 4.5532, 'earn': '2027-02-04 01:00', 'react': '2027-02-04', 'gap_avg': 0.0092, 'gap_max': 0.0174, 'sector': 'Consumer Cyclical', 'industry': 'Department Stores', 'tgt_up': 0.3983, 'n_analysts': 19, 'fpe': 7.8717155, 'eps0q': 698.7986, 'eps0q_30d': 688.6332, 'up30': 0.0, 'down30': 0.0}
+089860 {'sector': 'Industrials', 'industry': 'Rental & Leasing Services', 'tgt_up': -0.0117, 'n_analysts': 7, 'fpe': 12.58001, 'eps0q': 4014.0, 'eps0q_30d': 0.0, 'up30': 0.0, 'down30': 0.0}
+030530 {'sector': 'Industrials', 'industry': 'Specialty Industrial Machinery'}
+034230 {'last_earn': '2026-08-14', 'last_surprise': -28.09, 'eps_yoy': -0.2447, 'earn': '2027-02-10 01:00', 'react': '2027-02-10', 'gap_avg': 0.0036, 'gap_max': 0.0111, 'sector': 'Consumer Cyclical', 'industry': 'Resorts & Casinos', 'tgt_up': 0.6324, 'n_analysts': 15, 'fpe': 9.213445, 'eps0q': 136.2145, 'eps0q_30d': 143.79646, 'up30': 1.0, 'down30': 0.0}
+171090 {'gap_avg': 0.0, 'gap_max': 0.0, 'sector': 'Technology', 'industry': 'Semiconductors', 'tgt_up': 0.6584, 'n_analysts': 1, 'fpe': 7.430227}
+380540.KQ: No earnings dates found, symbol may be delisted
+380540 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Technology', 'industry': 'Computer Hardware'}
+088980 {'tgt_up': 0.2974, 'n_analysts': 3}
+030200 {'last_earn': '2026-08-14', 'last_surprise': 18.45, 'eps_yoy': -0.1664, 'earn': '2027-02-10 01:00', 'react': '2027-02-10', 'gap_avg': 0.012, 'gap_max': 0.0374, 'sector': 'Communication Services', 'industry': 'Telecom Services', 'tgt_up': 0.3881, 'n_analysts': 25, 'fpe': 8.1935, 'eps0q': 1559.9944, 'eps0q_30d': 1689.185, 'up30': 0.0, 'down30': 1.0}
+282330 {'last_earn': '2026-08-13', 'last_surprise': -5.05, 'eps_yoy': 0.0762, 'gap_avg': 0.0094, 'gap_max': 0.0204, 'sector': 'Consumer Defensive', 'industry': 'Grocery Stores', 'tgt_up': 0.3339, 'n_analysts': 19, 'fpe': 9.430131, 'eps0q': 3637.5706, 'eps0q_30d': 3389.0776, 'up30': 1.0, 'down30': 1.0}
+086280 {'last_earn': '2026-08-14', 'last_surprise': -10.76, 'eps_yoy': -0.2681, 'earn': '2027-01-28 01:00', 'react': '2027-01-28', 'gap_avg': 0.0098, 'gap_max': 0.0274, 'sector': 'Industrials', 'industry': 'Integrated Freight & Logistics', 'tgt_up': 0.4849, 'n_analysts': 21, 'fpe': 8.050787, 'eps0q': 6237.767, 'eps0q_30d': 6855.3735, 'up30': 0.0, 'down30': 1.0}
+468530.KQ: No earnings dates found, symbol may be delisted
+468530 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Healthcare', 'industry': 'Biotechnology'}
+219130.KQ: No earnings dates found, symbol may be delisted
+219130 {'err': 'earn:AttributeError eps:KeyError'}
+021240 {'last_earn': '2026-08-14', 'last_surprise': 0.45, 'eps_yoy': 0.1747, 'earn': '2027-02-05 01:00', 'react': '2027-02-05', 'gap_avg': 0.0111, 'gap_max': 0.0243, 'sector': 'Consumer Cyclical', 'industry': 'Furnishings, Fixtures & Appliances', 'tgt_up': 0.3162, 'n_analysts': 11, 'fpe': 9.201801, 'eps0q': 2299.367, 'eps0q_30d': 2323.64, 'up30': 1.0, 'down30': 1.0}
+080580.KQ: No earnings dates found, symbol may be delisted
+080580 {'err': 'earn:AttributeError', 'sector': 'Technology', 'industry': 'Semiconductor Equipment & Materials', 'tgt_up': 0.1222, 'n_analysts': 1, 'fpe': 11.626282}
+141000 {'err': 'eps:KeyError'}
+175330 {'earn': '2027-02-04 01:00', 'react': '2027-02-04', 'gap_avg': 0.0076, 'gap_max': 0.0157, 'sector': 'Financial Services', 'industry': 'Banks - Regional', 'tgt_up': 0.3343, 'n_analysts': 12, 'fpe': 6.1688113, 'eps0q': 743.41364, 'eps0q_30d': 697.52814, 'up30': 1.0, 'down30': 0.0}
+006280 {'last_earn': '2026-08-14', 'last_surprise': -82.13, 'eps_yoy': -0.9331, 'earn': '2027-01-25 01:00', 'react': '2027-01-25', 'gap_avg': 0.0086, 'gap_max': 0.0185, 'sector': 'Healthcare', 'industry': 'Drug Manufacturers - Specialty & Generic', 'tgt_up': 0.4347, 'n_analysts': 8, 'fpe': 29.125116, 'eps0q': 1420.52, 'eps0q_30d': -145.84, 'up30': 1.0, 'down30': 0.0}
+251970.KQ: No earnings dates found, symbol may be delisted
+251970 {'err': 'earn:AttributeError', 'sector': 'Consumer Cyclical', 'industry': 'Packaging & Containers', 'tgt_up': 0.2043, 'n_analysts': 7, 'fpe': 13.891577}
+105560 {'last_earn': '2026-10-28', 'last_surprise': 8.84, 'eps_yoy': 0.1934, 'earn': '2027-02-04 01:00', 'react': '2027-02-04', 'gap_avg': 0.0081, 'gap_max': 0.0169, 'sector': 'Financial Services', 'industry': 'Banks - Regional', 'tgt_up': 0.3491, 'n_analysts': 22, 'fpe': 7.9201727, 'eps0q': 2245.737, 'eps0q_30d': 2653.3645, 'up30': 0.0, 'down30': 1.0}
+430690.KQ: No earnings dates found, symbol may be delisted
+430690 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Technology', 'industry': 'Software - Infrastructure'}
+437730.KQ: No earnings dates found, symbol may be delisted
+437730 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Industrials', 'industry': 'Electrical Equipment & Parts'}
+328130.KQ: No earnings dates found, symbol may be delisted
+328130 {'err': 'earn:AttributeError', 'sector': 'Healthcare', 'industry': 'Health Information Services', 'tgt_up': -0.3242, 'n_analysts': 2, 'fpe': -15.279476}
+098120.KQ: No earnings dates found, symbol may be delisted
+098120 {'err': 'earn:AttributeError eps:KeyError'}
+055550 {'last_earn': '2026-10-26', 'last_surprise': 0.98, 'eps_yoy': 0.1557, 'earn': '2027-02-04 01:00', 'react': '2027-02-04', 'gap_avg': 0.0051, 'gap_max': 0.0107, 'sector': 'Financial Services', 'industry': 'Banks - Regional', 'tgt_up': 0.449, 'n_analysts': 22, 'fpe': 6.773479, 'eps0q': 1470.9357, 'eps0q_30d': 1711.9939, 'up30': 0.0, 'down30': 4.0}
+192820 {'last_earn': '2026-08-13', 'last_surprise': 13.78, 'eps_yoy': 1.3275, 'gap_avg': 0.0136, 'gap_max': 0.0312, 'sector': 'Consumer Defensive', 'industry': 'Household & Personal Products', 'tgt_up': 0.2107, 'n_analysts': 25, 'fpe': 14.4833765, 'eps0q': 3573.08, 'eps0q_30d': 3423.789, 'up30': 1.0, 'down30': 0.0}
+323410 {'last_earn': '2026-08-14', 'last_surprise': -3.39, 'eps_yoy': 0.1132, 'gap_avg': 0.0132, 'gap_max': 0.0275, 'sector': 'Financial Services', 'industry': 'Banks - Regional', 'tgt_up': 0.2434, 'n_analysts': 19, 'fpe': 15.09187, 'eps0q': 273.43533, 'eps0q_30d': 0.0, 'up30': 1.0, 'down30': 2.0}
+271560 {'last_earn': '2026-08-13', 'last_surprise': -8.98, 'eps_yoy': 0.2337, 'gap_avg': 0.0057, 'gap_max': 0.0145, 'sector': 'Consumer Defensive', 'industry': 'Confectioners', 'tgt_up': 0.4114, 'n_analysts': 15, 'fpe': 8.567072, 'eps0q': 3266.2603, 'eps0q_30d': 3137.5, 'up30': 0.0, 'down30': 0.0}
+001210 {'sector': 'Industrials', 'industry': 'Electrical Equipment & Parts', 'err': 'eps:KeyError'}
+261780.KQ: No earnings dates found, symbol may be delisted
+261780 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Healthcare', 'industry': 'Biotechnology'}
+081660 {'last_earn': '2026-08-14', 'last_surprise': 7.86, 'eps_yoy': 0.6451, 'gap_avg': 0.0117, 'gap_max': 0.0283, 'sector': 'Consumer Cyclical', 'industry': 'Leisure', 'tgt_up': 0.5591, 'n_analysts': 11, 'fpe': 6.900369}
+079650.KQ: No earnings dates found, symbol may be delisted
+079650 {'err': 'earn:AttributeError eps:KeyError'}
+089590 {'sector': 'Industrials', 'industry': 'Airlines', 'tgt_up': -0.1217, 'n_analysts': 6, 'fpe': 14.949803}
+451760.KQ: No earnings dates found, symbol may be delisted
+451760 {'err': 'earn:AttributeError', 'sector': 'Technology', 'industry': 'Software - Infrastructure', 'fpe': 12.704826}
+139130 {'last_earn': '2026-10-26', 'last_surprise': -14.77, 'eps_yoy': 0.0014, 'gap_avg': 0.005, 'gap_max': 0.0112, 'sector': 'Financial Services', 'industry': 'Banks - Regional', 'tgt_up': 0.3689, 'n_analysts': 15, 'fpe': 4.8814197, 'eps0q': 173.4284, 'eps0q_30d': 185.86098, 'up30': 2.0, 'down30': 0.0}
+018260 {'last_earn': '2026-10-28', 'last_surprise': -14.97, 'eps_yoy': -0.0955, 'earn': '2027-01-28 01:00', 'react': '2027-01-28', 'gap_avg': 0.0078, 'gap_max': 0.0244, 'sector': 'Technology', 'industry': 'Information Technology Services', 'tgt_up': 0.1601, 'n_analysts': 20, 'fpe': 20.582388, 'eps0q': 2721.142, 'eps0q_30d': 2932.0444, 'up30': 0.0, 'down30': 2.0}
+017670 {'last_earn': '2026-11-03', 'last_surprise': -9.43, 'eps_yoy': -0.0016, 'earn': '2027-02-04 01:00', 'react': '2027-02-04', 'gap_avg': 0.0074, 'gap_max': 0.0308, 'sector': 'Communication Services', 'industry': 'Telecom Services', 'tgt_up': 0.2889, 'n_analysts': 24, 'fpe': 12.654645, 'eps0q': 1034.2811, 'eps0q_30d': 1112.1661, 'up30': 0.0, 'down30': 1.0}
+241560 {'earn': '2027-02-11 01:00', 'react': '2027-02-11', 'gap_avg': 0.0, 'gap_max': 0.0, 'sector': 'Industrials', 'industry': 'Farm & Heavy Construction Machinery', 'tgt_up': 0.5259, 'n_analysts': 8, 'fpe': 8.984178}
+006360 {'gap_avg': 0.0119, 'gap_max': 0.0326, 'sector': 'Industrials', 'industry': 'Engineering & Construction', 'tgt_up': 0.2409, 'n_analysts': 19, 'fpe': 7.3982425, 'eps0q': 6247.023, 'eps0q_30d': 5523.9087, 'up30': 1.0, 'down30': 0.0}
+161390 {'last_earn': '2026-08-14', 'last_surprise': -15.17, 'eps_yoy': 0.5335, 'earn': '2027-02-04 01:00', 'react': '2027-02-04', 'gap_avg': 0.0093, 'gap_max': 0.0302, 'sector': 'Consumer Cyclical', 'industry': 'Auto Parts', 'tgt_up': 0.3329, 'n_analysts': 17, 'fpe': 5.0626025, 'eps0q': 2627.55, 'eps0q_30d': 3002.1, 'up30': 0.0, 'down30': 1.0}
+008930 {'sector': 'Healthcare', 'industry': 'Medical Distribution', 'err': 'eps:KeyError'}
+144960.KQ: No earnings dates found, symbol may be delisted
+144960 {'err': 'earn:AttributeError', 'sector': 'Technology', 'industry': 'Semiconductor Equipment & Materials', 'fpe': 13.686236}
+105740.KQ: No earnings dates found, symbol may be delisted
+105740 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Industrials', 'industry': 'Metal Fabrication'}
+093320.KQ: No earnings dates found, symbol may be delisted
+093320 {'err': 'earn:AttributeError'}
+340450.KQ: No earnings dates found, symbol may be delisted
+340450 {'err': 'earn:AttributeError', 'sector': 'Healthcare', 'industry': 'Biotechnology', 'fpe': 26.929134}
+302440 {'last_earn': '2026-11-12', 'last_surprise': 134.8, 'eps_yoy': -0.5687, 'earn': '2027-02-03 01:00', 'react': '2027-02-03', 'gap_avg': 0.0068, 'gap_max': 0.0207, 'sector': 'Healthcare', 'industry': 'Biotechnology', 'tgt_up': -0.0718, 'n_analysts': 5, 'fpe': -45.596302, 'eps0q': 132.25, 'eps0q_30d': 218.62, 'up30': 0.0, 'down30': 1.0}
+000100 {'last_earn': '2026-08-14', 'last_surprise': 56.85, 'eps_yoy': 0.5397, 'gap_avg': 0.0109, 'gap_max': 0.0344, 'sector': 'Healthcare', 'industry': 'Drug Manufacturers - Specialty & Generic', 'tgt_up': 0.3843, 'n_analysts': 17, 'fpe': 28.152845, 'eps0q': 147.8339, 'eps0q_30d': 52.8214, 'up30': 0.0, 'down30': 1.0}
+024840.KQ: No earnings dates found, symbol may be delisted
+024840 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Technology', 'industry': 'Electronic Components'}
+017800 {'sector': 'Industrials', 'industry': 'Specialty Industrial Machinery', 'tgt_up': 0.3828, 'n_analysts': 1, 'fpe': 13.028636}
+109610.KQ: No earnings dates found, symbol may be delisted
+109610 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Industrials', 'industry': 'Building Products & Equipment'}
+092870.KQ: No earnings dates found, symbol may be delisted
+092870 {'err': 'earn:AttributeError', 'tgt_up': -0.4449, 'n_analysts': 2}
+089890.KQ: No earnings dates found, symbol may be delisted
+089890 {'err': 'earn:AttributeError', 'tgt_up': 0.5537, 'n_analysts': 1}
+053800 {'sector': 'Technology', 'industry': 'Software - Infrastructure', 'err': 'eps:KeyError'}
+272450 {'sector': 'Industrials', 'industry': 'Airlines', 'tgt_up': 0.0283, 'n_analysts': 6, 'fpe': 7.6140146}
+036710 {'sector': 'Technology', 'industry': 'Semiconductors', 'err': 'eps:KeyError'}
+036540 {'sector': 'Technology', 'industry': 'Semiconductors', 'tgt_up': 0.3201, 'n_analysts': 1, 'fpe': 21.642857}
+035250 {'last_earn': '2026-08-14', 'last_surprise': 50.35, 'eps_yoy': 0.7668, 'earn': '2027-01-27 01:00', 'react': '2027-01-27', 'gap_avg': 0.0072, 'gap_max': 0.0321, 'sector': 'Consumer Cyclical', 'industry': 'Resorts & Casinos', 'tgt_up': 0.3167, 'n_analysts': 15, 'fpe': 9.940615, 'eps0q': 370.471, 'eps0q_30d': 302.93872, 'up30': 0.0, 'down30': 3.0}
+138930 {'last_earn': '2026-08-27', 'last_surprise': 5.92, 'eps_yoy': 0.5882, 'earn': '2027-02-04 01:00', 'react': '2027-02-04', 'gap_avg': 0.0125, 'gap_max': 0.0335, 'sector': 'Financial Services', 'industry': 'Banks - Regional', 'tgt_up': 0.3734, 'n_analysts': 15, 'fpe': 4.9323535, 'eps0q': 415.219, 'eps0q_30d': 236.53796, 'up30': 2.0, 'down30': 1.0}
+003230 {'last_earn': '2026-08-14', 'last_surprise': 7.61, 'eps_yoy': 0.6071, 'gap_avg': 0.0084, 'gap_max': 0.0128, 'sector': 'Consumer Defensive', 'industry': 'Packaged Foods', 'tgt_up': 0.5304, 'n_analysts': 17, 'fpe': 13.531271, 'eps0q': 21944.389, 'eps0q_30d': 16742.83, 'up30': 1.0, 'down30': 0.0}
+425040.KQ: No earnings dates found, symbol may be delisted
+425040 {'err': 'earn:AttributeError', 'sector': 'Basic Materials', 'industry': 'Specialty Chemicals', 'fpe': 10.326005}
+122870 {'last_earn': '2026-08-14', 'last_surprise': 0.81, 'eps_yoy': -0.3287, 'gap_avg': 0.0102, 'gap_max': 0.0319, 'sector': 'Communication Services', 'industry': 'Entertainment', 'tgt_up': 0.3184, 'n_analysts': 18, 'fpe': 16.1538}
+138040 {'last_earn': '2026-08-14', 'last_surprise': 13.27, 'eps_yoy': 0.1557, 'gap_avg': 0.0085, 'gap_max': 0.0158, 'sector': 'Financial Services', 'industry': 'Capital Markets', 'tgt_up': 0.1949, 'n_analysts': 6, 'fpe': 7.224251, 'eps0q': 3466.96, 'eps0q_30d': 3619.63, 'up30': 0.0, 'down30': 1.0}
+034730 {'last_earn': '2026-05-15', 'last_surprise': 456.38, 'eps_yoy': 5.9961, 'earn': '2026-11-16 01:00', 'react': '2026-11-16', 'gap_avg': 0.0115, 'gap_max': 0.0371, 'sector': 'Industrials', 'industry': 'Conglomerates', 'tgt_up': 0.6387, 'n_analysts': 11, 'fpe': 3.3109734, 'eps0q': 51141.86, 'eps0q_30d': 0.0, 'up30': 0.0, 'down30': 0.0}
+002990 {'sector': 'Industrials', 'industry': 'Engineering & Construction', 'tgt_up': -0.5094, 'n_analysts': 2, 'fpe': 5.951686}
+211270.KQ: No earnings dates found, symbol may be delisted
+211270 {'err': 'earn:AttributeError', 'sector': 'Technology', 'industry': 'Communication Equipment'}
+005935: No earnings dates found, symbol may be delisted
+HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"Quote not found for symbol: 005935"}}}
+HTTP Error 404: {"quoteSummary":{"result":null,"error":{"code":"Not Found","description":"Quote not found for symbol: 005935"}}}
+005935 {'err': 'earn:AttributeError'}
+222800 {'last_earn': '2026-08-13', 'last_surprise': 26.76, 'eps_yoy': 1.0358, 'gap_avg': 0.0205, 'gap_max': 0.0482, 'sector': 'Technology', 'industry': 'Semiconductor Equipment & Materials', 'tgt_up': 0.5625, 'n_analysts': 7, 'fpe': 13.091211, 'eps0q': 676.76385, 'eps0q_30d': 1772.4672, 'up30': 1.0, 'down30': 0.0}
+035900 {'last_earn': '2026-08-14', 'last_surprise': -52.11, 'eps_yoy': -0.4009, 'gap_avg': 0.017, 'gap_max': 0.0647, 'sector': 'Communication Services', 'industry': 'Entertainment', 'tgt_up': 0.2581, 'n_analysts': 22, 'fpe': 12.570012, 'eps0q': 540.6257, 'eps0q_30d': 183.3, 'up30': 0.0, 'down30': 0.0}
+036930 {'tgt_up': -0.7565, 'n_analysts': 1, 'err': 'eps:KeyError'}
+032830 {'last_earn': '2026-08-14', 'last_surprise': -5.1, 'eps_yoy': -0.0909, 'earn': '2027-02-19 01:00', 'react': '2027-02-19', 'gap_avg': 0.0135, 'gap_max': 0.0608, 'sector': 'Financial Services', 'industry': 'Insurance - Life', 'tgt_up': 0.5263, 'n_analysts': 17, 'fpe': 9.0405655, 'eps0q': 3490.3352, 'eps0q_30d': 3585.2617, 'up30': 0.0, 'down30': 1.0}
+352820 {'last_earn': '2026-08-14', 'last_surprise': -17.48, 'eps_yoy': 4.5092, 'gap_avg': 0.0094, 'gap_max': 0.0197, 'sector': 'Communication Services', 'industry': 'Entertainment', 'tgt_up': 0.7502, 'n_analysts': 24, 'fpe': 18.0576, 'eps0q': 4034.7546, 'eps0q_30d': 3412.2542, 'up30': 0.0, 'down30': 1.0}
+277810.KQ: No earnings dates found, symbol may be delisted
+277810 {'err': 'earn:AttributeError eps:KeyError', 'sector': 'Industrials', 'industry': 'Specialty Industrial Machinery', 'tgt_up': 0.5956, 'n_analysts': 1}
+000810 {'last_earn': '2026-08-14', 'last_surprise': -4.85, 'eps_yoy': 0.224, 'earn': '2027-02-19 01:00', 'react': '2027-02-19', 'gap_avg': 0.0095, 'gap_max': 0.0172, 'sector': 'Financial Services', 'industry': 'Insurance - Property & Casualty', 'tgt_up': 0.4148, 'n_analysts': 18, 'fpe': 7.1460166, 'eps0q': 12843.95, 'eps0q_30d': 13253.5, 'up30': 0.0, 'down30': 1.0}
+058470 {'last_earn': '2026-08-13', 'last_surprise': 25.18, 'eps_yoy': 0.6033, 'gap_avg': 0.0152, 'gap_max': 0.0327, 'sector': 'Technology', 'industry': 'Semiconductor Equipment & Materials', 'tgt_up': 0.7442, 'n_analysts': 13, 'fpe': 18.612942, 'eps0q': 530.1274, 'eps0q_30d': 514.6132, 'up30': 0.0, 'down30': 1.0}
+403870 {'last_earn': '2026-08-14', 'last_surprise': 21.31, 'gap_avg': 0.0249, 'gap_max': 0.0364, 'sector': 'Technology', 'industry': 'Semiconductor Equipment & Materials', 'tgt_up': 0.8428, 'n_analysts': 8, 'fpe': 18.288935, 'eps0q': 262.0, 'eps0q_30d': 285.0, 'up30': 0.0, 'down30': 1.0}
+000660 {'last_earn': '2026-10-27', 'last_surprise': -34.71, 'eps_yoy': 2.0506, 'earn': '2027-01-27 01:00', 'react': '2027-01-27', 'gap_avg': 0.0234, 'gap_max': 0.0452, 'sector': 'Technology', 'industry': 'Semiconductors', 'tgt_up': 1.547, 'n_analysts': 39, 'fpe': 2.269789, 'eps0q': 118605.54, 'eps0q_30d': 99437.125, 'up30': 6.0, 'down30': 0.0}
+139480 {'last_earn': '2026-08-14', 'last_surprise': -129.26, 'eps_yoy': -3.9897, 'gap_avg': 0.0082, 'gap_max': 0.0245, 'sector': 'Consumer Defensive', 'industry': 'Discount Stores', 'tgt_up': 0.4557, 'n_analysts': 12, 'fpe': 11.20895, 'eps0q': 12983.749, 'eps0q_30d': 12983.749, 'up30': 0.0, 'down30': 0.0}
+005930 {'last_earn': '2026-10-28', 'last_surprise': -16.4, 'eps_yoy': 5.3607, 'earn': '2027-01-27 01:00', 'react': '2027-01-27', 'gap_avg': 0.0152, 'gap_max': 0.0279, 'sector': 'Technology', 'industry': 'Consumer Electronics', 'tgt_up': 1.3089, 'n_analysts': 35, 'fpe': 2.6641266, 'eps0q': 16478.95, 'eps0q_30d': 15049.101, 'up30': 2.0, 'down30': 0.0}
+001450 {'last_earn': '2026-08-14', 'last_surprise': 16.35, 'eps_yoy': 0.5677, 'gap_avg': 0.0044, 'gap_max': 0.009, 'sector': 'Financial Services', 'industry': 'Insurance - Property & Casualty', 'tgt_up': 0.4722, 'n_analysts': 17, 'fpe': 2.7153926, 'eps0q': 2349.559, 'eps0q_30d': 2997.3325, 'up30': 0.0, 'down30': 1.0}
+000990 {'sector': 'Technology', 'industry': 'Semiconductors', 'tgt_up': 1.1242, 'n_analysts': 3, 'fpe': 8.14317}
+컨센서스 비교 기준일 2026-11-01 (700종목)
+DART 028050 00126308 {'op_yoy': 0.3641, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261022'}
+DART 263860 00962223 {'op_yoy': 2.7386, 'op_period': '2026 3분기'}
+DART 012750 00158501 {'op_yoy': -0.2699, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261014'}
+DART 051630 00347734 {'op_yoy': -1.2602, 'op_period': '2026 반기'}
+DART 068270 00413046 {'op_yoy': 0.9742, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261027'}
+DART 003490 00113526 {'op_yoy': -0.6127, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261015'}
+DART 003780 00150439 {'op_yoy': -0.2961, 'op_period': '2026 반기'}
+DART 036460 00261285 {'op_yoy': 0.2799, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261112'}
+DART 077500 00414601 {'op_yoy': 0.6328, 'op_period': '2026 반기'}
+DART 012030 00163345 {'op_yoy': 0.2063, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261112'}
+DART 032640 00231363 {'op_yoy': 0.1015, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261104'}
+DART 064400 00139834 {'op_yoy': 0.0109, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261030'}
+DART 425420 01035368 {'op_yoy': 1.0865, 'op_period': '2026 3분기'}
+DART 294870 01310269 {'op_yoy': 0.7785, 'op_period': '2026 3분기', 'prov_date': '20261022'}
+DART 064290 00479787 {'op_yoy': -1.4452, 'op_period': '2026 3분기'}
+DART 159010 00561732 {'op_yoy': 1.2953, 'op_period': '2026 3분기'}
+DART 121600 00439965 {'op_yoy': 3.8352, 'op_period': '2026 3분기', 'prov_date': '20261103'}
+DART 128940 00828497 {'op_yoy': 0.2752, 'op_period': '2026 3분기', 'prov_date': '20261027'}
+DART 316140 01350869 {'op_yoy': 0.0739, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261023'}
+DART 180640 00983040 {'op_yoy': 1.0914, 'op_period': '2026 3분기'}
+DART 086790 00547583 {'op_yoy': 0.0891, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261023'}
+DART 007070 00140177 {'op_yoy': 0.3136, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261104'}
+DART 089860 00545716 {'op_yoy': 0.1199, 'op_period': '2026 3분기', 'prov_date': '20261105'}
+DART 030530 00216647 {'op_yoy': 0.2496, 'op_period': '2026 반기'}
+DART 034230 00171265 {'op_yoy': -0.0191, 'op_period': '2026 3분기', 'prov_date': '20261110'}
+DART 171090 00327819 {'op_yoy': -1.2271, 'op_period': '2026 반기'}
+DART 380540 01506990 {'op_yoy': -1.6891, 'op_period': '2026 반기'}
+DART 088980 00435297 공시 숫자 없음
+DART 030200 00190321 {'op_yoy': -0.3361, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261110', 'dart_flags': ['불성실공시법인미지정              (지정유예)']}
+DART 282330 01263022 {'op_yoy': 0.3358, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261105'}
+DART 086280 00360595 {'op_yoy': -0.0233, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261030'}
+DART 468530 01688568 {'op_yoy': -3.182, 'op_period': '2026 반기'}
+DART 219130 00617314 {'op_yoy': 1.666, 'op_period': '2026 반기'}
+DART 021240 00170558 {'op_yoy': 0.0975, 'op_period': '2026 3분기', 'prov_date': '20261106'}
+DART 080580 00543107 {'op_yoy': 1.479, 'op_period': '2026 반기'}
+DART 141000 00610083 {'op_yoy': -0.8654, 'op_period': '2026 반기'}
+DART 175330 00980122 {'op_yoy': 0.0878, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261027'}
+DART 006280 00129679 {'op_yoy': -0.6191, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261102'}
+DART 251970 00761059 {'op_yoy': 0.0534, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261109'}
+DART 105560 00688996 {'op_yoy': 0.2291, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261111'}
+DART 430690 01602638 {'op_yoy': -1.5914, 'op_period': '2026 반기'}
+DART 437730 00262266 {'op_yoy': -7.6614, 'op_period': '2026 3분기'}
+DART 328130 01397620 {'op_yoy': -1.6247, 'op_period': '2026 3분기'}
+DART 098120 00568188 {'op_yoy': 1.2229, 'op_period': '2026 반기'}
+DART 055550 00382199 {'op_yoy': 0.1698, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261027'}
+DART 192820 01009789 {'op_yoy': 0.3562, 'op_period': '2026 3분기', 'prov_date': '20261111'}
+DART 323410 01133217 {'op_yoy': 0.0775, 'op_period': '2026 3분기', 'prov_date': '20261104'}
+DART 271560 01238169 {'op_yoy': 0.1788, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261111'}
+DART 001210 00106395 {'op_yoy': -2.0894, 'op_period': '2026 반기', 'dart_flags': ['[기재정정]주요사항보고서(유상증자결정)']}
+DART 261780 01141599 {'op_yoy': -1.7623, 'op_period': '2026 반기'}
+DART 081660 00195229 {'op_yoy': 0.2947, 'op_period': '2026 3분기'}
+DART 079650 00130408 {'op_yoy': -1.131, 'op_period': '2026 3분기'}
+DART 089590 00555874 {'op_yoy': -0.6772, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261103'}
+DART 451760 01685251 {'op_yoy': -1.7529, 'op_period': '2026 3분기'}
+DART 139130 00878915 {'op_yoy': -0.076, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261027'}
+DART 018260 00126186 {'op_yoy': -0.3781, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261029'}
+DART 017670 00159023 {'op_yoy': 0.2186, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261104'}
+DART 241560 01032486 {'op_yoy': 0.1957, 'op_period': '2026 3분기', 'prov_date': '20261029'}
+DART 006360 00120030 {'op_yoy': -0.3165, 'op_period': '2026 3분기', 'prov_date': '20261030'}
+DART 161390 00937324 {'op_yoy': 0.2864, 'op_period': '2026 3분기', 'prov_date': '20261106'}
+DART 008930 00161426 {'op_yoy': 0.1076, 'op_period': '2026 3분기', 'prov_date': '20261027'}
+DART 144960 00521390 {'op_yoy': 1.6096, 'op_period': '2026 반기'}
+DART 105740 00533003 {'op_yoy': 1.3436, 'op_period': '2026 반기', 'prov_date': '20260812'}
+DART 093320 00603348 {'op_yoy': 0.6416, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261111'}
+DART 340450 01432598 {'op_yoy': 1.1831, 'op_period': '2026 반기'}
+DART 302440 01319899 {'op_yoy': -1.9944, 'op_period': '2026 3분기', 'prov_date': '20261105'}
+DART 000100 00145109 {'op_yoy': 0.3448, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261028'}
+DART 024840 00158024 {'op_yoy': 3.9003, 'op_period': '2026 3분기'}
+DART 017800 00164724 {'op_yoy': 0.2033, 'op_period': '2026 반기'}
+DART 109610 00535481 {'op_yoy': -2.0592, 'op_period': '2026 반기'}
+DART 092870 00611736 {'op_yoy': 0.6241, 'op_period': '2026 3분기'}
+DART 089890 00365934 {'op_yoy': 1.1895, 'op_period': '2026 3분기'}
+DART 053800 00298270 {'op_yoy': 0.4728, 'op_period': '2026 3분기', 'prov_date': '20261028'}
+DART 272450 00653024 {'op_yoy': -2.1835, 'op_period': '2026 3분기', 'prov_date': '20261106'}
+DART 036710 00152127 {'op_yoy': 3.2942, 'op_period': '2026 3분기', 'prov_date': '20261109'}
+DART 036540 00301246 {'op_yoy': -1.9931, 'op_period': '2026 3분기'}
+DART 035250 00255619 {'op_yoy': -0.1511, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261106'}
+DART 138930 00858364 {'op_yoy': 0.1236, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261026'}
+DART 003230 00126955 {'op_yoy': 0.3906, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261106'}
+DART 425040 01301252 {'op_yoy': -0.5602, 'op_period': '2026 반기'}
+DART 122870 00613318 {'op_yoy': 0.699, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261109'}
+DART 138040 00860332 {'op_yoy': 0.0903, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261111'}
+DART 034730 00181712 {'op_yoy': 12.3732, 'op_period': '2026 반기'}
+DART 002990 00106313 {'op_yoy': 0.3626, 'op_period': '2026 3분기'}
+DART 211270 00874803 {'op_yoy': -2.2595, 'op_period': '2026 3분기'}
+DART 222800 01095722 {'op_yoy': 109.8801, 'op_period': '2026 3분기', 'prov_date': '20261103'}
+DART 035900 00258689 {'op_yoy': -0.0086, 'op_period': '2026 3분기', 'prov_date': '20261111'}
+DART 036930 00252135 {'op_yoy': -0.7249, 'op_period': '2026 3분기', 'prov_date': '20261104'}
+DART 032830 00126256 {'op_yoy': 0.1863, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261112'}
+DART 352820 01204056 {'op_yoy': -1.293, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261103'}
+DART 277810 01261644 {'op_yoy': -2.0388, 'op_period': '2026 반기'}
+DART 000810 00139214 {'op_yoy': 0.0889, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261112'}
+DART 058470 00369657 {'op_yoy': 0.1726, 'op_period': '2026 3분기'}
+DART 403870 01288827 {'op_yoy': -0.0613, 'op_period': '2026 반기'}
+DART 000660 00164779 {'op_yoy': 4.8939, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261028'}
+DART 139480 00872984 {'op_yoy': -0.2524, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261111'}
+DART 005930 00126380 {'op_yoy': 11.9144, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261029'}
+DART 001450 00164973 {'op_yoy': 0.2525, 'op_period': '2026 반기', 'op_stale': True, 'prov_date': '20261113'}
+DART 000990 00160843 {'op_yoy': 0.2436, 'op_period': '2026 3분기', 'prov_date': '20261112'}
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+Claude 응답 오류 claude-opus-5-5 400 {'type': 'error', 'error': {'type': 'invalid_request_error', 'message': 'Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits.'}, 're
+일봉 3/3 · 받음 3
+/home/runner/work/stock-chart/stock-chart/tossbot/tools/swing_picks.py:605: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+  last = dv[dv.index >= dv.index[-1] - __import__("pandas").Timedelta(days=365)]
+/home/runner/work/stock-chart/stock-chart/tossbot/tools/swing_picks.py:605: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+  last = dv[dv.index >= dv.index[-1] - __import__("pandas").Timedelta(days=365)]
+/home/runner/work/stock-chart/stock-chart/tossbot/tools/swing_picks.py:605: DeprecationWarning: The 'generic' unit for NumPy timedelta is deprecated, and will raise an error in the future. This includes implicit conversion of bare integers (e.g. `+ 1`). Please use a specific unit instead.
+  last = dv[dv.index >= dv.index[-1] - __import__("pandas").Timedelta(days=365)]
