@@ -794,6 +794,32 @@ class Bot:
         c = self.cfg.get("daily_swing", {})
         return (c.get("markets") or {}).get(self.m, []) if c.get("enabled") else []
 
+    def loop_notice(self):
+        """매주 GitHub 에서 돈 '매매 점검 루프' 결과(research/loop-proposals.json)가 새로 나오면 한 번 알림.
+        통과한 수정안은 '제안'일 뿐 — 로봇 설정은 사용자가 승인해야 바뀜."""
+        if self.m != "US" or os.getenv("TOSSBOT_OFFLINE") == "1" or not getattr(self, "dir", None):
+            return
+        url = self.cfg.get("loop_url", "https://raw.githubusercontent.com/ehdqls5892-netizen/stock-chart/main/tossbot/research/loop-proposals.json")
+        seen = Path(self.dir) / "loop_seen.txt"
+        try:
+            last = seen.read_text().strip()
+        except Exception:
+            last = ""
+        import requests
+        j = requests.get(url, timeout=20).json()
+        if not j.get("date") or j["date"] <= last:
+            return
+        seen.write_text(j["date"])
+        b, fin, ps = j.get("base") or {}, j.get("final") or {}, j.get("proposals") or []
+        msg = [f"🔁 매매 점검 루프 결과 ({j['date']}, 미장 10년 · 고치는 기간/확인 기간 나눠 시험)",
+               f"지금 설정: 확인 기간 연 {(b.get('check') or {}).get('cagr', 0):+.1f}%"]
+        if ps:
+            msg.append("통과한 수정안 (승인하셔야 반영돼요):")
+            msg += [f"{i}. {x['desc']} → 연 {x['result']['check']['cagr']:+.1f}%" for i, x in enumerate(ps, 1)]
+        else:
+            msg.append("통과한 수정안 없음 → 지금 설정 그대로")
+        self.notify("\n".join(msg))
+
     def swing_load(self):
         if not self.swing_on() or os.getenv("TOSSBOT_OFFLINE") == "1":
             return
@@ -2571,6 +2597,10 @@ class Bot:
             self.swing_load()
         except Exception as e:
             self.log(f"🧭 스윙 후보 불러오기 오류: {e}")
+        try:
+            Bot.loop_notice(self)
+        except Exception as e:
+            self.log(f"🔁 점검 루프 알림 오류: {e}")
         self.dd_check(flatten=True)
         for p in self.broker.pos.values():
             self.syms.setdefault(p.symbol, SymState(p.symbol)).name = p.name
