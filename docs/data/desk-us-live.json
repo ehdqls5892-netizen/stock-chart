@@ -1,70 +1,105 @@
 {
  "market": "us",
- "date": "2026-11-13",
- "updatedAt": "2026-11-13T17:50+00:00",
- "plans": {},
+ "date": "2026-11-16",
+ "updatedAt": "2026-11-16T17:51+00:00",
+ "plans": {
+  "COST": {
+   "name": "코스트코",
+   "stop": 1000.0,
+   "entryLow": 1055.9,
+   "entryHigh": 1111.81,
+   "t1": 1315.0,
+   "src": "장중 1순위",
+   "score": 60
+  }
+ },
  "watch": [
+  "MU",
+  "INTC",
+  "TSN",
+  "CGON",
+  "COIN",
   "NVDA",
-  "AMAT",
-  "CBRS",
-  "NU",
-  "MOD",
-  "PANW",
-  "ELMT",
-  "CBIO",
-  "OXY"
+  "WMT",
+  "DIS",
+  "HD"
  ],
  "earn_good": {},
  "names": {
+  "NVDA": "엔비디아",
+  "CBRS": "세레브라스",
   "AMD": "AMD",
+  "MU": "마이크론",
+  "INTC": "인텔",
+  "TSN": "타이슨푸드",
+  "CGON": "CG온콜로지",
+  "COIN": "코인베이스",
+  "COST": "코스트코",
   "AVGO": "브로드컴",
   "CRWV": "코어위브",
-  "NVDA": "엔비디아",
-  "AMAT": "어플라이드머티리얼즈",
-  "CSCO": "시스코",
-  "CBRS": "세레브라스",
-  "NU": "누 홀딩스",
-  "MOD": "모딘",
-  "MSFT": "마이크로소프트",
-  "PANW": "팔로알토 네트웍스",
-  "ELMT": "엘멧 그룹",
-  "CBIO": "크레센트 바이오파마",
-  "OXY": "옥시덴탈 페트롤리엄",
-  "MU": "마이크론",
-  "SNDK": "샌디스크"
+  "NBIS": "네비우스",
+  "HOOD": "로빈후드",
+  "META": "메타",
+  "WMT": "월마트",
+  "DIS": "디즈니",
+  "HD": "홈디포"
  },
  "impact": {
-  "NVDA": {
+  "MU": {
    "impact": "악재",
-   "title": "엔비디아 사태로 반도체주 급락"
+   "title": "미국 반도체주 급락"
   },
   "AMD": {
    "impact": "악재",
-   "title": "엔비디아 사태로 반도체주 급락"
+   "title": "미국 반도체주 급락"
   },
   "AVGO": {
    "impact": "악재",
-   "title": "엔비디아 사태로 반도체주 급락"
+   "title": "미국 반도체주 급락"
   },
-  "MU": {
+  "CRWV": {
    "impact": "악재",
-   "title": "미국 메모리 반도체 약세"
+   "title": "미국, AI 칩 수출 규제 확대"
   },
-  "SNDK": {
+  "NBIS": {
    "impact": "악재",
-   "title": "미국 메모리 반도체 약세"
+   "title": "미국, AI 칩 수출 규제 확대"
   },
-  "CBRS": {
+  "NVDA": {
+   "impact": "중립",
+   "title": "젠슨 황 사임 뒤 첫 엔비디아 실적"
+  },
+  "COIN": {
+   "impact": "악재",
+   "title": "암호화폐 관련주 동반 급락"
+  },
+  "HOOD": {
+   "impact": "악재",
+   "title": "암호화폐 관련주 동반 급락"
+  },
+  "META": {
+   "impact": "악재",
+   "title": "메타, 빚 부담 우려로 하락"
+  },
+  "WMT": {
+   "impact": "중립",
+   "title": "이번 주 실적: 월마트·홈디포·디즈니"
+  },
+  "DIS": {
+   "impact": "중립",
+   "title": "이번 주 실적: 월마트·홈디포·디즈니"
+  },
+  "HD": {
+   "impact": "중립",
+   "title": "이번 주 실적: 월마트·홈디포·디즈니"
+  },
+  "TSN": {
    "impact": "호재",
-   "title": "세레브라스 실적 서프라이즈"
+   "title": "방어주·제약 강세"
   },
-  "CSCO": {
-   "impact": "악재",
-   "title": "시스코, 실적 좋았지만 하락"
-  },
-  "MSFT": {
-   "impact": "악재",
-   "title": "마이크로소프트 서비스 장애"
+  "CGON": {
+   "impact": "호재",
+   "title": "방어주·제약 강세"
   }
  }
 }
