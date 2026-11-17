@@ -1,105 +1,67 @@
 {
  "market": "us",
- "date": "2026-11-16",
- "updatedAt": "2026-11-16T17:51+00:00",
+ "date": "2026-11-17",
+ "updatedAt": "2026-11-17T17:51+00:00",
  "plans": {
   "COST": {
    "name": "코스트코",
    "stop": 1000.0,
-   "entryLow": 1055.9,
-   "entryHigh": 1111.81,
-   "t1": 1315.0,
+   "entryLow": 1000.0,
+   "entryHigh": 1114.69,
+   "t1": 1344.07,
    "src": "장중 1순위",
-   "score": 60
+   "score": 57
   }
  },
  "watch": [
-  "MU",
-  "INTC",
-  "TSN",
-  "CGON",
-  "COIN",
-  "NVDA",
-  "WMT",
+  "HD",
   "DIS",
-  "HD"
+  "COHR",
+  "PRAX",
+  "NVDA"
  ],
  "earn_good": {},
  "names": {
   "NVDA": "엔비디아",
-  "CBRS": "세레브라스",
-  "AMD": "AMD",
-  "MU": "마이크론",
-  "INTC": "인텔",
-  "TSN": "타이슨푸드",
-  "CGON": "CG온콜로지",
-  "COIN": "코인베이스",
-  "COST": "코스트코",
-  "AVGO": "브로드컴",
-  "CRWV": "코어위브",
-  "NBIS": "네비우스",
-  "HOOD": "로빈후드",
-  "META": "메타",
-  "WMT": "월마트",
+  "UNH": "유나이티드헬스",
+  "HD": "홈디포",
   "DIS": "디즈니",
-  "HD": "홈디포"
+  "TSM": "TSMC",
+  "AMD": "AMD",
+  "COHR": "코히런트",
+  "SHOP": "쇼피파이",
+  "AVGO": "브로드컴",
+  "TSN": "타이슨푸드",
+  "PRAX": "프락시스 프리시전"
  },
  "impact": {
-  "MU": {
+  "NVDA": {
+   "impact": "중립",
+   "title": "오늘 밤 엔비디아 실적 발표"
+  },
+  "TSM": {
    "impact": "악재",
-   "title": "미국 반도체주 급락"
+   "title": "뉴욕증시 이틀째 하락"
   },
   "AMD": {
    "impact": "악재",
-   "title": "미국 반도체주 급락"
+   "title": "뉴욕증시 이틀째 하락"
   },
-  "AVGO": {
-   "impact": "악재",
-   "title": "미국 반도체주 급락"
-  },
-  "CRWV": {
-   "impact": "악재",
-   "title": "미국, AI 칩 수출 규제 확대"
-  },
-  "NBIS": {
-   "impact": "악재",
-   "title": "미국, AI 칩 수출 규제 확대"
-  },
-  "NVDA": {
-   "impact": "중립",
-   "title": "젠슨 황 사임 뒤 첫 엔비디아 실적"
-  },
-  "COIN": {
-   "impact": "악재",
-   "title": "암호화폐 관련주 동반 급락"
-  },
-  "HOOD": {
-   "impact": "악재",
-   "title": "암호화폐 관련주 동반 급락"
-  },
-  "META": {
-   "impact": "악재",
-   "title": "메타, 빚 부담 우려로 하락"
-  },
-  "WMT": {
-   "impact": "중립",
-   "title": "이번 주 실적: 월마트·홈디포·디즈니"
+  "COHR": {
+   "impact": "호재",
+   "title": "미국, 중국산 광통신 부품 수입 규제 추진"
   },
   "DIS": {
-   "impact": "중립",
-   "title": "이번 주 실적: 월마트·홈디포·디즈니"
+   "impact": "호재",
+   "title": "디즈니 실적 예상 넘고 배당 33% 인상"
   },
   "HD": {
-   "impact": "중립",
-   "title": "이번 주 실적: 월마트·홈디포·디즈니"
+   "impact": "악재",
+   "title": "홈디포 실적 무난, 주가는 하락"
   },
-  "TSN": {
-   "impact": "호재",
-   "title": "방어주·제약 강세"
-  },
-  "CGON": {
-   "impact": "호재",
-   "title": "방어주·제약 강세"
+  "UNH": {
+   "impact": "악재",
+   "title": "유나이티드헬스 3% 넘게 하락"
   }
  }
 }
