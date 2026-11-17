@@ -1,6 +1,6 @@
 {
  "market": "kr",
- "date": "2026-11-17",
+ "date": "2026-11-18",
  "upcoming": {},
  "good": {},
  "bad": {},
@@ -469,13 +469,6 @@
    "opinion": "매수",
    "count": 1
   },
-  "251270": {
-   "name": "넷마블",
-   "avg": 50200,
-   "up": 50.3,
-   "opinion": "매수",
-   "count": 5
-  },
   "259960": {
    "name": "크래프톤",
    "avg": 308235,
@@ -503,6 +496,13 @@
    "up": 131,
    "opinion": "",
    "count": 4
+  },
+  "272450": {
+   "name": "진에어",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
   },
   "277810": {
    "name": "레인보우로보틱스",
@@ -672,6 +672,13 @@
    "opinion": "매수",
    "count": null
   },
+  "446840": {
+   "name": "지슨",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
+  },
   "451760": {
    "name": "컨텍",
    "avg": null,
@@ -692,6 +699,13 @@
    "up": 80.8,
    "opinion": "매수",
    "count": 6
+  },
+  "493260": {
+   "name": "옵토닉스",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
   },
   "000100": {
    "name": "유한양행",
@@ -782,6 +796,13 @@
    "avg": 1872857,
    "up": 59.7,
    "opinion": "매수",
+   "count": 7
+  },
+  "003490": {
+   "name": "대한항공",
+   "avg": 40285,
+   "up": 26.9,
+   "opinion": "매수 (7곳 모두 매수)",
    "count": 7
   },
   "003550": {
@@ -875,13 +896,6 @@
    "opinion": "매수",
    "count": 9
   },
-  "009540": {
-   "name": "HD한국조선해양",
-   "avg": 433333,
-   "up": 87.2,
-   "opinion": "매수",
-   "count": 3
-  },
   "009830": {
    "name": "한화솔루션",
    "avg": 38000,
@@ -896,33 +910,26 @@
    "opinion": "매수",
    "count": 5
   },
-  "010120": {
-   "name": "LS ELECTRIC",
-   "avg": 271692,
-   "up": 81.6,
-   "opinion": "매수",
-   "count": 13
-  },
-  "010130": {
-   "name": "고려아연",
-   "avg": 1410000,
-   "up": 63.6,
-   "opinion": "매수",
-   "count": 2
-  },
-  "010140": {
-   "name": "삼성중공업",
-   "avg": 29000,
-   "up": 82.6,
-   "opinion": "매수",
-   "count": 6
-  },
   "010950": {
    "name": "S-Oil",
    "avg": 191667,
    "up": 67.1,
    "opinion": "매수",
    "count": 6
+  },
+  "012200": {
+   "name": "계양전기",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
+  },
+  "014990": {
+   "name": "인디에프",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
   },
   "015760": {
    "name": "한국전력",
@@ -959,13 +966,6 @@
    "opinion": "의견 없음",
    "count": null
   },
-  "023160": {
-   "name": "태광",
-   "avg": 35000,
-   "up": 34.4,
-   "opinion": "매수",
-   "count": 1
-  },
   "023530": {
    "name": "롯데쇼핑",
    "avg": 159000,
@@ -994,11 +994,18 @@
    "opinion": "매수",
    "count": 5
   },
+  "033340": {
+   "name": "좋은사람들",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
+  },
   "034020": {
    "name": "두산에너빌리티",
-   "avg": 110667,
-   "up": 135.7,
-   "opinion": "",
+   "avg": 119667,
+   "up": 181.2,
+   "opinion": "매수",
    "count": 3
   },
   "035420": {
@@ -1071,19 +1078,12 @@
    "opinion": "매수",
    "count": 5
   },
-  "042660": {
-   "name": "한화오션",
-   "avg": 101800,
-   "up": 103.6,
-   "opinion": "매수",
-   "count": 5
-  },
-  "047050": {
-   "name": "포스코인터내셔널",
-   "avg": 87571,
-   "up": 80,
-   "opinion": "매수",
-   "count": 7
+  "047770": {
+   "name": "코데즈컴바인",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
   },
   "047810": {
    "name": "한국항공우주",
@@ -1169,13 +1169,6 @@
    "opinion": "",
    "count": null
   },
-  "086280": {
-   "name": "현대글로비스",
-   "avg": 313077,
-   "up": 53.1,
-   "opinion": "매수",
-   "count": 2
-  },
   "086520": {
    "name": "에코프로",
    "avg": 150000,
@@ -1196,6 +1189,13 @@
    "up": null,
    "opinion": "매수",
    "count": null
+  },
+  "089590": {
+   "name": "제주항공",
+   "avg": 7500,
+   "up": null,
+   "opinion": "",
+   "count": 6
   },
   "094360": {
    "name": "칩스앤미디어",
