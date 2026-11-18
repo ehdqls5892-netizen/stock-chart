@@ -1,67 +1,93 @@
 {
  "market": "us",
- "date": "2026-11-17",
- "updatedAt": "2026-11-17T17:51+00:00",
+ "date": "2026-11-18",
+ "updatedAt": "2026-11-18T17:51+00:00",
  "plans": {
-  "COST": {
-   "name": "코스트코",
-   "stop": 1000.0,
-   "entryLow": 1000.0,
-   "entryHigh": 1114.69,
-   "t1": 1344.07,
+  "NVDA": {
+   "name": "엔비디아",
+   "stop": 148.8,
+   "entryLow": 148.8,
+   "entryHigh": 155.46,
+   "t1": 162.87,
    "src": "장중 1순위",
-   "score": 57
+   "t2": 170.0,
+   "score": 58
   }
  },
  "watch": [
-  "HD",
-  "DIS",
-  "COHR",
-  "PRAX",
-  "NVDA"
+  "TJX",
+  "TGT",
+  "LOW",
+  "UNH",
+  "TTWO",
+  "PANW",
+  "ELV",
+  "TNDM",
+  "NVDA",
+  "AVGO",
+  "AMZN"
  ],
  "earn_good": {},
  "names": {
   "NVDA": "엔비디아",
-  "UNH": "유나이티드헬스",
-  "HD": "홈디포",
-  "DIS": "디즈니",
-  "TSM": "TSMC",
-  "AMD": "AMD",
-  "COHR": "코히런트",
-  "SHOP": "쇼피파이",
   "AVGO": "브로드컴",
-  "TSN": "타이슨푸드",
-  "PRAX": "프락시스 프리시전"
+  "TJX": "TJX",
+  "TGT": "타깃",
+  "LOW": "로우스",
+  "CRWV": "코어위브",
+  "AMZN": "아마존",
+  "UNH": "유나이티드헬스",
+  "TTWO": "테이크투",
+  "PANW": "팔로알토 네트웍스",
+  "ELV": "엘리번스 헬스",
+  "TNDM": "탠덤 다이어비티스",
+  "HUM": "휴마나",
+  "MRVL": "마벨"
  },
  "impact": {
   "NVDA": {
    "impact": "중립",
-   "title": "오늘 밤 엔비디아 실적 발표"
+   "title": "엔비디아, 좋은 실적에도 주가 하락"
   },
-  "TSM": {
-   "impact": "악재",
-   "title": "뉴욕증시 이틀째 하락"
+  "AVGO": {
+   "impact": "중립",
+   "title": "앤트로픽, 오늘 밤 공모가 결정·내일 상장"
   },
-  "AMD": {
-   "impact": "악재",
-   "title": "뉴욕증시 이틀째 하락"
-  },
-  "COHR": {
-   "impact": "호재",
-   "title": "미국, 중국산 광통신 부품 수입 규제 추진"
-  },
-  "DIS": {
-   "impact": "호재",
-   "title": "디즈니 실적 예상 넘고 배당 33% 인상"
-  },
-  "HD": {
-   "impact": "악재",
-   "title": "홈디포 실적 무난, 주가는 하락"
+  "AMZN": {
+   "impact": "중립",
+   "title": "앤트로픽, 오늘 밤 공모가 결정·내일 상장"
   },
   "UNH": {
    "impact": "악재",
-   "title": "유나이티드헬스 3% 넘게 하락"
+   "title": "미국 건강보험주 급락"
+  },
+  "HUM": {
+   "impact": "악재",
+   "title": "미국 건강보험주 급락"
+  },
+  "TJX": {
+   "impact": "호재",
+   "title": "TJX, 실적 호조로 10% 급등"
+  },
+  "TGT": {
+   "impact": "중립",
+   "title": "타깃 오르고 로우스 내려"
+  },
+  "LOW": {
+   "impact": "중립",
+   "title": "타깃 오르고 로우스 내려"
+  },
+  "CRWV": {
+   "impact": "악재",
+   "title": "AI 클라우드주, 아침 상승 반납"
+  },
+  "MRVL": {
+   "impact": "악재",
+   "title": "AI 클라우드주, 아침 상승 반납"
+  },
+  "TTWO": {
+   "impact": "호재",
+   "title": "GTA6 내일 출시, 테이크투 급등"
   }
  }
 }
