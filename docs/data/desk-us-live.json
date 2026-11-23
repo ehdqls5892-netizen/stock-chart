@@ -1,70 +1,78 @@
 {
  "market": "us",
- "date": "2026-11-20",
- "updatedAt": "2026-11-20T17:52+00:00",
- "plans": {},
+ "date": "2026-11-23",
+ "updatedAt": "2026-11-23T17:51+00:00",
+ "plans": {
+  "NVDA": {
+   "name": "엔비디아",
+   "stop": 145.98,
+   "entryLow": 156.16,
+   "entryHigh": 166.33,
+   "t1": 190.32,
+   "src": "장중 1순위",
+   "t2": 220.0,
+   "score": 77
+  }
+ },
  "watch": [
   "NVDA",
+  "DELL",
   "MU",
+  "INTC",
+  "CRWV",
   "AMD",
-  "ANT",
-  "INTU",
-  "GAP",
-  "GIS",
-  "MH",
-  "LEN"
+  "TXN",
+  "ZS",
+  "CRWD",
+  "KYMR",
+  "DG"
  ],
  "earn_good": {},
  "names": {
   "NVDA": "엔비디아",
-  "AVGO": "브로드컴",
+  "DELL": "델",
   "MU": "마이크론",
-  "AMD": "AMD",
-  "WDC": "웨스턴디지털",
-  "ANT": "앤트로픽",
-  "INTU": "인튜이트",
-  "GAP": "갭",
-  "GIS": "제너럴밀스",
   "INTC": "인텔",
-  "MH": "맥그로힐",
-  "LEN": "레나"
+  "CRWV": "코어위브",
+  "AMD": "AMD",
+  "TXN": "텍사스인스트루먼트",
+  "ZS": "지스케일러",
+  "CRWD": "크라우드스트라이크",
+  "KYMR": "카이메라",
+  "DG": "달러제너럴"
  },
  "impact": {
   "NVDA": {
-   "impact": "악재",
-   "title": "미국 반도체주 10% 안팎 폭락"
-  },
-  "AVGO": {
-   "impact": "악재",
-   "title": "미국 반도체주 10% 안팎 폭락"
+   "impact": "호재",
+   "title": "젠슨 황, 엔비디아 CEO 복귀"
   },
   "MU": {
-   "impact": "악재",
-   "title": "미국 반도체주 10% 안팎 폭락"
+   "impact": "호재",
+   "title": "미국 반도체주 동반 급등"
   },
-  "ANT": {
-   "impact": "악재",
-   "title": "앤트로픽 상장 둘째 날 -10.7%"
+  "INTC": {
+   "impact": "호재",
+   "title": "미국 반도체주 동반 급등"
   },
   "AMD": {
-   "impact": "악재",
-   "title": "AMD 이틀째 급락"
-  },
-  "INTU": {
-   "impact": "악재",
-   "title": "인튜이트, 실적 좋았지만 -9%"
-  },
-  "GAP": {
    "impact": "호재",
-   "title": "갭, 실적 호조로 +14.6%"
+   "title": "미국 반도체주 동반 급등"
   },
-  "GIS": {
-   "impact": "호재",
-   "title": "식품·주택주로 돈 이동"
+  "CRWD": {
+   "impact": "중립",
+   "title": "크라우드스트라이크, 지스케일러 인수"
   },
-  "LEN": {
+  "ZS": {
+   "impact": "중립",
+   "title": "크라우드스트라이크, 지스케일러 인수"
+  },
+  "DELL": {
    "impact": "호재",
-   "title": "식품·주택주로 돈 이동"
+   "title": "AI 서버·클라우드주 급등"
+  },
+  "CRWV": {
+   "impact": "호재",
+   "title": "AI 서버·클라우드주 급등"
   }
  }
 }
