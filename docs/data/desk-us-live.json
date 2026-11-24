@@ -1,78 +1,92 @@
 {
  "market": "us",
- "date": "2026-11-23",
- "updatedAt": "2026-11-23T17:51+00:00",
+ "date": "2026-11-24",
+ "updatedAt": "2026-11-24T17:50+00:00",
  "plans": {
-  "NVDA": {
-   "name": "엔비디아",
-   "stop": 145.98,
-   "entryLow": 156.16,
-   "entryHigh": 166.33,
-   "t1": 190.32,
+  "AAPL": {
+   "name": "애플",
+   "stop": 340.47,
+   "entryLow": 345.89,
+   "entryHigh": 351.31,
+   "t1": 351.67,
    "src": "장중 1순위",
-   "t2": 220.0,
-   "score": 77
+   "t2": 360.83,
+   "score": 50
   }
  },
  "watch": [
-  "NVDA",
-  "DELL",
-  "MU",
-  "INTC",
-  "CRWV",
-  "AMD",
-  "TXN",
-  "ZS",
-  "CRWD",
-  "KYMR",
-  "DG"
+  "ADI",
+  "ANF",
+  "DKS",
+  "INSM",
+  "VNT",
+  "GKOS",
+  "EW",
+  "KSS",
+  "TSLA"
  ],
  "earn_good": {},
  "names": {
   "NVDA": "엔비디아",
-  "DELL": "델",
   "MU": "마이크론",
-  "INTC": "인텔",
-  "CRWV": "코어위브",
+  "HPE": "HPE",
+  "ADI": "아날로그디바이스",
   "AMD": "AMD",
-  "TXN": "텍사스인스트루먼트",
-  "ZS": "지스케일러",
-  "CRWD": "크라우드스트라이크",
-  "KYMR": "카이메라",
-  "DG": "달러제너럴"
+  "AAPL": "애플",
+  "TSLA": "테슬라",
+  "ANF": "애버크롬비앤피치",
+  "DKS": "딕스스포팅굿즈",
+  "INSM": "인스메드",
+  "VNT": "본티어",
+  "GKOS": "글라우코스",
+  "EW": "에드워즈라이프사이언스",
+  "KSS": "콜스",
+  "ANT": "앤트로픽"
  },
  "impact": {
   "NVDA": {
-   "impact": "호재",
-   "title": "젠슨 황, 엔비디아 CEO 복귀"
+   "impact": "악재",
+   "title": "미국 반도체 하루 만에 급락"
   },
   "MU": {
-   "impact": "호재",
-   "title": "미국 반도체주 동반 급등"
-  },
-  "INTC": {
-   "impact": "호재",
-   "title": "미국 반도체주 동반 급등"
+   "impact": "악재",
+   "title": "미국 반도체 하루 만에 급락"
   },
   "AMD": {
-   "impact": "호재",
-   "title": "미국 반도체주 동반 급등"
+   "impact": "악재",
+   "title": "미국 반도체 하루 만에 급락"
   },
-  "CRWD": {
+  "ADI": {
+   "impact": "악재",
+   "title": "아날로그디바이스 -18%"
+  },
+  "HPE": {
+   "impact": "악재",
+   "title": "HPE, 좋은 실적에도 -13%"
+  },
+  "INSM": {
+   "impact": "호재",
+   "title": "사노피, 인스메드 410억달러 인수"
+  },
+  "ANF": {
+   "impact": "호재",
+   "title": "소매주 실적 호조로 급등"
+  },
+  "DKS": {
+   "impact": "호재",
+   "title": "소매주 실적 호조로 급등"
+  },
+  "KSS": {
+   "impact": "호재",
+   "title": "소매주 실적 호조로 급등"
+  },
+  "ANT": {
+   "impact": "악재",
+   "title": "앤트로픽, 공모가 아래로"
+  },
+  "TSLA": {
    "impact": "중립",
-   "title": "크라우드스트라이크, 지스케일러 인수"
-  },
-  "ZS": {
-   "impact": "중립",
-   "title": "크라우드스트라이크, 지스케일러 인수"
-  },
-  "DELL": {
-   "impact": "호재",
-   "title": "AI 서버·클라우드주 급등"
-  },
-  "CRWV": {
-   "impact": "호재",
-   "title": "AI 서버·클라우드주 급등"
+   "title": "테슬라·스페이스X 합병 준비"
   }
  }
 }
