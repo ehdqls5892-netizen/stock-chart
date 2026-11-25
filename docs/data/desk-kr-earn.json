@@ -1,8 +1,7 @@
 {
  "market": "kr",
- "date": "2026-11-25",
+ "date": "2026-11-26",
  "upcoming": {
-  "033640": "2026-11-25",
   "004020": "2026-11-26",
   "000270": "2026-11-30"
  },
@@ -95,6 +94,13 @@
    "opinion": "매수",
    "count": 2
   },
+  "150900": {
+   "name": "파수AI",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
+  },
   "180640": {
    "name": "한진칼",
    "avg": null,
@@ -118,10 +124,10 @@
   },
   "192820": {
    "name": "코스맥스",
-   "avg": 384167,
-   "up": 39.4,
+   "avg": 393750,
+   "up": 20.4,
    "opinion": "매수",
-   "count": 6
+   "count": 8
   },
   "196170": {
    "name": "알테오젠",
@@ -132,10 +138,10 @@
   },
   "207940": {
    "name": "삼성바이오로직스",
-   "avg": 1942857,
-   "up": 36.5,
+   "avg": 1955556,
+   "up": 43.5,
    "opinion": "매수",
-   "count": 7
+   "count": 9
   },
   "209640": {
    "name": "와이제이링크",
@@ -277,13 +283,6 @@
    "opinion": "매수",
    "count": 13
   },
-  "356860": {
-   "name": "티엘비",
-   "avg": 80636,
-   "up": null,
-   "opinion": "매수",
-   "count": null
-  },
   "372320": {
    "name": "큐로셀",
    "avg": null,
@@ -333,6 +332,13 @@
    "opinion": "매수",
    "count": 3
   },
+  "406820": {
+   "name": "뷰티스킨",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
+  },
   "439260": {
    "name": "대한조선",
    "avg": 70000,
@@ -368,12 +374,26 @@
    "opinion": "",
    "count": null
   },
+  "000100": {
+   "name": "유한양행",
+   "avg": 116000,
+   "up": 38.9,
+   "opinion": "매수",
+   "count": 5
+  },
   "000150": {
    "name": "두산",
    "avg": 1125000,
    "up": 90,
    "opinion": "매수",
    "count": 4
+  },
+  "000250": {
+   "name": "삼천당제약",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
   },
   "000270": {
    "name": "기아",
@@ -417,11 +437,25 @@
    "opinion": "",
    "count": null
   },
+  "003350": {
+   "name": "한국화장품제조",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
+  },
   "003490": {
    "name": "대한항공",
    "avg": 40285,
    "up": 26.9,
    "opinion": "매수 (7곳 모두 매수)",
+   "count": 7
+  },
+  "004020": {
+   "name": "현대제철",
+   "avg": 40429,
+   "up": null,
+   "opinion": "매수",
    "count": 7
   },
   "005380": {
@@ -445,13 +479,6 @@
    "opinion": "매수",
    "count": 7
   },
-  "005935": {
-   "name": "삼성전자우",
-   "avg": null,
-   "up": null,
-   "opinion": "",
-   "count": null
-  },
   "006400": {
    "name": "삼성SDI",
    "avg": 732000,
@@ -472,13 +499,6 @@
    "up": 121.5,
    "opinion": "",
    "count": 6
-  },
-  "007810": {
-   "name": "코리아써키트",
-   "avg": 85700,
-   "up": -0.8,
-   "opinion": "매수",
-   "count": null
   },
   "008770": {
    "name": "호텔신라",
@@ -578,13 +598,6 @@
    "opinion": "매수 (4.0/5)",
    "count": 5
   },
-  "036710": {
-   "name": "심텍홀딩스",
-   "avg": null,
-   "up": null,
-   "opinion": "",
-   "count": null
-  },
   "036930": {
    "name": "주성엔지니어링",
    "avg": 145000,
@@ -620,15 +633,22 @@
    "opinion": "",
    "count": null
   },
-  "047810": {
-   "name": "한국항공우주",
-   "avg": 158455,
-   "up": 45.4,
-   "opinion": "매수",
-   "count": 11
+  "048770": {
+   "name": "TPC로보틱스",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
   },
   "053450": {
    "name": "세코닉스",
+   "avg": null,
+   "up": null,
+   "opinion": "",
+   "count": null
+  },
+  "053800": {
+   "name": "안랩",
    "avg": null,
    "up": null,
    "opinion": "",
@@ -678,8 +698,8 @@
   },
   "068270": {
    "name": "셀트리온",
-   "avg": 291579,
-   "up": 36.3,
+   "avg": 307778,
+   "up": 41.8,
    "opinion": "매수",
    "count": 9
   },
@@ -689,13 +709,6 @@
    "up": 49.3,
    "opinion": "매수",
    "count": 1
-  },
-  "079550": {
-   "name": "LIG디펜스앤에어로스페이스",
-   "avg": 580000,
-   "up": null,
-   "opinion": "매수",
-   "count": 3
   },
   "085620": {
    "name": "미래에셋생명",
@@ -717,13 +730,6 @@
    "up": 67.1,
    "opinion": "매수",
    "count": 7
-  },
-  "089030": {
-   "name": "테크윙",
-   "avg": null,
-   "up": null,
-   "opinion": "매수",
-   "count": null
   },
   "089590": {
    "name": "제주항공",
@@ -766,13 +772,6 @@
    "up": 63,
    "opinion": "매수",
    "count": 6
-  },
-  "099320": {
-   "name": "쎄트렉아이",
-   "avg": 68000,
-   "up": null,
-   "opinion": "매수",
-   "count": null
   },
   "18064K": {
    "name": "한진칼우",
