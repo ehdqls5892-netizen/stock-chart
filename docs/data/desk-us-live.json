@@ -1,92 +1,83 @@
 {
  "market": "us",
- "date": "2026-11-24",
- "updatedAt": "2026-11-24T17:50+00:00",
- "plans": {
-  "AAPL": {
-   "name": "애플",
-   "stop": 340.47,
-   "entryLow": 345.89,
-   "entryHigh": 351.31,
-   "t1": 351.67,
-   "src": "장중 1순위",
-   "t2": 360.83,
-   "score": 50
-  }
- },
+ "date": "2026-11-25",
+ "updatedAt": "2026-11-25T17:51+00:00",
+ "plans": {},
  "watch": [
-  "ADI",
-  "ANF",
-  "DKS",
+  "HPQ",
+  "MU",
+  "AMD",
+  "AMBA",
+  "BZ",
+  "ULTA",
+  "DLTR",
   "INSM",
-  "VNT",
-  "GKOS",
-  "EW",
-  "KSS",
-  "TSLA"
+  "WDAY",
+  "DE"
  ],
  "earn_good": {},
  "names": {
   "NVDA": "엔비디아",
+  "DELL": "델",
+  "AVGO": "브로드컴",
+  "HPQ": "HP",
   "MU": "마이크론",
-  "HPE": "HPE",
-  "ADI": "아날로그디바이스",
   "AMD": "AMD",
+  "MSFT": "마이크로소프트",
   "AAPL": "애플",
-  "TSLA": "테슬라",
-  "ANF": "애버크롬비앤피치",
-  "DKS": "딕스스포팅굿즈",
+  "AMBA": "앰바렐라",
+  "BZ": "칸쥔(BOSS직빙)",
+  "ULTA": "울타 뷰티",
+  "DLTR": "달러트리",
   "INSM": "인스메드",
-  "VNT": "본티어",
-  "GKOS": "글라우코스",
-  "EW": "에드워즈라이프사이언스",
-  "KSS": "콜스",
-  "ANT": "앤트로픽"
+  "NTNX": "뉴타닉스",
+  "WDAY": "워크데이",
+  "DE": "디어"
  },
  "impact": {
   "NVDA": {
    "impact": "악재",
-   "title": "미국 반도체 하루 만에 급락"
+   "title": "나스닥 -3.8%, AI주 이틀째 급락"
   },
   "MU": {
    "impact": "악재",
-   "title": "미국 반도체 하루 만에 급락"
+   "title": "나스닥 -3.8%, AI주 이틀째 급락"
   },
   "AMD": {
    "impact": "악재",
-   "title": "미국 반도체 하루 만에 급락"
+   "title": "나스닥 -3.8%, AI주 이틀째 급락"
   },
-  "ADI": {
+  "DELL": {
    "impact": "악재",
-   "title": "아날로그디바이스 -18%"
+   "title": "델, 깜짝 실적에도 -7%"
   },
-  "HPE": {
+  "HPQ": {
+   "impact": "호재",
+   "title": "HP, 실적 호조로 +10%"
+  },
+  "AVGO": {
    "impact": "악재",
-   "title": "HPE, 좋은 실적에도 -13%"
+   "title": "브로드컴 등 반도체 -6% 안팎"
   },
   "INSM": {
    "impact": "호재",
-   "title": "사노피, 인스메드 410억달러 인수"
+   "title": "사노피, 인스메드 인수"
   },
-  "ANF": {
-   "impact": "호재",
-   "title": "소매주 실적 호조로 급등"
-  },
-  "DKS": {
-   "impact": "호재",
-   "title": "소매주 실적 호조로 급등"
-  },
-  "KSS": {
-   "impact": "호재",
-   "title": "소매주 실적 호조로 급등"
-  },
-  "ANT": {
+  "AMBA": {
    "impact": "악재",
-   "title": "앤트로픽, 공모가 아래로"
+   "title": "앰바렐라·뉴타닉스 -18%대"
   },
-  "TSLA": {
+  "NTNX": {
+   "impact": "악재",
+   "title": "앰바렐라·뉴타닉스 -18%대"
+  },
+  "WDAY": {
    "impact": "중립",
-   "title": "테슬라·스페이스X 합병 준비"
+   "title": "워크데이·디어, 실적 반응 엇갈림"
+  },
+  "DE": {
+   "impact": "중립",
+   "title": "워크데이·디어, 실적 반응 엇갈림"
   }
  }
 }
