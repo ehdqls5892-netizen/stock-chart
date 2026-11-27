@@ -1,83 +1,71 @@
 {
  "market": "us",
- "date": "2026-11-25",
- "updatedAt": "2026-11-25T17:51+00:00",
- "plans": {},
+ "date": "2026-11-27",
+ "updatedAt": "2026-11-27T17:51+00:00",
+ "plans": {
+  "PLTR": {
+   "name": "팔란티어",
+   "stop": 159.64,
+   "entryLow": 159.64,
+   "entryHigh": 170.72,
+   "t1": 222.25,
+   "src": "장중 1순위",
+   "score": 56
+  }
+ },
  "watch": [
-  "HPQ",
+  "SNDK",
   "MU",
+  "MRVL",
+  "COHR",
+  "VRTX",
+  "AVGO",
   "AMD",
-  "AMBA",
-  "BZ",
-  "ULTA",
-  "DLTR",
-  "INSM",
-  "WDAY",
-  "DE"
+  "BBD"
  ],
  "earn_good": {},
  "names": {
-  "NVDA": "엔비디아",
+  "SNDK": "샌디스크",
+  "MU": "마이크론",
+  "MRVL": "마벨 테크놀로지",
+  "PLTR": "팔란티어",
   "DELL": "델",
   "AVGO": "브로드컴",
-  "HPQ": "HP",
-  "MU": "마이크론",
+  "NVDA": "엔비디아",
+  "COHR": "코히런트",
+  "VRTX": "버텍스 파마슈티컬스",
   "AMD": "AMD",
-  "MSFT": "마이크로소프트",
-  "AAPL": "애플",
-  "AMBA": "앰바렐라",
-  "BZ": "칸쥔(BOSS직빙)",
-  "ULTA": "울타 뷰티",
-  "DLTR": "달러트리",
-  "INSM": "인스메드",
-  "NTNX": "뉴타닉스",
-  "WDAY": "워크데이",
-  "DE": "디어"
+  "BBD": "브라데스코",
+  "005380": "현대차"
  },
  "impact": {
-  "NVDA": {
-   "impact": "악재",
-   "title": "나스닥 -3.8%, AI주 이틀째 급락"
-  },
-  "MU": {
-   "impact": "악재",
-   "title": "나스닥 -3.8%, AI주 이틀째 급락"
+  "AVGO": {
+   "impact": "호재",
+   "title": "미국 증시 반나절 장 반등"
   },
   "AMD": {
-   "impact": "악재",
-   "title": "나스닥 -3.8%, AI주 이틀째 급락"
-  },
-  "DELL": {
-   "impact": "악재",
-   "title": "델, 깜짝 실적에도 -7%"
-  },
-  "HPQ": {
    "impact": "호재",
-   "title": "HP, 실적 호조로 +10%"
+   "title": "미국 증시 반나절 장 반등"
   },
-  "AVGO": {
-   "impact": "악재",
-   "title": "브로드컴 등 반도체 -6% 안팎"
-  },
-  "INSM": {
+  "SNDK": {
    "impact": "호재",
-   "title": "사노피, 인스메드 인수"
+   "title": "메모리 반도체 일제히 반등"
   },
-  "AMBA": {
+  "MU": {
+   "impact": "호재",
+   "title": "메모리 반도체 일제히 반등"
+  },
+  "NVDA": {
    "impact": "악재",
-   "title": "앰바렐라·뉴타닉스 -18%대"
+   "title": "엔비디아, 동남아 4개국 출하 중단"
   },
-  "NTNX": {
+  "BBD": {
+   "impact": "중립",
+   "title": "브라질 주식 급등"
+  },
+  "005380": {
    "impact": "악재",
-   "title": "앰바렐라·뉴타닉스 -18%대"
-  },
-  "WDAY": {
-   "impact": "중립",
-   "title": "워크데이·디어, 실적 반응 엇갈림"
-  },
-  "DE": {
-   "impact": "중립",
-   "title": "워크데이·디어, 실적 반응 엇갈림"
+   "title": "미국, 한국 포함 14곳에 새 관세 제안"
   }
  }
 }
